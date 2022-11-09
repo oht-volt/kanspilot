@@ -31,46 +31,46 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
   QList<ParamControl*> toggles;
 
   toggles.append(new ParamControl("OpenpilotEnabledToggle",
-                                  "Enable openpilot",
+                                  "openpilot 사용",
                                   "Use the openpilot system for adaptive cruise control and lane keep driver assistance. Your attention is required at all times to use this feature. Changing this setting takes effect when the car is powered off.",
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
   toggles.append(new ParamControl("IsLdwEnabled",
-                                  "Enable Lane Departure Warnings",
+                                  "차선이탈 경고",
                                   "Receive alerts to steer back into the lane when your vehicle drifts over a detected lane line without a turn signal activated while driving over 31mph (50kph).",
                                   "../assets/offroad/icon_warning.png",
                                   this));
   toggles.append(new ParamControl("IsRHD",
-                                  "Enable Right-Hand Drive",
-                                  "Allow openpilot to obey left-hand traffic conventions and perform driver monitoring on right driver seat.",
+                                  "우측 운전석 사용",
+                                  "좌측통행 도로에서 우측시트에서 운전하기.",
                                   "../assets/offroad/icon_openpilot_mirrored.png",
                                   this));
   toggles.append(new ParamControl("IsMetric",
-                                  "Use Metric System",
+                                  "미터법 사용",
                                   "Display speed in km/h instead of mp/h.",
                                   "../assets/offroad/icon_metric.png",
                                   this));
 
   toggles.append(new ParamControl("UploadRaw",
-                                  "Upload Raw Logs",
+                                  "로그기록 업로드",
                                   "Upload full logs and full resolution video by default while on WiFi. If not enabled, individual logs can be marked for upload at my.comma.ai/useradmin.",
                                   "../assets/offroad/icon_network.png",
                                   this));
 
   toggles.append(new ParamControl("DisableOnroadUploads",
-                                  "Disable onroad uploads",
+                                  "업로드 금지",
                                   "Completely disable uploads when onroad. Necessary to avoid high data use when connected to wifi hotspot.",
                                   "../assets/offroad/icon_network.png",
                                   this));
 
   ParamControl *record_toggle = new ParamControl("RecordFront",
-                                                 "Record and Upload Driver Camera",
+                                                 "녹화및 업로드",
                                                  "Upload data from the driver facing camera and help improve the driver monitoring algorithm.",
                                                  "../assets/offroad/icon_monitoring.png",
                                                  this);
   toggles.append(record_toggle);
   toggles.append(new ParamControl("EndToEndToggle",
-                                  "\U0001f96c Disable use of lanelines (Alpha) \U0001f96c",
+                                  "차선무시(Alpha)",
                                   "In this mode openpilot will ignore lanelines and just drive how it thinks a human would.",
                                   "../assets/offroad/icon_road.png",
                                   this));
@@ -82,60 +82,60 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   
   toggles.append(new ParamControl("LongRangeLeadsEnabled",
-                                  "Longer-range lead detection (alpha)",
-                                  "Use the much longer-range lead detection ability of the car's LKA camera to detect leads up to 40\% farther than stock openpilot.  This also allows for 10\% longer range detection using radar.",
+                                  "앞차 인식거리 확장(alpha)",
+                                  "앞차 인식거리를 순정보다 40% 정도 확장함과 동시에 레이더에 의한 인식율도 10% 확장시킴.",
                                   "../assets/offroad/icon_plus.png",
                                   this));
 
   toggles.append(new ParamControl("ExtendedRadar",
-                                  "Extended radar capabilities (alpha)",
-                                  "Enables tracking of all cars; not just the one openpilot lead. Necessary for braking for car in front of lead, longer-range lead detection, traffic-based auto lane position, drawing of oncoming/ongoing lanes, and indication of non-lead cars.",
+                                  "레이더 확장(alpha:벌트엔 사용하지 말것.)",
+                                  "모든 차량 트레킹이 가능해짐; 선두차에 대한 브레이킹, 확장된 앞차인식, 차선위치 자동조정, 마주오는 차선과 진행하는 차선 그리기 등을 사용하기 위해서 필요함.",
                                   "../assets/offroad/icon_plus.png",
                                   this));
 
   toggles.append(new ParamControl("EnableTorqueControl",
-                                  "Enable \"torque\" steering control",
+                                  "토크조향 컨트롤",
                                   "(Restart car to take effect) Use the newer torque-based steering control that steers by achieving a target amount of lateral acceleration rather than achieving a target steering angle. Torque tune is only available in the Volt.",
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
   
   toggles.append(new ParamControl("HandsOnWheelMonitoring",
-                                  "Enable Hands on Wheel Monitoring",
+                                  "핸들 손올림 감지",
                                   "Monitor and alert when driver is not keeping the hands on the steering wheel.",
                                   "../assets/offroad/icon_hands_on_wheel.png",
                                   this));
   toggles.append(new ParamControl("TurnVisionControl",
-                                  "Enable vision based turn control",
+                                  "비전카메라 기반 커브 컨트롤",
                                   "Use vision path predictions to estimate the appropiate speed to drive through turns ahead.",
                                   "../assets/offroad/icon_slow_curves_vision.png",
                                   this));
   toggles.append(new ParamControl("TurnSpeedControl",
-                                  "Enable Map Data Turn Control",
+                                  "지도기반 커브 컨트롤(권장되지 않음)",
                                   "Use curvature info from map data to define speed limits to take turns ahead",
                                   "../assets/offroad/icon_slow_curves_map.png",
                                   this));
   toggles.append(new ParamControl("SpeedLimitControl",
-                                  "Enable Speed Limit Control",
+                                  "속도제한 컨트롤(권장되지 않음)",
                                   "Use speed limit signs information from map data and car interface to automatically adapt cruise speed to road limits.",
                                   "../assets/offroad/icon_speed_limit_sign.png",
                                   this));
   toggles.append(new ParamControl("EUSpeedLimitStyle",
-                                  "Show EU style speed limit sign",
+                                  "유럽형 속도제한 표시(권장되지 않음)",
                                   "If enabled, show EU style circular sign. If disabled, show US/Canada style rectangular sign.",
                                   "../assets/offroad/icon_speed_limit_sign.png",
                                   this));
   toggles.append(new ParamControl("SpeedLimitPercOffset",
-                                  "Enable Speed Limit Offset",
+                                  "속도제한 오프셑(권장되지 않음)",
                                   "Set speed limit slightly higher than actual speed limit for a more natural drive.",
                                   "../assets/offroad/icon_speed_limit_percent.png",
                                   this));
   toggles.append(new ParamControl("ReverseSpeedAdjust",
-                                  "Reverse cruise speed adjustment",
-                                  "Reverse of stock behavior, press/hold the accel/decel buttons to change by 5mph/1mph.",
+                                  "크루즈 버튼 리버스",
+                                  "짧게/길게 누를시 5/1 단위로 속도 변경.",
                                   "../assets/offroad/icon_stock_adjust_speed.png",
                                   this));
   toggles.append(new ParamControl("CruiseSpeedOffset",
-                                  "Enable Cruise Speed Offset (+3mph)",
+                                  "크루즈 속도 오프셑(+3mph, 권장되지 않음)",
                                   "When adjusting, cruise speed will be {8, 13, 18, 23, 28} mph.",
                                   "../assets/offroad/icon_speed_offset.png",
                                   this));
@@ -145,112 +145,112 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("LanePositionEnabled",
-                                  "Adjustable lane position",
-                                  "Adds onscreen arrows to the left and right sides of the onroad screen that can be used to adjust lane position temporarily. Tap both arrows in succession to enable automatic mode that keeps you away from other traffic when in the far-left or far-right lanes.",
+                                  "차선위치 조정",
+                                  "화면상 나타나는 화살표를 터치하여 임시로 주행위치 조정.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AutoAutoLanePosition",
-                                  "Highway auto lane position",
+                                  "고속도로 차선위지 자동조정",
                                   "Automatically enable automatic lane position when you get onto highways or freeways. Must have adjustable lane position enabled. Automatic lane position keeps you away from other traffic when in the far-left or far-right lanes.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AccelModeButton",
-                                  "Acceleration profiles",
-                                  "Cycle between normal, sport, and eco acceleration profiles.",
+                                  "가속프로파일",
+                                  "노말(스톡), 에코, 스포츠모드 가속 프로파일.",
                                   "../assets/offroad/icon_rocket.png",
                                   this));
   toggles.append(new ParamControl("DynamicFollowToggle",
-                                  "Dynamic follow",
+                                  "자동추종 모드",
                                   "Automatically (and imperceptibly) switch between close/medium/far follow profiles based on speed and traffic.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("NudgelessLaneChange",
-                                  "Nudgeless lane change (1s delay) ⚠️",
+                                  "핸들넛지 없이 자동 차선변경(1초후) ⚠️",
                                   "Perform lane change without requiring nudge from driver",
                                   "../assets/offroad/icon_hands_on_wheel.png",
                                   this));
   toggles.append(new ParamControl("GMAutoHold",
-                                  "[GM] Enable AutoHold",
+                                  "[GM]오토홀드",
                                   "Holds brakes automatically after coming to a complete stop, even when OP is disengaged.",
                                   "../assets/offroad/icon_gm_autohold.png",
                                   this));
   toggles.append(new ParamControl("Coasting",
-                                  "[GM] Coasting (tap me)",
+                                  "[GM]타력주행(tap me)",
                                   "OP will allow the car to coast above the set speed rather than use engine/regen/friction braking. If you also have the \"Brake indicator\" toggle enabled, you can toggle coasting while driving by tapping the brake indicator, but you can only disable coasting while driving if you're traveling below your set speed (or at any speed if you have the \"Engine/regen braking\" toggle enabled).",
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("CoastingBrakeOverSpeed",
-                                  "[GM] Coast: brake 15% over set speed",
-                                  "When coasting, start applying cruise braking when 15% over set speed.",
+                                  "[GM]타력주행시: 세팅속도보다 15% 가속",
+                                  "타력주행시, 세팅속도의 15%까지 가속해도 크루즈 감속 하지 않음.",
                                   "../assets/offroad/icon_speed_offset.png",
                                   this));
   toggles.append(new ParamControl("CoastingDL",
-                                  "[Volt] D/L coast control",
-                                  "Tie the above option to the D/L gear shifter position. Coast in D; maintain set speed exactly in L.",
+                                  "[Volt]D/L기어로 타력주행",
+                                  "벌트에서 D기어 타력주행, L기어 쿠루즈속도 주행",
                                   "../assets/offroad/icon_gear_shifter.png",
                                   this));
   toggles.append(new ParamControl("RegenBraking",
-                                  "[GM] Engine/regen braking",
+                                  "[GM]리젠 브레킹",
                                   "Disable friction braking when OP is slowing to maintain cruise/speed limit; still brake for following/curves",
                                   "../assets/img_brake.png",
                                   this));
   toggles.append(new ParamControl("OnePedalMode",
-                                  "[GM] One-pedal mode (tap me)",
+                                  "[GM]원페달 사용(tap me)",
                                   "In combination with the \"Disable disengage on gas\" option, you control speed with gas pedal (with optional, adjustable braking) while OP continues to steer and brake for lead car following. To activate, ① (see \"One-pedal/Always-on-steering engage on gas\" below) set cruise speed to 1 and pedal icon will replace max speed indicator; set/resume button to return to normal cruise. ② Tap pedal icon to toggle one-pedal mode (see below). If one-pedal mode is active, then vehicle follow distance indicator and pedal icon color indicate the one-pedal braking profile in use; 1/2/3 = (⚫️)/🟢/🟠/🔴 = (regen/engine)/light/moderate/heavy braking. ③ Press follow distance button to toggle between persistent light/moderate braking; hold for temporary heavy braking. ④ Toggle between friction 🟢/🟠/🔴 and regen/engine ⚫️ braking by tapping the pedal icon or by using the follow distance button; one press will activating friction braking if not active, and a double press while the gas pedal is pressed, or while stopped, will deactivate friction braking.",
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("OnePedalModeSimple",
-                                   "[GM] One-pedal pro brakes ⚠️",
-                                   "When using one-pedal mode, COMPLETELY DISABLE ALL OTHER FORMS OF OPENPILOT BRAKING. No additional braking will be automatically applied to slow/stop you behind a lead car, or to slow for a curve. You are solely responsible for applying brakes using adjustable one-pedal braking with the follow button or using the actual brakes.",
+                                   "[GM]원페달 브레이크(위험!)️",
+                                   "원페달 모드에서 다른 모든 형태의 브레이킹 작동 불가하게 함, 그에 따른 위험은 본인책임이니 신중하게 선택할 것.",
                                    "../assets/offroad/icon_car_pedal.png",
                                    this));
   toggles.append(new ParamControl("OnePedalDLCoasting",
-                                  "[Volt] One-pedal D/L coast",
+                                  "[Volt]원페달용 D/L 타력주행",
                                   "When in one-pedal mode with regen braking ⚫️ active, regen will only be used when in L mode. In D, no braking whatsoever will be applied while you are not pressing the gas. (In fact a light press will result in more braking than no press at all)",
                                   "../assets/offroad/icon_gear_shifter.png",
                                   this));
   toggles.append(new ParamControl("OnePedalModeEngageOnGas",
-                                  "[GM] One-pedal engage on gas (EoG)",
-                                  "When you press the gas in cruise mode at speed (i.e. not when resuming from a stop), enter one-pedal/always-on-steering mode. Increase or reset speed to return to normal cruise.",
+                                  "[GM]원페달 가속페달 인게이지",
+                                  "원페달 모드에서도 가속페달에 인게이지 유지.",
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("OnePedalDLEngageOnGas",
-                                  "[Volt] One-pedal D/L EoG",
-                                  "Tie the above option to the gear shifter D/L position. Off in D; on in L.",
+                                  "[Volt]원페달 D/L 가속페달 인게이지",
+                                  "D기어에서는 가속페달에도 인게이지, L기어에는 디스인게이지",
                                   "../assets/offroad/icon_gear_shifter.png",
                                   this));
   toggles.append(new ParamControl("OnePedalPauseBlinkerSteering",
                                   "One-pedal no slow blinker steer",
-                                  "When in one-pedal mode, under 20mph with the blinker on, steering is paused to make it easier to perform sharp turns.",
+                                  "설명 이해불가, 원페달 모드에서, 20mph 미만의 속도에서 깜박이를 켜면 스티어링이 일시 중지되어 급회전을 보다 쉽게 수행할 수 있습니다.",
                                   "../assets/offroad/icon_hands_on_wheel.png",
                                   this));
   toggles.append(new ParamControl("BrakeIndicator",
-                                  "[GM] Power/Brake indicator",
+                                  "[GM]Power/Brake 막대표시",
                                   "Brake indicator at bottom-right when driving or power meter to right. Tap indicator or meter to change. Circle at indicator center grows and turns red to indicate the level of braking. Pulses immediately after starting car to let you know it's on.",
                                   "../assets/offroad/icon_brake_disc.png",
                                   this));
   toggles.append(new ParamControl("CustomSounds",
-                                  "Alternative sounds",
+                                  "대체 사운드 사용",
                                   "Uses alternative set of sound effects.",
                                   "../assets/offroad/icon_custom_sounds.png",
                                   this));
   toggles.append(new ParamControl("SilentEngageDisengage",
-                                  "Silent engage/disengage",
+                                  "디스/인게이지 사운드 무음",
                                   "Mute engage and disengage sounds.",
                                   "../assets/offroad/icon_mute.png",
                                   this));
   toggles.append(new ParamControl("IgnoreMissingNVME",
-                                  "Ignore missing NVME",
+                                  "NVME 드라이브 오류무시",
                                   "Prevent an error about missing NVME drive from showing on 32GB C3's. (restart device for change to take effect)",
                                   "../assets/offroad/icon_settings.png",
                                   this));
   toggles.append(new ParamControl("FPVolt",
-                                  "Volt Fingerprint",
+                                  "Volt핑거프린트 강제",
                                   "Forces Volt fingerprint",
                                   "../assets/offroad/icon_settings.png",
                                   this));
   toggles.append(new ParamControl("LowOverheadMode",
-                                  "Lower device overhead",
+                                  "디바이스 파워 감소하기",
                                   "Decreases device power, CPU, and storage use for running better on older hardware by: 1) defaulting to medium brightness (tap DM icon to change), 2) disable onroad logging (loggerd and proclogd). Your device will not keep or upload logs with this enabled!",
                                   "../assets/offroad/icon_settings.png",
                                   this));
@@ -260,34 +260,34 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AlternateColors",
-                                  "Alternate colors",
+                                  "대체 컬러 사용(필요한가?)",
                                   "Use alternate color set.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AdjacentPaths",
-                                  "Adjacent oncoming/ongoing paths",
-                                  "[Requires extended radar toggle] Draw paths to indicate whether adjacent lanes contain oncoming (red) or ongoing (green) traffic.",
+                                  "반대/진행차선경로 표시(권장되지않음)",
+                                  "레이더확장기능 토글On 필요, 반대차선은 Red, 진행차선은 Green.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("PrintLeadInfo",
-                                  "Print lead car info",
+                                  "리드카 정보표시",
                                   "Prints lead car time and length distance, and absolute and relative velocity next to lead indicator",
                                   "../assets/offroad/icon_metric.png",
                                   this));
   toggles.append(new ParamControl("PrintAdjacentLeadSpeeds",
-                                  "Indicate all cars",
+                                  "모든차량 감지 표시(권장되지 않음)",
                                   "[Requires extended radar toggle] Print speeds of all cars being tracked by radar and/or vision. Tap at screen bottom in the middle of the path to toggle display modes between printing inside the indicator or along the bottom of the screen, out from the center to the left/right in order of distance, so the numbers closest to the center are for the more immediate cars. Cars are also indicated onscreen as oncoming (red) or ongoing (green).",
                                   "../assets/offroad/icon_metric.png",
                                   this));
   toggles.append(new ParamControl("ShowDebugUI",
-                                  "Show debug UI elements",
+                                  "debug UI표시",
                                   "Show UI elements that aid debugging.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
 
 #ifdef ENABLE_MAPS
   toggles.append(new ParamControl("NavSettingTime24h",
-                                  "Show ETA in 24h format",
+                                  "24시간제 사용",
                                   "Use 24h format instead of am/pm",
                                   "../assets/offroad/icon_metric.png",
                                   this));
