@@ -1165,25 +1165,25 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::BEARING:
             {
-              snprintf(name, sizeof(name), "BEARING");
+              snprintf(name, sizeof(name), "나침반");
               if (scene.bearingAccuracy != 180.00) {
                 snprintf(unit, sizeof(unit), "%.0d%s", (int)scene.bearingDeg, "°");
                 if (((scene.bearingDeg >= 337.5) && (scene.bearingDeg <= 360)) || ((scene.bearingDeg >= 0) && (scene.bearingDeg <= 22.5))) {
-                  snprintf(val, sizeof(val), "N");
+                  snprintf(val, sizeof(val), "북위");
                 } else if ((scene.bearingDeg > 22.5) && (scene.bearingDeg < 67.5)) {
-                  snprintf(val, sizeof(val), "NE");
+                  snprintf(val, sizeof(val), "북동");
                 } else if ((scene.bearingDeg >= 67.5) && (scene.bearingDeg <= 112.5)) {
-                  snprintf(val, sizeof(val), "E");
+                  snprintf(val, sizeof(val), "동위");
                 } else if ((scene.bearingDeg > 112.5) && (scene.bearingDeg < 157.5)) {
-                  snprintf(val, sizeof(val), "SE");
+                  snprintf(val, sizeof(val), "서동");
                 } else if ((scene.bearingDeg >= 157.5) && (scene.bearingDeg <= 202.5)) {
-                  snprintf(val, sizeof(val), "S");
+                  snprintf(val, sizeof(val), "남위");
                 } else if ((scene.bearingDeg > 202.5) && (scene.bearingDeg < 247.5)) {
-                  snprintf(val, sizeof(val), "SW");
+                  snprintf(val, sizeof(val), "남서");
                 } else if ((scene.bearingDeg >= 247.5) && (scene.bearingDeg <= 292.5)) {
-                  snprintf(val, sizeof(val), "W");
+                  snprintf(val, sizeof(val), "서위");
                 } else if ((scene.bearingDeg > 292.5) && (scene.bearingDeg < 337.5)) {
-                  snprintf(val, sizeof(val), "NW");
+                  snprintf(val, sizeof(val), "북서");
                 }
               } else {
                 snprintf(val, sizeof(val), "OFF");
@@ -1715,7 +1715,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::STEERING_ANGLE: 
             {
-            snprintf(name, sizeof(name), "REAL STEER");
+            snprintf(name, sizeof(name), "핸들각");
             float angleSteers = scene.angleSteers > 0. ? scene.angleSteers : -scene.angleSteers;
             g = 255;
             b = 255;
@@ -1737,7 +1737,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::DESIRED_STEERING_ANGLE: 
             {
-            snprintf(name, sizeof(name), "REL:DES STR.");
+            snprintf(name, sizeof(name), "경로각.");
             float angleSteers = scene.angleSteers > 0. ? scene.angleSteers : -scene.angleSteers;
             g = 255;
             b = 255;
@@ -1747,22 +1747,12 @@ static void ui_draw_measures(UIState *s){
             g = (g >= 0 ? (g <= 255 ? g : 255) : 0);
             b = (b >= 0 ? (b <= 255 ? b : 255) : 0);
             val_color = nvgRGBA(255, g, b, 200);
-            if (scene.controls_state.getEnabled()) {
-              // steering is in degrees
-              if (scene.angleSteers < 10. && scene.angleSteersDes < 10.){
-                snprintf(val, sizeof(val), "%.1f%s:%.1f%s", scene.angleSteers, deg, scene.angleSteersDes, deg);
-              }
-              else{
-                snprintf(val, sizeof(val), "%.0f%s:%.0f%s", scene.angleSteers, deg, scene.angleSteersDes, deg);
-              }
-              val_font_size += 12;
-            }else{
-              if (scene.angleSteers < 10.){
-                snprintf(val, sizeof(val), "%.1f%s", scene.angleSteers, deg);
-              }
-              else{
-                snprintf(val, sizeof(val), "%.0f%s", scene.angleSteers, deg);
-              }
+            // steering is in degrees
+            if (scene.angleSteersDes < 10.){
+              snprintf(val, sizeof(val), "%.1f%s", scene.angleSteersDes, deg);
+            }
+            else{
+              snprintf(val, sizeof(val), "%.0f%s", scene.angleSteersDes, deg);
             }
             }
             break;
@@ -2352,9 +2342,9 @@ static void ui_draw_measures(UIState *s){
             
           case UIMeasure::LANE_WIDTH: 
             {
-              snprintf(name, sizeof(name), "LANE W");
+              snprintf(name, sizeof(name), "차폭");
               snprintf(unit, sizeof(unit), "m");
-              snprintf(val, sizeof(val), "%f.1", scene.lateralPlan.laneWidth);
+              snprintf(val, sizeof(val), "%.1f", scene.lateralPlan.laneWidth);
             }
             break;
 

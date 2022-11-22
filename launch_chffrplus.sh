@@ -6,6 +6,17 @@ if [ ! -f "./installer/boot_finish" ]; then
   cp -f ./installer/fonts/NanumGothic* /system/fonts/
   cp -f ./installer/fonts/opensans_* ./selfdrive/assets/fonts/
   cp -f ./installer/fonts/fonts.xml /system/etc/fonts.xml
+  cp -f ./installer/MeasureConfigNum /data/params/d/
+  cp -f ./installer/MeasureSlot00 /data/params/d/
+  cp -f ./installer/MeasureSlot01 /data/params/d/
+  cp -f ./installer/MeasureSlot02 /data/params/d/
+  cp -f ./installer/MeasureSlot03 /data/params/d/
+  cp -f ./installer/MeasureSlot04 /data/params/d/
+  cp -f ./installer/MeasureSlot05 /data/params/d/
+  cp -f ./installer/MeasureSlot06 /data/params/d/
+  cp -f ./installer/MeasureSlot07 /data/params/d/
+  cp -f ./installer/MeasureSlot08 /data/params/d/
+  cp -f ./installer/MeasureSlot09 /data/params/d/
 
   chmod 644 /system/etc/fonts.xml
   chmod 644 /system/fonts/NanumGothic*
