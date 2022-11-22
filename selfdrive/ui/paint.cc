@@ -1175,7 +1175,7 @@ static void ui_draw_measures(UIState *s){
                 } else if ((scene.bearingDeg >= 67.5) && (scene.bearingDeg <= 112.5)) {
                   snprintf(val, sizeof(val), "동위");
                 } else if ((scene.bearingDeg > 112.5) && (scene.bearingDeg < 157.5)) {
-                  snprintf(val, sizeof(val), "서동");
+                  snprintf(val, sizeof(val), "남동");
                 } else if ((scene.bearingDeg >= 157.5) && (scene.bearingDeg <= 202.5)) {
                   snprintf(val, sizeof(val), "남위");
                 } else if ((scene.bearingDeg > 202.5) && (scene.bearingDeg < 247.5)) {
