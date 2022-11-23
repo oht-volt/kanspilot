@@ -941,6 +941,7 @@ struct LongitudinalPlan @0xe00b5b3eba12876c {
     penalty @6 :Float32;
     lastCutinFactor @7 :Float32;
     rescindedPenalty @8 :Float32;
+    penaltyTraffic @9 :Float32;
   }
 
   enum SpeedLimitControlState {
@@ -999,6 +1000,10 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
 
   trafficLeft @41 :LaneTraffic;
   trafficRight @42 :LaneTraffic;
+  trafficCountLeft @45 :Int32;
+  trafficCountRight @46 :Int32;
+  trafficMinSeperationLeft @47 :Float32;
+  trafficMinSeperationRight @48 :Float32;
 
   laneChangeAlert @43 :LaneChangeAlert;
   laneChangeCountdown @44 :Float32;

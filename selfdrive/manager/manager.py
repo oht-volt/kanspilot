@@ -99,16 +99,16 @@ def manager_init():
     ("LowOverheadMode", "0"),
     ("FPVolt", "0"),
     ("MeasureConfigNum", "0"),
-    ("MeasureSlot00", "61"), # CPU점유율과 온도 °C
-    ("MeasureSlot01", "1"), # 핸들:경로 비교각
-    ("MeasureSlot02", "5"), # 엔진RPM + 온도
-    ("MeasureSlot03", "7"), # 냉각수온도
-    ("MeasureSlot04", "74"), # GPS정확도,위성수
+    ("MeasureSlot00", "69"), # CPU점유율과 온도 °C
+    ("MeasureSlot01", "0"), # 핸들각
+    ("MeasureSlot02", "1"), # 경로각
+    ("MeasureSlot03", "5"), # 엔진RPM
+    ("MeasureSlot04", "82"), # GPS정확도,위성수
     ("MeasureSlot05", "37"), # 차선폭
     ("MeasureSlot06", "10"), # 횡가속도
     ("MeasureSlot07", "31"), # 고도
     ("MeasureSlot08", "32"), # 위도
-    ("MeasureSlot09", "43"), # 차간거리, 안전거리
+    ("MeasureSlot09", "7"), # 냉각수온도
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))

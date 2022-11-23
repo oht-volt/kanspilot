@@ -143,7 +143,7 @@ const QColor bg_colors [] = {
 const QColor alt_bg_colors [] = {
   [STATUS_DISENGAGED] =  QColor(0x00, 0x30, 0x4A, 0xc8),
   [STATUS_ENGAGED] = QColor(0x00, 0x04, 0xA7, 0xf1),
-  [STATUS_WARNING] = QColor(0x6A, 0x00, 0x7E, 0xf1),
+  [STATUS_WARNING] = QColor(0xAB, 0x00, 0xAE, 0xf1),
   [STATUS_ALERT] = QColor(0x92, 0x00, 0x0D, 0xf1),
 };
 
@@ -219,12 +219,20 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   LEAD_COSTS,
   LEAD_VELOCITY_RELATIVE,
   LEAD_VELOCITY_ABS,
+  LANE_POSITION,
+  LANE_OFFSET,
+  TRAFFIC_COUNT_TOTAL,//50
+  TRAFFIC_COUNT_ONCOMING,
+  TRAFFIC_COUNT_ONGOING,
+  TRAFFIC_COUNT_STOPPED,
+  TRAFFIC_COUNT_ADJACENT_ONGOING,
+  TRAFFIC_ADJ_ONGOING_MIN_DISTANCE,
   // EV info
   HVB_VOLTAGE,
   HVB_CURRENT,
-  HVB_WATTAGE,//50
+  HVB_WATTAGE,
   HVB_WATTVOLT,
-  EV_EFF_NOW,
+  EV_EFF_NOW,//60
   EV_EFF_RECENT,
   EV_EFF_TRIP,
   EV_CONSUM_NOW,
@@ -233,9 +241,9 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   EV_BOTH_NOW,
   EV_OBSERVED_DRIVETRAIN_EFF,
   // Device info
-  CPU_TEMP_AND_PERCENTF,//60
+  CPU_TEMP_AND_PERCENTF,
   CPU_TEMP_AND_PERCENTC,
-  CPU_TEMPF,
+  CPU_TEMPF,//70
   CPU_TEMPC,
   CPU_PERCENT,
   MEMORY_TEMPF,
@@ -243,9 +251,9 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   AMBIENT_TEMPF,
   AMBIENT_TEMPC,
   FANSPEED_PERCENT,
-  FANSPEED_RPM,//70
+  FANSPEED_RPM,
   MEMORY_USAGE_PERCENT,
-  FREESPACE_STORAGE,
+  FREESPACE_STORAGE,//80
   DEVICE_BATTERY,
   GPS_ACCURACY,
   // vision turn speed controller
