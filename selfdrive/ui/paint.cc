@@ -999,6 +999,63 @@ static void ui_draw_measures(UIState *s){
             snprintf(unit, sizeof(unit), "%sF", deg);
             snprintf(name, sizeof(name), "AMB TEMP");}
             break;
+          
+          case UIMeasure::INTERACTION_TIMER: 
+            {
+            int s = scene.controls_state.getInteractionTimer();
+            if (s < 5){
+              val_color = nvgRGBA(255, 125, 100, 200);
+            }
+            int h = s / 3600;
+            s = s % 3600;
+            int m = s / 60;
+            s = s % 60;
+            if (h > 0){
+              snprintf(val, sizeof(val), "%d:%02d:%02d", h, m, s);
+            }
+            else{
+              snprintf(val, sizeof(val), "%d:%02d", m, s);
+            }
+            snprintf(name, sizeof(name), "INTERACT");}
+            break;
+
+          case UIMeasure::INTERVENTION_TIMER: 
+            {
+            int s = scene.controls_state.getInterventionTimer();
+            if (s < 5){
+              val_color = nvgRGBA(255, 125, 100, 200);
+            }
+            int h = s / 3600;
+            s = s % 3600;
+            int m = s / 60;
+            s = s % 60;
+            if (h > 0){
+              snprintf(val, sizeof(val), "%d:%02d:%02d", h, m, s);
+            }
+            else{
+              snprintf(val, sizeof(val), "%d:%02d", m, s);
+            }
+            snprintf(name, sizeof(name), "INTERVENE");}
+            break;
+          
+          case UIMeasure::DISTRACTION_TIMER: 
+            {
+            int s = scene.controls_state.getDistractionTimer();
+            if (s < 5){
+              val_color = nvgRGBA(255, 125, 100, 200);
+            }
+            int h = s / 3600;
+            s = s % 3600;
+            int m = s / 60;
+            s = s % 60;
+            if (h > 0){
+              snprintf(val, sizeof(val), "%d:%02d:%02d", h, m, s);
+            }
+            else{
+              snprintf(val, sizeof(val), "%d:%02d", m, s);
+            }
+            snprintf(name, sizeof(name), "DISTRACT");}
+            break;
             
           case UIMeasure::CPU_TEMP_AND_PERCENTC: 
             {
@@ -1151,7 +1208,7 @@ static void ui_draw_measures(UIState *s){
               scene.altitudeUblox = data2.getAltitude();
               scene.gpsAccuracyUblox = data2.getAccuracy();
             }
-            snprintf(name, sizeof(name), "ALTITUDE");
+            snprintf(name, sizeof(name), "고도");
             if (scene.gpsAccuracyUblox != 0.00) {
               float tmp_val;
               tmp_val = scene.altitudeUblox;
@@ -1169,21 +1226,21 @@ static void ui_draw_measures(UIState *s){
               if (scene.bearingAccuracy != 180.00) {
                 snprintf(unit, sizeof(unit), "%.0d%s", (int)scene.bearingDeg, "°");
                 if (((scene.bearingDeg >= 337.5) && (scene.bearingDeg <= 360)) || ((scene.bearingDeg >= 0) && (scene.bearingDeg <= 22.5))) {
-                  snprintf(val, sizeof(val), "북위");
+                  snprintf(val, sizeof(val), "북향");
                 } else if ((scene.bearingDeg > 22.5) && (scene.bearingDeg < 67.5)) {
-                  snprintf(val, sizeof(val), "북동");
+                  snprintf(val, sizeof(val), "북동향");
                 } else if ((scene.bearingDeg >= 67.5) && (scene.bearingDeg <= 112.5)) {
-                  snprintf(val, sizeof(val), "동위");
+                  snprintf(val, sizeof(val), "동향");
                 } else if ((scene.bearingDeg > 112.5) && (scene.bearingDeg < 157.5)) {
-                  snprintf(val, sizeof(val), "남동");
+                  snprintf(val, sizeof(val), "남동향");
                 } else if ((scene.bearingDeg >= 157.5) && (scene.bearingDeg <= 202.5)) {
-                  snprintf(val, sizeof(val), "남위");
+                  snprintf(val, sizeof(val), "남향");
                 } else if ((scene.bearingDeg > 202.5) && (scene.bearingDeg < 247.5)) {
-                  snprintf(val, sizeof(val), "남서");
+                  snprintf(val, sizeof(val), "남서향");
                 } else if ((scene.bearingDeg >= 247.5) && (scene.bearingDeg <= 292.5)) {
-                  snprintf(val, sizeof(val), "서위");
+                  snprintf(val, sizeof(val), "서향");
                 } else if ((scene.bearingDeg > 292.5) && (scene.bearingDeg < 337.5)) {
-                  snprintf(val, sizeof(val), "북서");
+                  snprintf(val, sizeof(val), "북서향");
                 }
               } else {
                 snprintf(val, sizeof(val), "OFF");
@@ -1567,7 +1624,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::LANE_OFFSET:
             {
-            snprintf(name, sizeof(name), "차선옾셑");
+            snprintf(name, sizeof(name), "차선오프셑");
             auto dat = scene.lateral_plan.getLaneOffset();
             snprintf(val, sizeof(val), "%.1f", dat);
             snprintf(unit, sizeof(unit), "m");
@@ -1890,7 +1947,7 @@ static void ui_draw_measures(UIState *s){
             
           case UIMeasure::ENGINE_RPM_TEMPC: 
             {
-              snprintf(name, sizeof(name), "ENGINE");
+              snprintf(name, sizeof(name), "엔진 RPM");
               int temp = scene.car_state.getEngineCoolantTemp();
               snprintf(unit, sizeof(unit), "%d%sC", temp, deg);
               if(scene.engineRPM == 0 && temp < 55) {
@@ -1898,10 +1955,10 @@ static void ui_draw_measures(UIState *s){
               }
               else {
                 snprintf(val, sizeof(val), "%d", scene.engineRPM);
-                if (temp < 87){
+                if (temp < 74){
                   unit_color = nvgRGBA(84, 207, 249, 200); // cyan if too cool
                 }
-                else if (temp > 120){
+                else if (temp > 115){
                   unit_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
                 else if (temp > 105){
@@ -1921,10 +1978,10 @@ static void ui_draw_measures(UIState *s){
               }
               else {
                 snprintf(val, sizeof(val), "%d", scene.engineRPM);
-                if (temp < 190){
+                if (temp < 165){
                   unit_color = nvgRGBA(84, 207, 249, 200); // cyan if too cool
                 }
-                else if (temp > 250){
+                else if (temp > 240){
                   unit_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
                 else if (temp > 220){
@@ -1936,15 +1993,15 @@ static void ui_draw_measures(UIState *s){
             
           case UIMeasure::COOLANT_TEMPC: 
             {
-              snprintf(name, sizeof(name), "COOLANT");
+              snprintf(name, sizeof(name), "냉각수온도");
               snprintf(unit, sizeof(unit), "%sC", deg);
               int temp = scene.car_state.getEngineCoolantTemp();
               snprintf(val, sizeof(val), "%d", temp);
               if(scene.engineRPM > 0 || temp >= 55) {
-                if (temp < 87){
+                if (temp < 74){
                   val_color = nvgRGBA(84, 207, 249, 200); // cyan if too cool
                 }
-                else if (temp > 120){
+                else if (temp > 115){
                   val_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
                 else if (temp > 105){
@@ -1956,15 +2013,15 @@ static void ui_draw_measures(UIState *s){
           
           case UIMeasure::COOLANT_TEMPF: 
             {
-              snprintf(name, sizeof(name), "COOLANT");
+              snprintf(name, sizeof(name), "냉각수온도");
               snprintf(unit, sizeof(unit), "%sF", deg);
               int temp = int(float(scene.car_state.getEngineCoolantTemp()) * 1.8 + 32.5);
               snprintf(val, sizeof(val), "%d", temp);
               if(scene.engineRPM > 0 || temp >= 130) {
-                if (temp < 190){
+                if (temp < 165){
                   val_color = nvgRGBA(84, 207, 249, 200); // cyan if too cool
                 }
-                else if (temp > 250){
+                else if (temp > 240){
                   val_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
                 else if (temp > 220){
@@ -2440,6 +2497,14 @@ static void ui_draw_measures(UIState *s){
             }
             break;
 
+          case UIMeasure::LANE_DIST_FROM_CENTER: 
+            {
+              snprintf(name, sizeof(name), "LANE CENTER");
+              snprintf(unit, sizeof(unit), "m");
+              snprintf(val, sizeof(val), "%.1f", scene.lateralPlan.laneCenter);
+            }
+            break;
+
           case UIMeasure::DISTANCE_TRAVELLED: 
             {
               snprintf(name, sizeof(name), "TRIP DIST.");
@@ -2484,7 +2549,7 @@ static void ui_draw_measures(UIState *s){
         
         int vallen = strlen(val);
         if (vallen > 4){
-          val_font_size -= (vallen - 4) * 5;
+          val_font_size -= (vallen - 4) * 8;
         }
         int unitlen = strlen(unit);
         if (unitlen > 5){
@@ -2720,7 +2785,8 @@ static void ui_draw_vision_event(UIState *s) {
   s->scene.wheel_touch_rect = {1,1,1,1};
   if (s->scene.engageable) {
     // draw steering wheel
-    const float rot_angle = -s->scene.angleSteers * 0.01745329252;
+    const float rot_angle_multiplier = s->scene.car_state.getVEgo() / 5.0;
+    const float rot_angle = -s->scene.angleSteers * 0.01745329252 * (rot_angle_multiplier > 1.0 ? rot_angle_multiplier : 1.0);
     const int radius = 88;
     const int center_x = s->fb_w - radius - bdr_s * 2;
     const int center_y = radius  + (bdr_s * 1.5);
@@ -2801,14 +2867,38 @@ static void ui_draw_vision_event(UIState *s) {
     }
   }
 
-  // current road name
-  if (s->scene.network_strength > 0 && !s->scene.map_open){//} && s->scene.current_road_name != ""){
-    nvgBeginPath(s->vg);
-    nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-    nvgFontFace(s->vg, "sans-regular");
-    nvgFontSize(s->vg, 75);
-    nvgFillColor(s->vg, COLOR_WHITE_ALPHA(255));
-    nvgText(s->vg, s->fb_w / 2, bdr_s - 31, s->scene.current_road_name.c_str(), NULL);
+  // current road name and heading
+
+  nvgBeginPath(s->vg);
+  nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+  nvgFontFace(s->vg, "sans-regular");
+  nvgFontSize(s->vg, 75);
+  nvgFillColor(s->vg, COLOR_WHITE_ALPHA(255));
+  char val[16];
+  if (s->scene.bearingAccuracy != 180.00) {
+    if (((s->scene.bearingDeg >= 337.5) && (s->scene.bearingDeg <= 360)) || ((s->scene.bearingDeg >= 0) && (s->scene.bearingDeg <= 22.5))) {
+      snprintf(val, sizeof(val), "(북향)");
+    } else if ((s->scene.bearingDeg > 22.5) && (s->scene.bearingDeg < 67.5)) {
+      snprintf(val, sizeof(val), "(북동향)");
+    } else if ((s->scene.bearingDeg >= 67.5) && (s->scene.bearingDeg <= 112.5)) {
+      snprintf(val, sizeof(val), "(동향)");
+    } else if ((s->scene.bearingDeg > 112.5) && (s->scene.bearingDeg < 157.5)) {
+      snprintf(val, sizeof(val), "(남동향)");
+    } else if ((s->scene.bearingDeg >= 157.5) && (s->scene.bearingDeg <= 202.5)) {
+      snprintf(val, sizeof(val), "(남향)");
+    } else if ((s->scene.bearingDeg > 202.5) && (s->scene.bearingDeg < 247.5)) {
+      snprintf(val, sizeof(val), "(남서향)");
+    } else if ((s->scene.bearingDeg >= 247.5) && (s->scene.bearingDeg <= 292.5)) {
+      snprintf(val, sizeof(val), "(서향)");
+    } else if ((s->scene.bearingDeg > 292.5) && (s->scene.bearingDeg < 337.5)) {
+      snprintf(val, sizeof(val), "(북서향)");
+    }
+  }
+  if (s->scene.network_strength > 0 && !s->scene.map_open){
+    nvgText(s->vg, s->fb_w / 2, bdr_s - 31, (s->scene.current_road_name + " " + val + " ").c_str(), NULL);
+  }
+  else {
+    nvgText(s->vg, s->fb_w / 2, bdr_s - 31, val, NULL);
   }
 }
 
@@ -2893,22 +2983,16 @@ static void ui_draw_vision_power_meter(UIState *s) {
         int h_pitch = h_rr + hu * pitch_power / s->scene.power_max[1];
         nvgBeginPath(s->vg);
         nvgRect(s->vg, xi+2, y_mid - h_rr - h_pitch / 2, wi-4, h_pitch);
-        nvgFillColor(s->vg, nvgRGBA(0, 140, 255, inner_fill_alpha/2));
-        nvgFill(s->vg);
         nvgStrokeWidth(s->vg, 5);
         nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
         nvgStroke(s->vg);
         nvgBeginPath(s->vg);
         nvgRect(s->vg, xi+2, y_mid - h_drag - h_rr / 2, wi-4, h_rr);
-        nvgFillColor(s->vg, nvgRGBA(0, 180, 255, inner_fill_alpha/2));
-        nvgFill(s->vg);
         nvgStrokeWidth(s->vg, 5);
         nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
         nvgStroke(s->vg);
         nvgBeginPath(s->vg);
         nvgRect(s->vg, xi+2, y_mid - h_drag / 2, wi-4, h_drag);
-        nvgFillColor(s->vg, nvgRGBA(0, 230, 255, inner_fill_alpha/2));
-        nvgFill(s->vg);    
         nvgStrokeWidth(s->vg, 5);
         nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
         nvgStroke(s->vg);
@@ -2944,22 +3028,16 @@ static void ui_draw_vision_power_meter(UIState *s) {
         int h_pitch = h_rr + hu * pitch_power / s->scene.power_max[0];
         nvgBeginPath(s->vg);
         nvgRect(s->vg, xi+2, y_mid - h_rr - h_pitch / 2, wi-4, h_pitch);
-        nvgFillColor(s->vg, nvgRGBA(249,240,100,inner_fill_alpha/2));
-        nvgFill(s->vg);
         nvgStrokeWidth(s->vg, 5);
         nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
         nvgStroke(s->vg);
         nvgBeginPath(s->vg);
         nvgRect(s->vg, xi+2, y_mid - h_drag - h_rr / 2, wi-4, h_rr);
-        nvgFillColor(s->vg, nvgRGBA(249,240,150,inner_fill_alpha/2));
-        nvgFill(s->vg);
         nvgStrokeWidth(s->vg, 5);
         nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
         nvgStroke(s->vg);
         nvgBeginPath(s->vg);
         nvgRect(s->vg, xi+2, y_mid - h_drag / 2, wi-4, h_drag);
-        nvgFillColor(s->vg, nvgRGBA(249,240,200,inner_fill_alpha/2));
-        nvgFill(s->vg);    
         nvgStrokeWidth(s->vg, 5);
         nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
         nvgStroke(s->vg);

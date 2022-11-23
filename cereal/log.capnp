@@ -579,6 +579,10 @@ struct ControlsState @0x97ff69c53601abf1 {
   cumLagMs @15 :Float32;
   canErrorCounter @57 :UInt32;
 
+  interactionTimer @61 :Int32;
+  interventionTimer @62 :Int32;
+  distractionTimer @63 :Int32;
+
   lateralControlState :union {
     indiState @52 :LateralINDIState;
     pidState @53 :LateralPIDState;
@@ -990,6 +994,7 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
   autoLanePositionActive @32 :Bool;
   lanePosition @33 :LanePosition;
   laneOffset @38 :Float32;
+  laneDistFromCenter @49 :Float32;
 
   laneWidthMeanLeftAdjacent @34 :Float32;
   laneWidthMeanRightAdjacent @35 :Float32;

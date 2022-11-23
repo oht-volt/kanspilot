@@ -99,15 +99,15 @@ def manager_init():
     ("LowOverheadMode", "0"),
     ("FPVolt", "0"),
     ("MeasureConfigNum", "0"),
-    ("MeasureSlot00", "69"), # CPU점유율과 온도 °C
+    ("MeasureSlot00", "73"), # CPU점유율과 온도 °C
     ("MeasureSlot01", "0"), # 핸들각
     ("MeasureSlot02", "1"), # 경로각
     ("MeasureSlot03", "5"), # 엔진RPM
-    ("MeasureSlot04", "82"), # GPS정확도,위성수
-    ("MeasureSlot05", "37"), # 차선폭
-    ("MeasureSlot06", "10"), # 횡가속도
+    ("MeasureSlot04", "86"), # GPS정확도,위성수
+    ("MeasureSlot05", "52"), # 차선위치
+    ("MeasureSlot06", "53"), # 차선오프셑
     ("MeasureSlot07", "31"), # 고도
-    ("MeasureSlot08", "32"), # 위도
+    ("MeasureSlot08", "38"), # 차선중앙
     ("MeasureSlot09", "7"), # 냉각수온도
   ]
   if not PC:

@@ -45,7 +45,7 @@ MAX_ABS_PRED_PITCH_DELTA = MAX_ABS_PITCH * 0.5 * DT_CTRL # 10% grade per second
 
 SIMULATION = "SIMULATION" in os.environ
 NOSENSOR = "NOSENSOR" in os.environ
-IGNORE_PROCESSES = {"rtshield", "uploader", "deleter", "loggerd", "logmessaged", "tombstoned",
+IGNORE_PROCESSES = {"rtshield", "uploader", "deleter", "loggerd", "logmessaged", "tombstoned", "gpsd",
                     "logcatd", "proclogd", "clocksd", "updated", "timezoned", "manage_athenad"} | \
                     {k for k, v in managed_processes.items() if not v.enabled}
 
@@ -180,6 +180,16 @@ class Controls:
     self.a_target = 0.0
     self.pitch = 0.0
     self.pitch_accel_deadzone = 0.01 # [radians] ≈ 1% grade
+    
+    self.interaction_timer = 0.0 # [s] time since any interaction
+    self.intervention_timer = 0.0 # [s] time since screen steering/gas/brake interaction
+    self.distraction_timer = 0.0 # [s] time since driver distracted
+    self.interaction_last_t = sec_since_boot()
+    self.intervention_last_t = sec_since_boot()
+    self.distraction_last_t = sec_since_boot()
+    self.params_check_last_t = 0.0
+    self.params_check_freq = 1.0
+    self._params = params
 
     self.v_cruise_kph_limit = 0
     self.road_limit_speed = 0
@@ -236,6 +246,24 @@ class Controls:
     
     # Alert when network drops, but only if map braking or speed limit control is enabled
     t = sec_since_boot()
+    
+    if t - self.params_check_last_t > self.params_check_freq:
+      self.params_check_last_t = t
+      screen_tapped = self._params.get_bool("ScreenTapped")
+      if screen_tapped:
+        put_nonblocking("ScreenTapped", "0")
+      car_interaction = CS.brakePressed or CS.gasPressed or CS.steeringPressed
+      if screen_tapped or car_interaction or self.CI.driver_interacted:
+        self.interaction_last_t = t
+        self.CI.driver_interacted = False
+      if car_interaction:
+        self.intervention_last_t = t
+      if not car_interaction and self.sm['driverMonitoringState'].isDistracted and CS.vEgo > 1.0:
+        self.distraction_last_t = t
+      self.interaction_timer = t - self.interaction_last_t
+      self.intervention_timer = t - self.intervention_last_t
+      self.distraction_timer = t - self.distraction_last_t
+    
     network_strength = self.sm['deviceState'].networkStrength
     if network_strength != self.network_strength_last:
       if network_strength == log.DeviceState.NetworkStrength.unknown:
@@ -813,6 +841,9 @@ class Controls:
     controlsState.startMonoTime = int(start_time * 1e9)
     controlsState.forceDecel = bool(force_decel)
     controlsState.canErrorCounter = self.can_error_counter
+    controlsState.interactionTimer = int(self.interaction_timer)
+    controlsState.interventionTimer = int(self.intervention_timer)
+    controlsState.distractionTimer = int(self.distraction_timer)
 
     lat_tuning = self.CP.lateralTuning.which()
     if self.joystick_mode:
