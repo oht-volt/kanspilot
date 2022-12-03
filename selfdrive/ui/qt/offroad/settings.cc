@@ -150,8 +150,8 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AutoAutoLanePosition",
-                                  "고속도로 차선위지 자동조정",
-                                  "Automatically enable automatic lane position when you get onto highways or freeways. Must have adjustable lane position enabled. Automatic lane position keeps you away from other traffic when in the far-left or far-right lanes.",
+                                  "차선위지 자동조정",
+                                  "10mph 이상의 속도로 주행할 때 자동으로 차선 위치를 설정하고 차선을 확보하며 교통이 혼잡할 때 자동으로 차선을 설정합니다. 자동 차선 위치는 가능한 경우/안전할 때 인접 차량으로부터 더 멀리 떨어져 있게 해줍니다.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AccelModeButton",
