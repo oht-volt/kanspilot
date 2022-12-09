@@ -759,15 +759,15 @@ static void ui_draw_vision_maxspeed(UIState *s) {
   const int SET_SPEED_NA = 255;
   float maxspeed = (*s->sm)["controlsState"].getControlsState().getVCruise();
   const Rect rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
-  auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
+  //auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
   if (s->scene.one_pedal_fade > 0.){
     NVGcolor nvg_color;
     if(s->status == UIStatus::STATUS_DISENGAGED){
-          const QColor &color = bg_colors_[UIStatus::STATUS_DISENGAGED];
+          const QColor &color = bg_colors[UIStatus::STATUS_DISENGAGED];
           nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), int(s->scene.one_pedal_fade * float(color.alpha())));
         }
     else if (s->scene.car_state.getOnePedalModeActive()){
-      const QColor &color = bg_colors_[s->scene.car_state.getOnePedalBrakeMode() + 1];
+      const QColor &color = bg_colors[s->scene.car_state.getOnePedalBrakeMode() + 1];
       nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), int(s->scene.one_pedal_fade * float(color.alpha())));
     }
     else {
@@ -803,12 +803,7 @@ static void ui_draw_vision_maxspeed(UIState *s) {
     nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BASELINE);
     NVGcolor max_color;
     if (is_cruise_set){
-      if (s->scene.alt_engage_color_enabled){
-        max_color = nvgRGBA(0x00, 0x9F, 0xFF, int(-s->scene.one_pedal_fade * 255.));
-      }
-      else{
-        max_color = nvgRGBA(0x80, 0xd8, 0xa6, int(-s->scene.one_pedal_fade * 255.));
-      }
+      max_color = nvgRGBA(0x80, 0xd8, 0xa6, int(-s->scene.one_pedal_fade * 255.));
     }
     else{
       max_color = nvgRGBA(0xa6, 0xa6, 0xa6, int(-s->scene.one_pedal_fade * 255.));
@@ -2785,13 +2780,13 @@ static void ui_draw_vision_event(UIState *s) {
   s->scene.wheel_touch_rect = {1,1,1,1};
   if (s->scene.engageable) {
     // draw steering wheel
-    const float rot_angle_multiplier = s->scene.car_state.getVEgo() / 5.0;
-    const float rot_angle = -s->scene.angleSteers * 0.01745329252 * (rot_angle_multiplier > 1.0 ? rot_angle_multiplier : 1.0);
+    //const float rot_angle_multiplier = s->scene.car_state.getVEgo() / 5.0;
+    const float rot_angle = -s->scene.angleSteers * 0.01745329252;// * (rot_angle_multiplier > 1.0 ? rot_angle_multiplier : 1.0);
     const int radius = 88;
     const int center_x = s->fb_w - radius - bdr_s * 2;
     const int center_y = radius  + (bdr_s * 1.5);
-    auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
-    const QColor &color = bg_colors_[(s->scene.car_state.getLkMode() ? s->status : UIStatus::STATUS_DISENGAGED)];
+    //auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
+    const QColor &color = bg_colors[(s->scene.car_state.getLkMode() ? s->status : UIStatus::STATUS_DISENGAGED)];
     NVGcolor nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), color.alpha());
   
     // draw circle behind wheel
@@ -2822,7 +2817,7 @@ static void ui_draw_vision_event(UIState *s) {
       nvgBeginPath(s->vg);
       const int r = int(float(radius) * 1.15);
       nvgRoundedRect(s->vg, center_x - r, center_y - r, 2 * r, 2 * r, r);
-      nvgStrokeColor(s->vg, s->scene.network_strength > 0 ? (s->scene.alt_engage_color_enabled ? nvgRGBA(0,255,255,255) : COLOR_GREEN_ALPHA(255)) : COLOR_RED_ALPHA(255));
+      nvgStrokeColor(s->vg, s->scene.network_strength > 0 ? COLOR_GREEN_ALPHA(255) : COLOR_RED_ALPHA(255));//(s->scene.alt_engage_color_enabled ? nvgRGBA(0,255,255,255) : COLOR_GREEN_ALPHA(255)) : COLOR_RED_ALPHA(255));
       nvgFillColor(s->vg, nvgRGBA(0,0,0,0));
       nvgFill(s->vg);
       nvgStrokeWidth(s->vg, 7);
@@ -3500,20 +3495,20 @@ static void draw_laneless_button(UIState *s) {
     nvgFontSize(s->vg, 54);
 
     if (s->scene.laneless_mode == 0) {
-      nvgStrokeColor(s->vg, (s->scene.alt_engage_color_enabled ? interp_alert_color(0.5,255): nvgRGBA(0,125,0,255)));
+      nvgStrokeColor(s->vg, nvgRGBA(0,125,0,255));
       nvgStrokeWidth(s->vg, 6);
       nvgStroke(s->vg);
-      NVGcolor fillColor = (s->scene.alt_engage_color_enabled ? interp_alert_color(0.5,255): nvgRGBA(0,125,0,80));
+      NVGcolor fillColor = nvgRGBA(0,125,0,80);
       nvgFillColor(s->vg, fillColor);
       nvgFill(s->vg);
       nvgFillColor(s->vg, nvgRGBA(255,255,255,200));
       nvgText(s->vg,btn_xc1,btn_yc-20,"Lane",NULL);
       nvgText(s->vg,btn_xc1,btn_yc+20,"only",NULL);
     } else if (s->scene.laneless_mode == 1) {
-      nvgStrokeColor(s->vg, (s->scene.alt_engage_color_enabled ? interp_alert_color(-1.,255): nvgRGBA(0,100,255,255)));
+      nvgStrokeColor(s->vg, nvgRGBA(0,100,255,255));
       nvgStrokeWidth(s->vg, 6);
       nvgStroke(s->vg);
-      NVGcolor fillColor = (s->scene.alt_engage_color_enabled ? interp_alert_color(-1.,255): nvgRGBA(0,100,255,255));
+      NVGcolor fillColor = nvgRGBA(0,100,255,80);
       nvgFillColor(s->vg, fillColor);
       nvgFill(s->vg);
       nvgFillColor(s->vg, nvgRGBA(255,255,255,200));

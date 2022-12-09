@@ -51,7 +51,6 @@ def manager_init():
     ("GMAutoHold", "1"),
     ("CruiseSpeedOffset", "0"),
     ("ColorPath", "0"),
-    ("AlternateColors", "0"),
     ("ReverseSpeedAdjust", "1"),
     ("CustomSounds", "0"),
     ("SilentEngageDisengage", "0"),
