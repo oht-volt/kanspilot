@@ -9,7 +9,7 @@
  아래 링크를 클릭해서 시스템파일을 다운로드합니다
  https://commadist.azureedge.net/neosupdate/ota-signed-5dc2575d713977666a8e14ae1b43a04d7f63123934c80fa10751d949a107653e.zip
  아래 링크를 클릭해서 원플러스용 시스템파일도 다운로드합니다.
- https://drive.google.com/file/d/12k7Zn1ufNqss9spWL6RqQkkJkzhzpPnk/view?usp=sharing
+ https://drive.google.com/file/d/19xHtHuHOCw2c24PkFd1_vw7SPw0kFtoN/view?usp=sharing
  먼저 다운받은 시스템파일부터 설치합니다
  twrp 메뉴에서 install-> 아래 시스템파일 선택후 플래싱
  ota-signed-~....107653e.zip

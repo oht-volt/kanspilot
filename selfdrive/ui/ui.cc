@@ -37,7 +37,6 @@ static const float voacc_lead_min_laneline_prob = 0.6; // should match MIN_LANE_
 // If a < 0, interpolate that too based on bg color alpha, else pass through.
 NVGcolor interp_alert_color(float p, int a){
   char c1, c2;
-  //auto const & bg_colors_ = (QUIState::ui_state.scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
   if (p <= 0.){
     return (a < 0 ? nvgRGBA(bg_colors[STATUS_ENGAGED].red(), 
                             bg_colors[STATUS_ENGAGED].green(), 
@@ -725,6 +724,7 @@ static void update_params(UIState *s) {
   UIScene &scene = s->scene;
   if (frame % (5*UI_FREQ) == 0) {
     scene.is_metric = Params().getBool("IsMetric");
+    s->is_metric = scene.is_metric;
   }
 }
 
@@ -781,7 +781,6 @@ static void update_status(UIState *s) {
       s->scene.power_meter_metric = Params().getBool("PowerMeterMetric");
       s->scene.end_to_end = Params().getBool("EndToEndToggle");
       s->scene.color_path = Params().getBool("ColorPath");
-      //s->scene.alt_engage_color_enabled = Params().getBool("AlternateColors");
       s->scene.adjacent_lead_info_print_at_lead = Params().getBool("PrintAdjacentLeadSpeedsAtLead");
       if (!s->scene.end_to_end){
         s->scene.laneless_btn_touch_rect = {1,1,1,1};

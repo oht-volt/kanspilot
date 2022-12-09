@@ -298,7 +298,7 @@ static void draw_lead(UIState *s, float d_rel, float v_rel, const vertex_data &v
 
       nvgTextAlign(s->vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
       // first abs speed
-      snprintf(unit, sizeof(unit), "kph"); 
+      snprintf(unit, sizeof(unit), "km/h"); 
       float v = (s->scene.lead_v * 3.6);
       if (v < 100.){
         snprintf(val, sizeof(val), "%.1f", v);
@@ -759,7 +759,7 @@ static void ui_draw_vision_maxspeed(UIState *s) {
   const int SET_SPEED_NA = 255;
   float maxspeed = (*s->sm)["controlsState"].getControlsState().getVCruise();
   const Rect rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
-  //auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
+
   if (s->scene.one_pedal_fade > 0.){
     NVGcolor nvg_color;
     if(s->status == UIStatus::STATUS_DISENGAGED){
@@ -1217,7 +1217,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::BEARING:
             {
-              snprintf(name, sizeof(name), "나침반");
+              snprintf(name, sizeof(name), "주행방향");
               if (scene.bearingAccuracy != 180.00) {
                 snprintf(unit, sizeof(unit), "%.0d%s", (int)scene.bearingDeg, "°");
                 if (((scene.bearingDeg >= 337.5) && (scene.bearingDeg <= 360)) || ((scene.bearingDeg >= 0) && (scene.bearingDeg <= 22.5))) {
@@ -1619,7 +1619,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::LANE_OFFSET:
             {
-            snprintf(name, sizeof(name), "차선오프셑");
+            snprintf(name, sizeof(name), "차선Offset");
             auto dat = scene.lateral_plan.getLaneOffset();
             snprintf(val, sizeof(val), "%.1f", dat);
             snprintf(unit, sizeof(unit), "m");
@@ -1956,7 +1956,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 115){
                   unit_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 105){
+                else if (temp > 99){
                   unit_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -1979,7 +1979,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 240){
                   unit_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 220){
+                else if (temp > 210){
                   unit_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -1999,7 +1999,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 115){
                   val_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 105){
+                else if (temp > 99){
                   val_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -2019,7 +2019,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 240){
                   val_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 220){
+                else if (temp > 210){
                   val_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -2486,7 +2486,7 @@ static void ui_draw_measures(UIState *s){
             
           case UIMeasure::LANE_WIDTH: 
             {
-              snprintf(name, sizeof(name), "차폭");
+              snprintf(name, sizeof(name), "차선폭");
               snprintf(unit, sizeof(unit), "m");
               snprintf(val, sizeof(val), "%.1f", scene.lateralPlan.laneWidth);
             }
@@ -2780,12 +2780,12 @@ static void ui_draw_vision_event(UIState *s) {
   s->scene.wheel_touch_rect = {1,1,1,1};
   if (s->scene.engageable) {
     // draw steering wheel
-    //const float rot_angle_multiplier = s->scene.car_state.getVEgo() / 5.0;
-    const float rot_angle = -s->scene.angleSteers * 0.01745329252;// * (rot_angle_multiplier > 1.0 ? rot_angle_multiplier : 1.0);
+
+    const float rot_angle = -s->scene.angleSteers * 0.01745329252;
     const int radius = 88;
     const int center_x = s->fb_w - radius - bdr_s * 2;
     const int center_y = radius  + (bdr_s * 1.5);
-    //auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
+
     const QColor &color = bg_colors[(s->scene.car_state.getLkMode() ? s->status : UIStatus::STATUS_DISENGAGED)];
     NVGcolor nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), color.alpha());
   

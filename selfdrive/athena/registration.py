@@ -10,7 +10,7 @@ from common.params import Params
 from common.spinner import Spinner
 from common.file_helpers import mkdirs_exists_ok
 from common.basedir import PERSIST
-from selfdrive.controls.lib.alertmanager import set_offroad_alert
+#from selfdrive.controls.lib.alertmanager import set_offroad_alert
 from selfdrive.hardware import HARDWARE
 from selfdrive.swaglog import cloudlog
 
@@ -68,17 +68,15 @@ def register(show_spinner=False) -> str:
 
     backoff = 0
     start_time = time.monotonic()
-
-    dongle_id = UNREGISTERED_DONGLE_ID
-
-    while False:
+    try_count = 0
+    while True:
       try:
         register_token = jwt.encode({'register': True, 'exp': datetime.utcnow() + timedelta(hours=1)}, private_key, algorithm='RS256')
         cloudlog.info("getting pilotauth")
         resp = api_get("v2/pilotauth/", method='POST', timeout=15,
                        imei=imei1, imei2=imei2, serial=serial, public_key=public_key, register_token=register_token)
 
-        if resp.status_code in (402, 403):
+        if resp.status_code in (402, 403, 404):
           cloudlog.info(f"Unable to register device, got {resp.status_code}")
           dongle_id = UNREGISTERED_DONGLE_ID
         else:
@@ -86,6 +84,10 @@ def register(show_spinner=False) -> str:
           dongle_id = dongleauth["dongle_id"]
         break
       except Exception:
+        try_count += 1
+        if try_count >= 2:
+          dongle_id = UNREGISTERED_DONGLE_ID
+          break
         cloudlog.exception("failed to authenticate")
         backoff = min(backoff + 1, 15)
         time.sleep(backoff)
@@ -98,7 +100,7 @@ def register(show_spinner=False) -> str:
 
   if dongle_id:
     params.put("DongleId", dongle_id)
-    set_offroad_alert("Offroad_UnofficialHardware", dongle_id == UNREGISTERED_DONGLE_ID)
+    #set_offroad_alert("Offroad_UnofficialHardware", dongle_id == UNREGISTERED_DONGLE_ID)
   return dongle_id
 
 

@@ -143,7 +143,7 @@ def handle_fan_tici(controller, max_cpu_temp, fan_speed, ignition):
   controller.pos_limit = -(30 if ignition else 0)
 
   fan_pwr_out = -int(controller.update(
-                     setpoint=(70 if ignition else (OFFROAD_DANGER_TEMP - 2)),
+                     setpoint=(75 if ignition else (OFFROAD_DANGER_TEMP - 2)),
                      measurement=max_cpu_temp,
                      feedforward=interp(max_cpu_temp, [60.0, 100.0], [0, -80])
                   ))
@@ -373,7 +373,7 @@ def thermald_thread():
 
     # show invalid date/time alert
     startup_conditions["time_valid"] = True #(now.year > 2020) or (now.year == 2020 and now.month >= 10)
-    set_offroad_alert_if_changed("Offroad_InvalidTime", (not startup_conditions["time_valid"]))
+    #set_offroad_alert_if_changed("Offroad_InvalidTime", (not startup_conditions["time_valid"]))
 
     # Show update prompt
     try:
@@ -409,7 +409,7 @@ def thermald_thread():
       set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
       set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
 
-    startup_conditions["up_to_date"] = params.get("Offroad_ConnectivityNeeded") is None or params.get_bool("DisableUpdates")
+    #startup_conditions["up_to_date"] = params.get("Offroad_ConnectivityNeeded") is None or params.get_bool("DisableUpdates")
     startup_conditions["not_uninstalling"] = not params.get_bool("DoUninstall")
     startup_conditions["accepted_terms"] = params.get("HasAcceptedTerms") == terms_version
 
@@ -503,16 +503,16 @@ def thermald_thread():
     startup_conditions_prev = startup_conditions.copy()
 
     # report to server once every 10 minutes
-    if (count % int(600. / DT_TRML)) == 0:
-      if EON and started_ts is None and msg.deviceState.memoryUsagePercent > 40:
-        cloudlog.event("High offroad memory usage", mem=msg.deviceState.memoryUsagePercent)
+    #if (count % int(600. / DT_TRML)) == 0:
+    #  if EON and started_ts is None and msg.deviceState.memoryUsagePercent > 40:
+    #    cloudlog.event("High offroad memory usage", mem=msg.deviceState.memoryUsagePercent)
 
-      location = messaging.recv_sock(location_sock)
-      cloudlog.event("STATUS_PACKET",
-                     count=count,
-                     pandaState=(strip_deprecated_keys(pandaState.to_dict()) if pandaState else None),
-                     location=(strip_deprecated_keys(location.gpsLocationExternal.to_dict()) if location else None),
-                     deviceState=strip_deprecated_keys(msg.to_dict()))
+    #  location = messaging.recv_sock(location_sock)
+    #  cloudlog.event("STATUS_PACKET",
+    #                 count=count,
+    #                 pandaState=(strip_deprecated_keys(pandaState.to_dict()) if pandaState else None),
+    #                 location=(strip_deprecated_keys(location.gpsLocationExternal.to_dict()) if location else None),
+    #                 deviceState=strip_deprecated_keys(msg.to_dict()))
 
     count += 1
 
