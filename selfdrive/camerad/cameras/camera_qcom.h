@@ -17,7 +17,6 @@
 
 #define FRAME_BUF_COUNT 4
 #define METADATA_BUF_COUNT 4
-
 #define DEVICE_OP3 0
 #define DEVICE_OP3T 1
 #define DEVICE_LP3 2
@@ -51,7 +50,6 @@ typedef struct CameraState {
   int camera_num;
   int camera_id;
   int device;
-
   int fps;
   CameraInfo ci;
 

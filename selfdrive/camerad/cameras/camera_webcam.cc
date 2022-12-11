@@ -18,7 +18,7 @@
 #include "selfdrive/common/timing.h"
 #include "selfdrive/common/util.h"
 
-//id of the video capturing device
+// id of the video capturing device
 const int ROAD_CAMERA_ID = util::getenv("ROADCAM_ID", 1);
 const int DRIVER_CAMERA_ID = util::getenv("DRIVERCAM_ID", 2);
 

@@ -140,6 +140,13 @@ const QColor bg_colors [] = {
   [STATUS_ALERT] = QColor(0xC9, 0x22, 0x31, 0xf1),
 };
 
+/*const QColor alt_bg_colors [] = {
+  [STATUS_DISENGAGED] =  QColor(0x00, 0x30, 0x4A, 0xc8),
+  [STATUS_ENGAGED] = QColor(0x00, 0x04, 0xA7, 0xf1),
+  [STATUS_WARNING] = QColor(0xAB, 0x00, 0xAE, 0xf1),
+  [STATUS_ALERT] = QColor(0x92, 0x00, 0x0D, 0xf1),
+};*/
+
 const QColor tcs_colors [] = {
   [int(cereal::LongitudinalPlan::VisionTurnControllerState::DISABLED)] =  QColor(0x0, 0x0, 0x0, 0xff),
   [int(cereal::LongitudinalPlan::VisionTurnControllerState::ENTERING)] = QColor(0xC9, 0x22, 0x31, 0xf1),
@@ -316,6 +323,7 @@ typedef struct UIScene {
   bool car_is_ev = false;
 
   bool color_path = false;
+  //bool alt_engage_color_enabled = false;
   
   float screen_dim_modes_v[3] = {0.01, 0.3, 1.};
   int screen_dim_mode_max = 2;

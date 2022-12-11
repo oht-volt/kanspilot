@@ -88,7 +88,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
 
   toggles.append(new ParamControl("ExtendedRadar",
-                                  "레이더 확장(alpha:권장되지 않음)",
+                                  "레이더 확장(alpha:벌트엔 사용하지 말것.)",
                                   "모든 차량 트레킹이 가능해짐; 선두차에 대한 브레이킹, 확장된 앞차인식, 차선위치 자동조정, 마주오는 차선과 진행하는 차선 그리기 등을 사용하기 위해서 필요함.",
                                   "../assets/offroad/icon_plus.png",
                                   this));
@@ -135,7 +135,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_stock_adjust_speed.png",
                                   this));
   toggles.append(new ParamControl("CruiseSpeedOffset",
-                                  "크루즈 속도 오프셑(권장되지 않음)",
+                                  "크루즈 속도 오프셑(+3mph, 권장되지 않음)",
                                   "When adjusting, cruise speed will be {8, 13, 18, 23, 28} mph.",
                                   "../assets/offroad/icon_speed_offset.png",
                                   this));
@@ -180,7 +180,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("CoastingBrakeOverSpeed",
-                                  "[GM]타력주행시: 세팅속도보다 15%가속",
+                                  "[GM]타력주행시: 세팅속도보다 15% 가속",
                                   "타력주행시, 세팅속도의 15%까지 가속해도 크루즈 감속 하지 않음.",
                                   "../assets/offroad/icon_speed_offset.png",
                                   this));
@@ -195,7 +195,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/img_brake.png",
                                   this));
   toggles.append(new ParamControl("OnePedalMode",
-                                  "[GM]원페달 사용(상세내용 터치)",
+                                  "[GM]원페달 사용(tap me)",
                                   "In combination with the \"Disable disengage on gas\" option, you control speed with gas pedal (with optional, adjustable braking) while OP continues to steer and brake for lead car following. To activate, ① (see \"One-pedal/Always-on-steering engage on gas\" below) set cruise speed to 1 and pedal icon will replace max speed indicator; set/resume button to return to normal cruise. ② Tap pedal icon to toggle one-pedal mode (see below). If one-pedal mode is active, then vehicle follow distance indicator and pedal icon color indicate the one-pedal braking profile in use; 1/2/3 = (⚫️)/🟢/🟠/🔴 = (regen/engine)/light/moderate/heavy braking. ③ Press follow distance button to toggle between persistent light/moderate braking; hold for temporary heavy braking. ④ Toggle between friction 🟢/🟠/🔴 and regen/engine ⚫️ braking by tapping the pedal icon or by using the follow distance button; one press will activating friction braking if not active, and a double press while the gas pedal is pressed, or while stopped, will deactivate friction braking.",
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
@@ -259,6 +259,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "Color path according to the amount of lateral (steering) correction being applied",
                                   "../assets/offroad/icon_road.png",
                                   this));
+  /*toggles.append(new ParamControl("AlternateColors",
+                                  "대체 컬러 사용(필요한가?)",
+                                  "Use alternate color set.",
+                                  "../assets/offroad/icon_road.png",
+                                  this)); */
   toggles.append(new ParamControl("AdjacentPaths",
                                   "반대/진행차선경로 표시(권장되지않음)",
                                   "레이더확장기능 토글On 필요, 반대차선은 Red, 진행차선은 Green.",

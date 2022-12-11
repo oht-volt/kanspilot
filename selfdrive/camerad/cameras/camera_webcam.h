@@ -7,6 +7,7 @@
 #endif
 
 #include "selfdrive/camerad/cameras/camera_common.h"
+
 #define FRAME_BUF_COUNT 16
 
 typedef struct CameraState {

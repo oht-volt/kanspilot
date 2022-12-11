@@ -48,7 +48,7 @@ CameraInfo cameras_supported[CAMERA_ID_MAX] = {
     .frame_height = 1748,
     .frame_stride = 2912,
     .bayer = true,
-    .bayer_flip = 0,
+    .bayer_flip = 0, //default 3
     .hdr = true
   },
   [CAMERA_ID_IMX179] = {
@@ -177,7 +177,6 @@ static int ov8865_apply_exposure(CameraState *s, int gain, int integ_lines, uint
   };
   return sensor_write_regs(s, reg_array, std::size(reg_array), MSM_CAMERA_I2C_BYTE_DATA);
 }
-
 static int imx179_s5k3p8sp_apply_exposure(CameraState *s, int gain, int integ_lines, uint32_t frame_length) {
   //printf("driver camera: %d %d %d\n", gain, integ_lines, frame_length);
   struct msm_camera_i2c_reg_array reg_array[] = {
@@ -213,6 +212,7 @@ static void camera_init(VisionIpcServer *v, CameraState *s, int camera_id, int c
   s->frame_length = s->pixel_clock / line_length_pclk / s->fps;
   s->self_recover = 0;
 
+//  s->apply_exposure = (camera_id == CAMERA_ID_IMX298) ? imx298_apply_exposure : ov8865_apply_exposure;
   if (camera_id == CAMERA_ID_IMX298) {
     s->apply_exposure = imx298_apply_exposure;
   } else if (camera_id == CAMERA_ID_S5K3P8SP || camera_id == CAMERA_ID_IMX179) {
@@ -226,7 +226,13 @@ static void camera_init(VisionIpcServer *v, CameraState *s, int camera_id, int c
 void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
   char project_name[1024] = {0};
   property_get("ro.boot.project_name", project_name, "");
+/*
+  assert(strlen(project_name) == 0);
 
+  // sensor is flipped in LP3
+  // IMAGE_ORIENT = 3
+  init_array_imx298[0].reg_data = 3;
+*/
   char product_name[1024] = {0};
   property_get("ro.product.name", product_name, "");
 
@@ -294,6 +300,7 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
   s->road_cam.device = s->device;
   s->driver_cam.device = s->device;
 
+
   s->sm = new SubMaster({"driverState"});
   s->pm = new PubMaster({"roadCameraState", "driverCameraState", "thumbnail"});
 
@@ -340,6 +347,7 @@ static void set_exposure(CameraState *s, float exposure_frac, float gain_frac) {
     } else if (s->apply_exposure) {
       err = s->apply_exposure(s, gain, integ_lines, s->frame_length);
     }
+    //err = s->apply_exposure(s, gain, integ_lines, s->frame_length);
     if (err == 0) {
       std::lock_guard lk(s->frame_info_lock);
       s->cur_gain = gain;
@@ -702,7 +710,6 @@ static void sensors_init(MultiCameraState *s) {
 
 static void camera_open(CameraState *s, bool is_road_cam) {
   int err;
-
   struct csid_cfg_data csid_cfg_data = {};
   struct v4l2_event_subscription sub = {};
 
@@ -786,13 +793,11 @@ static void camera_open(CameraState *s, bool is_road_cam) {
   // actuator powerdown
   actuator_cfg_data.cfgtype = CFG_ACTUATOR_POWERDOWN;
   cam_ioctl(s->actuator_fd, VIDIOC_MSM_ACTUATOR_CFG, &actuator_cfg_data, "actuator powerdown");
-
   if (is_road_cam && s->device != DEVICE_LP3) {
     // ois powerdown
     ois_cfg_data.cfgtype = CFG_OIS_POWERDOWN;
     err = cam_ioctl(s->ois_fd, VIDIOC_MSM_OIS_CFG, &ois_cfg_data, "ois powerdown");
   }
-
   // reset isp
   // struct msm_vfe_axi_halt_cmd halt_cmd = {
   //   .stop_camif = 1,
@@ -849,7 +854,7 @@ static void camera_open(CameraState *s, bool is_road_cam) {
   // SENSOR: send i2c configuration
   if (s->camera_id == CAMERA_ID_IMX298) {
     err = sensor_write_regs(s, init_array_imx298, std::size(init_array_imx298), MSM_CAMERA_I2C_BYTE_DATA);
-  } else if (s->camera_id == CAMERA_ID_S5K3P8SP) {
+  } else if  (s->camera_id == CAMERA_ID_S5K3P8SP) {
     err = sensor_write_regs(s, init_array_s5k3p8sp, std::size(init_array_s5k3p8sp), MSM_CAMERA_I2C_WORD_DATA);
   } else if (s->camera_id == CAMERA_ID_IMX179) {
     err = sensor_write_regs(s, init_array_imx179, std::size(init_array_imx179), MSM_CAMERA_I2C_BYTE_DATA);
@@ -876,7 +881,7 @@ static void camera_open(CameraState *s, bool is_road_cam) {
       s->infinity_dac = *(uint16_t*)(s->eeprom + 0x26);
       LOG("macro_dac: %d infinity_dac: %d", macro_dac, s->infinity_dac);
 
-      int dac_range = macro_dac - s->infinity_dac;
+    int dac_range = macro_dac - s->infinity_dac;
       s->infinity_dac += far_margin * dac_range;
 
       LOG(" -> macro_dac: %d infinity_dac: %d", macro_dac, s->infinity_dac);
@@ -958,48 +963,49 @@ static void camera_open(CameraState *s, bool is_road_cam) {
         },
       };
 
-    struct reg_settings_t actuator_init_settings[] = {
-      { .reg_addr=2, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=1, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 0 },   // PD = power down
-      { .reg_addr=2, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=0, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 2 },   // 0 = power up
-      { .reg_addr=2, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=2, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 2 },   // RING = SAC mode
-      { .reg_addr=6, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=64, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 0 },  // 0x40 = SAC3 mode
-      { .reg_addr=7, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=113, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 0 },
-      // 0x71 = DIV1 | DIV0 | SACT0 -- Tvib x 1/4 (quarter)
-      // SAC Tvib = 6.3 ms + 0.1 ms = 6.4 ms / 4 = 1.6 ms
-      // LSC 1-step = 252 + 1*4 = 256 ms / 4 = 64 ms
-    };
+      struct reg_settings_t actuator_init_settings[] = {
+        { .reg_addr=2, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=1, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 0 },   // PD = power down
+        { .reg_addr=2, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=0, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 2 },   // 0 = power up
+        { .reg_addr=2, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=2, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 2 },   // RING = SAC mode
+        { .reg_addr=6, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=64, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 0 },  // 0x40 = SAC3 mode
+        { .reg_addr=7, .addr_type=MSM_ACTUATOR_BYTE_ADDR, .reg_data=113, .data_type = MSM_ACTUATOR_BYTE_DATA, .i2c_operation = MSM_ACT_WRITE, .delay = 0 },
+        // 0x71 = DIV1 | DIV0 | SACT0 -- Tvib x 1/4 (quarter)
+        // SAC Tvib = 6.3 ms + 0.1 ms = 6.4 ms / 4 = 1.6 ms
+        // LSC 1-step = 252 + 1*4 = 256 ms / 4 = 64 ms
+      };
 
-    struct region_params_t region_params[] = {
-      {.step_bound = {238, 0,}, .code_per_step = 235, .qvalue = 128}
-    };
+      struct region_params_t region_params[] = {
+        {.step_bound = {238, 0,}, .code_per_step = 235, .qvalue = 128}
+      };
 
-    actuator_cfg_data.cfgtype = CFG_SET_ACTUATOR_INFO;
-    actuator_cfg_data.cfg.set_info = (struct msm_actuator_set_info_t){
-      .actuator_params = {
-        .act_type = ACTUATOR_BIVCM,
-        .reg_tbl_size = 1,
-        .data_size = 10,
-        .init_setting_size = 5,
-        .i2c_freq_mode = I2C_STANDARD_MODE,
-        .i2c_addr = 24,
-        .i2c_addr_type = MSM_ACTUATOR_BYTE_ADDR,
-        .i2c_data_type = MSM_ACTUATOR_WORD_DATA,
-        .reg_tbl_params = &actuator_reg_params[0],
-        .init_settings = &actuator_init_settings[0],
-        .park_lens = {.damping_step = 1023, .damping_delay = 14000, .hw_params = 11, .max_step = 20},
-      },
-      .af_tuning_params = {
-        .initial_code = (int16_t)s->infinity_dac,
-        .pwd_step = 0,
-        .region_size = 1,
-        .total_steps = 238,
-        .region_params = &region_params[0],
-      },
-    };
+      actuator_cfg_data.cfgtype = CFG_SET_ACTUATOR_INFO;
+      actuator_cfg_data.cfg.set_info = (struct msm_actuator_set_info_t){
+        .actuator_params = {
+          .act_type = ACTUATOR_BIVCM,
+          .reg_tbl_size = 1,
+          .data_size = 10,
+          .init_setting_size = 5,
+          .i2c_freq_mode = I2C_STANDARD_MODE,
+          .i2c_addr = 24,
+          .i2c_addr_type = MSM_ACTUATOR_BYTE_ADDR,
+          .i2c_data_type = MSM_ACTUATOR_WORD_DATA,
+          .reg_tbl_params = &actuator_reg_params[0],
+          .init_settings = &actuator_init_settings[0],
+          .park_lens = {.damping_step = 1023, .damping_delay = 14000, .hw_params = 11, .max_step = 20},
+        },
+        .af_tuning_params = {
+          .initial_code = (int16_t)s->infinity_dac,
+          .pwd_step = 0,
+          .region_size = 1,
+          .total_steps = 238,
+          .region_params = &region_params[0],
+        },
+      };
 
-    cam_ioctl(s->actuator_fd, VIDIOC_MSM_ACTUATOR_CFG, &actuator_cfg_data, "actuator set info");
+      cam_ioctl(s->actuator_fd, VIDIOC_MSM_ACTUATOR_CFG, &actuator_cfg_data, "actuator set info");
+    }
   }
-}
+
   if (s->camera_id == CAMERA_ID_IMX298) {
     err = sensor_write_regs(s, mode_setting_array_imx298, std::size(mode_setting_array_imx298), MSM_CAMERA_I2C_BYTE_DATA);
     LOG("sensor setup: %d", err);
@@ -1142,7 +1148,6 @@ static void camera_open(CameraState *s, bool is_road_cam) {
   }
   cam_ioctl(s->isp_fd, VIDIOC_MSM_ISP_CFG_STREAM, &s->stream_cfg, "isp start stream");
 }
-
 static struct damping_params_t actuator_ringing_params = {
   .damping_step = 1023,
   .damping_delay = 15000,
@@ -1171,11 +1176,12 @@ static void road_camera_start(CameraState *s) {
     actuator_ringing_params.hw_params = 13;
 
     // focus on infinity assuming phone is perpendicular
-  inf_step = 512 - s->infinity_dac;
+    inf_step = 512 - s->infinity_dac;
 
-  // initial guess
-  s->lens_true_pos = 400;
-}
+    // initial guess
+    s->lens_true_pos = 400;
+  }
+
   // reset lens position
   memset(&actuator_cfg_data, 0, sizeof(actuator_cfg_data));
   actuator_cfg_data.cfgtype = CFG_SET_POSITION;
@@ -1286,7 +1292,7 @@ static void parse_autofocus(CameraState *s, uint8_t *d) {
 
 static std::optional<float> get_accel_z(SubMaster *sm) {
   sm->update(0);
-  if(sm->updated("sensorEvents")) {
+  if(sm->updated("sensorEvents")){
     for (auto event : (*sm)["sensorEvents"].getSensorEvents()) {
       if (event.which() == cereal::SensorEventData::ACCELERATION) {
         if (auto v = event.getAcceleration().getV(); v.size() >= 3)
@@ -1301,7 +1307,6 @@ static std::optional<float> get_accel_z(SubMaster *sm) {
 static void do_autofocus(CameraState *s, SubMaster *sm) {
   const int dac_down = s->device == DEVICE_LP3 ? LP3_AF_DAC_DOWN : OP3T_AF_DAC_DOWN;
   const int dac_up = s->device == DEVICE_LP3 ? LP3_AF_DAC_UP : OP3T_AF_DAC_UP;
-
   float lens_true_pos = s->lens_true_pos.load();
   if (!isnan(s->focus_err)) {
     // learn lens_true_pos
@@ -1513,7 +1518,7 @@ static void setup_self_recover(CameraState *c, const uint16_t *lapres, size_t la
 
   const float lens_true_pos = c->lens_true_pos.load();
   int self_recover = c->self_recover.load();
-  if (self_recover < 2 && (lens_true_pos < (dac_down + 1) || lens_true_pos > (dac_up - 1)) && is_blur(lapres, lapres_size)) {
+if (self_recover < 2 && (lens_true_pos < (dac_down + 1) || lens_true_pos > (dac_up - 1)) && is_blur(lapres, lapres_size)) {
     // truly stuck, needs help
     if (--self_recover < -FOCUS_RECOVER_PATIENCE) {
       LOGD("road camera bad state detected. attempting recovery from %.1f, recover state is %d", lens_true_pos, self_recover);
