@@ -180,6 +180,7 @@ class Controls:
     self.a_target = 0.0
     self.pitch = 0.0
     self.pitch_accel_deadzone = 0.01 # [radians] ≈ 1% grade
+    self.k_mean = 0.0
     
     self.interaction_timer = 0.0 # [s] time since any interaction
     self.intervention_timer = 0.0 # [s] time since screen steering/gas/brake interaction
@@ -252,13 +253,13 @@ class Controls:
       screen_tapped = self._params.get_bool("ScreenTapped")
       if screen_tapped:
         put_nonblocking("ScreenTapped", "0")
-      car_interaction = CS.brakePressed or CS.gasPressed or CS.steeringPressed
+      car_interaction = CS.brakePressed or CS.gas > 1e-5 or CS.steeringPressed
       if screen_tapped or car_interaction or self.CI.driver_interacted:
         self.interaction_last_t = t
         self.CI.driver_interacted = False
       if car_interaction:
         self.intervention_last_t = t
-      if not car_interaction and self.sm['driverMonitoringState'].isDistracted and CS.vEgo > 1.0:
+      if not car_interaction and self.sm['driverMonitoringState'].isDistracted or CS.vEgo < 0.1:
         self.distraction_last_t = t
       self.interaction_timer = t - self.interaction_last_t
       self.intervention_timer = t - self.intervention_last_t
@@ -489,7 +490,13 @@ class Controls:
       if self.sm.updated['gpsLocationExternal']:
         self.CI.CS.altitude = self.sm['gpsLocationExternal'].altitude
       if self.sm.updated['lateralPlan'] and len(self.sm['lateralPlan'].curvatures) > 0:
-        self.CI.CC.params.future_curvature = mean(self.sm['lateralPlan'].curvatures)
+        k_mean = mean(self.sm['lateralPlan'].curvatures)
+        if abs(k_mean) > abs(self.k_mean):
+          self.k_mean = k_mean
+        else:
+          alpha = 0.0005
+          self.k_mean = alpha * k_mean + (1.0 - alpha) * self.k_mean
+        self.CI.CC.params.future_curvature = self.k_mean
       
       self.CI.CS.speed_limit_active = (self.sm['longitudinalPlan'].speedLimitControlState == log.LongitudinalPlan.SpeedLimitControlState.active)
       if self.CI.CS.speed_limit_active:
@@ -506,7 +513,7 @@ class Controls:
         self.CI.CS.one_pedal_brake_mode = min(1, self.CI.CS.one_pedal_last_brake_mode)
         self.CI.CS.follow_level = self.CI.CS.one_pedal_last_follow_level
       else:
-        self.v_cruise_kph = update_v_cruise(v_cruise, CS.buttonEvents, self.enabled and CS.cruiseState.enabled, cur_time, self.accel_pressed,self.decel_pressed, self.accel_pressed_last, self.decel_pressed_last, self.fastMode, self.stock_speed_adjust, vEgo, CS.gasPressed)
+        self.v_cruise_kph = update_v_cruise(v_cruise, CS.buttonEvents, self.enabled and CS.cruiseState.enabled, cur_time, self.accel_pressed,self.decel_pressed, self.accel_pressed_last, self.decel_pressed_last, self.fastMode, self.stock_speed_adjust, vEgo, CS.gas > 1e-5)
       
         self.v_cruise_kph = self.v_cruise_kph if self.is_metric else int(round((float(round(self.v_cruise_kph))-0.0995)/0.6233))
         
@@ -644,7 +651,6 @@ class Controls:
     self.CI.CS.coasting_lead_d = long_plan.leadDist
     self.CI.CS.coasting_lead_v = long_plan.leadV
     self.CI.CS.tr = long_plan.desiredFollowDistance
-    self.CI.CS.lead_accel = long_plan.leadAccelPlanned
 
     actuators = car.CarControl.Actuators.new_message()
     actuators.longControlState = self.LoC.long_control_state

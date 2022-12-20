@@ -24,6 +24,7 @@ if [ ! -f "./installer/boot_finish" ]; then
   sed -i 's/self._DISTRACTED_TIME = 11/self._DISTRACTED_TIME = 7200/' ./selfdrive/monitoring/driver_monitor.py
   sed -i 's/self.face_detected = False/self.face_detected = True/' ./selfdrive/monitoring/driver_monitor.py
   touch ./installer/boot_finish
+
 elif [ "$(getprop persist.sys.locale)" != "ko-KR" ]; then
 
   setprop persist.sys.locale ko-KR

@@ -259,11 +259,6 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "Color path according to the amount of lateral (steering) correction being applied",
                                   "../assets/offroad/icon_road.png",
                                   this));
-  /*toggles.append(new ParamControl("AlternateColors",
-                                  "대체 컬러 사용(필요한가?)",
-                                  "Use alternate color set.",
-                                  "../assets/offroad/icon_road.png",
-                                  this)); */
   toggles.append(new ParamControl("AdjacentPaths",
                                   "반대/진행차선경로 표시(권장되지않음)",
                                   "레이더확장기능 토글On 필요, 반대차선은 Red, 진행차선은 Green.",

@@ -759,7 +759,7 @@ static void ui_draw_vision_maxspeed(UIState *s) {
   const int SET_SPEED_NA = 255;
   float maxspeed = (*s->sm)["controlsState"].getControlsState().getVCruise();
   const Rect rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
-  //auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
+
   if (s->scene.one_pedal_fade > 0.){
     NVGcolor nvg_color;
     if(s->status == UIStatus::STATUS_DISENGAGED){
@@ -2780,12 +2780,12 @@ static void ui_draw_vision_event(UIState *s) {
   s->scene.wheel_touch_rect = {1,1,1,1};
   if (s->scene.engageable) {
     // draw steering wheel
-    //const float rot_angle_multiplier = s->scene.car_state.getVEgo() / 5.0;
-    const float rot_angle = -s->scene.angleSteers * 0.01745329252;// * (rot_angle_multiplier > 1.0 ? rot_angle_multiplier : 1.0);
+
+    const float rot_angle = -s->scene.angleSteers * 0.01745329252;
     const int radius = 88;
     const int center_x = s->fb_w - radius - bdr_s * 2;
     const int center_y = radius  + (bdr_s * 1.5);
-    //auto const & bg_colors_ = (s->scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
+
     const QColor &color = bg_colors[(s->scene.car_state.getLkMode() ? s->status : UIStatus::STATUS_DISENGAGED)];
     NVGcolor nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), color.alpha());
   
