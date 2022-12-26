@@ -129,6 +129,17 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     slowingDownSpeed @118;
     slowingDownSpeedSound @119;
 
+    manualSteeringRequired @120;
+    silentPedalPressed @121;
+    silentWrongGear @122;
+
+    madsAlert1 @123;
+    madsAlert2 @124;
+    madsAlert3 @125;
+    madsAlert4 @126;
+    madsAlert5 @127;
+    madsAlert6 @128;
+
     driverMonitorLowAccDEPRECATED @68;
     radarCanErrorDEPRECATED @15;
     radarCommIssueDEPRECATED @67;
@@ -174,10 +185,13 @@ struct CarState {
   brake @5 :Float32;      # this is user pedal only
   brakePressed @6 :Bool;  # this is user pedal only
   frictionBrakePercent @44 :Int64; # amount of brake being applied by OP
+
+  cruiseMain @72 :Bool;
   
+  madsLeadBrakingActive @73 :Bool; # to color MADS icon
   onePedalModeActive @45 :Bool; # to change max speed to one-peda icon
-  onePedalBrakeMode @46 :Int64; # level of braking applied affects color of one-pedal icon
-  coastOnePedalModeActive @47 :Bool; # level of braking applied affects color of one-pedal icon
+  onePedalBrakeModeDEPRECATED @46 :Int64; # level of braking applied affects color of one-pedal icon
+  onePedalModeTemporary @47 :Bool; # level of braking applied affects color of one-pedal icon
   coastingActive @48 :Bool; # show "+" on max speed when coasting active
   pitch @49 :Float32; # vehicle pitch in radians
   
@@ -242,7 +256,7 @@ struct CarState {
   clutchPressed @28 :Bool;
   
   readdistancelines @40 :Float32;
-  lkMode @41 :Bool;
+  lkaEnabled @41 :Bool;
   engineRPM @42 :Float32;
   engineCoolantTemp @50 :Int64;
 
@@ -271,6 +285,7 @@ struct CarState {
     standstill @4 :Bool;
     nonAdaptive @5 :Bool;
     speedLimit @6 :Float32;
+    resumeButton @7 :Bool;
   }
 
   enum GearShifter {

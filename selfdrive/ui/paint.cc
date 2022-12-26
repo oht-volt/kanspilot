@@ -595,13 +595,13 @@ static void ui_draw_vision_lane_lines(UIState *s) {
       ui_draw_line(s, scene.road_edge_vertices[i], &color, nullptr);
     }
   }
-  if (scene.controls_state.getEnabled()) {
+  if (scene.controls_state.getLatActive()) {
     if (steerOverride) {
       track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h*.4,
         COLOR_BLACK_ALPHA(80), COLOR_BLACK_ALPHA(20));
     } 
     else if (!scene.lateralPlan.lanelessModeStatus) {
-      if (scene.car_state.getLkMode()){
+      if (scene.car_state.getLkaEnabled()){
         if (scene.color_path){
           track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h*.4,
             interp_alert_color(fabs(scene.lateralCorrection), 150), 
@@ -619,7 +619,7 @@ static void ui_draw_vision_lane_lines(UIState *s) {
       }
     } 
     else { // differentiate laneless mode color (Grace blue)
-      if (scene.car_state.getLkMode()){
+      if (scene.car_state.getLkaEnabled()){
         if (scene.color_path){
           int g, r = 255.f * float(COLOR_GRACE_BLUE.b) * fabs(scene.lateralCorrection);
           r = CLIP(r, 255.f * COLOR_GRACE_BLUE.r, 255.f * COLOR_GRACE_BLUE.b);
@@ -757,30 +757,25 @@ static void ui_draw_world(UIState *s) {
 
 static void ui_draw_vision_maxspeed(UIState *s) {
   const int SET_SPEED_NA = 255;
-  float maxspeed = (*s->sm)["controlsState"].getControlsState().getVCruise();
+  float maxspeed = s->scene.controls_state.getVCruise();
   const Rect rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
 
   if (s->scene.one_pedal_fade > 0.){
-    NVGcolor nvg_color;
-    if(s->status == UIStatus::STATUS_DISENGAGED){
-          const QColor &color = bg_colors[UIStatus::STATUS_DISENGAGED];
-          nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), int(s->scene.one_pedal_fade * float(color.alpha())));
-        }
-    else if (s->scene.car_state.getOnePedalModeActive()){
-      const QColor &color = bg_colors[s->scene.car_state.getOnePedalBrakeMode() + 1];
-      nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), int(s->scene.one_pedal_fade * float(color.alpha())));
-    }
-    else {
-      nvg_color = nvgRGBA(0, 0, 0, int(s->scene.one_pedal_fade * 100.));
-    }
+    const QColor &color = bg_colors[s->scene.car_state.getMadsLeadBrakingActive() ? 3 : (s->scene.car_state.getOnePedalModeTemporary() ? 2 : (s->scene.car_state.getOnePedalModeActive() ? 1 : 0))];
+    NVGcolor nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), int(s->scene.one_pedal_fade * float(color.alpha())));
     const Rect pedal_rect = {rect.centerX() - brake_size, rect.centerY() - brake_size, brake_size * 2, brake_size * 2};
     ui_fill_rect(s->vg, pedal_rect, nvg_color, brake_size);
-    ui_draw_image(s, {rect.centerX() - brake_size, rect.centerY() - brake_size, brake_size * 2, brake_size * 2}, "one_pedal_mode", s->scene.one_pedal_fade);
+    if (s->scene.car_state.getOnePedalModeActive()){
+      ui_draw_image(s, {rect.centerX() - brake_size, rect.centerY() - brake_size, brake_size * 2, brake_size * 2}, "one_pedal_mode", s->scene.one_pedal_fade);
+    }
+    else{
+      ui_draw_image(s, {rect.centerX() - brake_size, rect.centerY() - brake_size, brake_size * 2, brake_size * 2}, "MADS", s->scene.one_pedal_fade);
+    }
     s->scene.one_pedal_touch_rect = pedal_rect;
     s->scene.maxspeed_touch_rect = {1,1,1,1};
     
-    // draw extra circle to indiate one-pedal engage on gas is enabled
-    if (s->scene.onePedalEngageOnGasEnabled){
+    // draw extra circle to indiate one-pedal lead braking is enabled
+    if (!(s->scene.onePedalModeSimple)){
       nvgBeginPath(s->vg);
       const int r = int(float(brake_size) * 1.15);
       nvgRoundedRect(s->vg, rect.centerX() - r, rect.centerY() - r, 2 * r, 2 * r, r);
@@ -1584,21 +1579,21 @@ static void ui_draw_measures(UIState *s){
           case UIMeasure::VISION_CURLATACCEL:
             {
             snprintf(name, sizeof(name), "V:LAT ACC");
-            snprintf(val, sizeof(val), "%.1f", sm["longitudinalPlan"].getLongitudinalPlan().getVisionCurrentLateralAcceleration());
+            snprintf(val, sizeof(val), "%.1f", scene.longitudinal_plan.getVisionCurrentLateralAcceleration());
             snprintf(unit, sizeof(unit), "m/s²");
             break;}
           
           case UIMeasure::VISION_MAXVFORCURCURV:
             {
             snprintf(name, sizeof(name), "V:MX CUR V");
-            snprintf(val, sizeof(val), "%.1f", sm["longitudinalPlan"].getLongitudinalPlan().getVisionMaxVForCurrentCurvature() * 2.24);
+            snprintf(val, sizeof(val), "%.1f", scene.longitudinal_plan.getVisionMaxVForCurrentCurvature() * 2.24);
             snprintf(unit, sizeof(unit), "mph");
             break;}
           
           case UIMeasure::VISION_MAXPREDLATACCEL:
             {
             snprintf(name, sizeof(name), "V:MX PLA");
-            snprintf(val, sizeof(val), "%.1f", sm["longitudinalPlan"].getLongitudinalPlan().getVisionMaxPredictedLateralAcceleration());
+            snprintf(val, sizeof(val), "%.1f", scene.longitudinal_plan.getVisionMaxPredictedLateralAcceleration());
             snprintf(unit, sizeof(unit), "m/s²");
             break;}
 
@@ -1956,7 +1951,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 115){
                   unit_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 105){
+                else if (temp > 99){
                   unit_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -1979,7 +1974,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 240){
                   unit_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 220){
+                else if (temp > 210){
                   unit_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -1999,7 +1994,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 115){
                   val_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 105){
+                else if (temp > 99){
                   val_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -2019,7 +2014,7 @@ static void ui_draw_measures(UIState *s){
                 else if (temp > 240){
                   val_color = nvgRGBA(255, 0, 0, 200); // red if too hot
                 }
-                else if (temp > 220){
+                else if (temp > 210){
                   val_color = nvgRGBA(255, 169, 63, 200); // orange if close to too hot
                 }
               }
@@ -2625,8 +2620,7 @@ static void ui_draw_vision_turnspeed(UIState *s) {
   }
   const float vEgo = s->scene.car_state.getVEgo();  
   auto source = s->scene.longitudinal_plan.getLongitudinalPlanSource();
-  const bool manual_long = (s->scene.car_state.getOnePedalModeActive() || s->scene.car_state.getCoastOnePedalModeActive());
-  const bool show = (turnSpeed > 0.0 && ((turnSpeed < vEgo+2.24 && !manual_long) || s->scene.show_debug_ui));
+  const bool show = (s->scene.controls_state.getActive() && turnSpeed > 0.0 && (turnSpeed < vEgo+2.24 || s->scene.show_debug_ui));
 
   if (show) {
     const Rect maxspeed_rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
@@ -2636,7 +2630,7 @@ static void ui_draw_vision_turnspeed(UIState *s) {
       maxspeed_rect.h};
     const float speed = turnSpeed * (s->scene.is_metric ? 3.6 : 2.2369362921);
 
-    if (vision_active){
+    if (source == cereal::LongitudinalPlan::LongitudinalPlanSource::TURN){
       // vision turn controller, so need sign of curvature to know curve direction
       int curveSign = 0;
       if (visionTurnControllerState == cereal::LongitudinalPlan::VisionTurnControllerState::ENTERING){
@@ -2661,8 +2655,7 @@ static void ui_draw_vision_turnspeed(UIState *s) {
                               curveSign, distToTurn > 0 ? distance_str.c_str() : "", "sans-bold", is_active);
     }
     else{
-      auto turnSpeedControlState = s->scene.longitudinal_plan.getTurnSpeedControlState();
-      const bool is_active = turnSpeedControlState > cereal::LongitudinalPlan::SpeedLimitControlState::TEMP_INACTIVE;
+      const bool is_active = source == cereal::LongitudinalPlan::LongitudinalPlanSource::TURNLIMIT;
 
       
 
@@ -2682,7 +2675,7 @@ static void ui_draw_vision_turnspeed(UIState *s) {
 }
 
 static void ui_draw_vision_speed(UIState *s) {
-  const float speed = std::max(0.0, (*s->sm)["carState"].getCarState().getVEgo() * (s->scene.is_metric ? 3.6 : 2.2369363));
+  const float speed = std::max(0.0, s->scene.car_state.getVEgo() * (s->scene.is_metric ? 3.6 : 2.2369363));
   const std::string speed_str = std::to_string((int)std::nearbyint(speed));
   nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BASELINE);
   ui_draw_text(s, s->fb_w / 2, 210, speed_str.c_str(), 96 * 2.5, COLOR_WHITE, "sans-bold");
@@ -2786,7 +2779,7 @@ static void ui_draw_vision_event(UIState *s) {
     const int center_x = s->fb_w - radius - bdr_s * 2;
     const int center_y = radius  + (bdr_s * 1.5);
 
-    const QColor &color = bg_colors[(s->scene.car_state.getLkMode() ? s->status : UIStatus::STATUS_DISENGAGED)];
+    const QColor &color = bg_colors[(s->scene.car_state.getLkaEnabled() ? MAX(1,s->status) : UIStatus::STATUS_DISENGAGED)];
     NVGcolor nvg_color = nvgRGBA(color.red(), color.green(), color.blue(), color.alpha());
   
     // draw circle behind wheel
@@ -2911,9 +2904,9 @@ static void ui_draw_vision_power_meter(UIState *s) {
   if (s->scene.brake_indicator_enabled && s->scene.power_meter_mode < 2){
     const int w = s->fb_w * 3 / 128;
     const int x = s->fb_w * 121 / 128 - 6;
-    int alert_offset = (*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::SMALL
+    int alert_offset = s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::SMALL
                     ? s->fb_h * 7 / 32
-                     : (*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::MID
+                     : s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::MID
                      ? s->fb_h * 6 / 16 : 0;
     int h = (s->scene.power_meter_mode == 0 || alert_offset ? 22 : 21) * s->fb_h / 32 - 6;
     h -= alert_offset;
@@ -3231,7 +3224,7 @@ static void ui_draw_vision_brake(UIState *s) {
 
 static void draw_lane_pos_buttons(UIState *s) {
   if (s->vipc_client->connected && s->scene.lane_pos_enabled) {
-    const int radius = ((*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::NONE && !(s->scene.map_open) ? 185 : 100);
+    const int radius = (s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::NONE && !(s->scene.map_open) ? 185 : 100);
     const int right_x = (s->scene.measure_cur_num_slots > 0 
                           ? s->scene.measure_slots_rect.x - 4 * radius / 3
                           : 4 * s->fb_w / 5);
@@ -3411,7 +3404,7 @@ static void draw_dynamic_follow_mode_button(UIState *s) {
     nvgBeginPath(s->vg);
     nvgRoundedRect(s->vg, btn_x1, btn_y, btn_w, btn_h, radius);
     // nvgRoundedRect(s->vg, btn_x1, btn_y, btn_w, btn_h, 100);
-    const bool df_active = s->scene.dynamic_follow_active && !(s->scene.car_state.getOnePedalModeActive() || s->scene.car_state.getCoastOnePedalModeActive());
+    const bool df_active = s->scene.dynamic_follow_active && s->scene.controls_state.getActive();
     if (df_active){
       int r, g, b;
       int bg_r, bg_g, bg_b;
@@ -3553,8 +3546,8 @@ static void ui_draw_vision(UIState *s) {
   }
   // Set Speed, Current Speed, Status/Events
   ui_draw_vision_header(s);
-  if ((*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::NONE
-  || (*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::SMALL) {
+  if (s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::NONE
+  || s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::SMALL) {
     ui_draw_vision_face(s);
     if (s->scene.power_meter_mode < 2){
       ui_draw_vision_power_meter(s);
@@ -3563,11 +3556,11 @@ static void ui_draw_vision(UIState *s) {
       ui_draw_vision_brake(s);
       s->scene.power_meter_rect = {s->fb_w * 125 / 128, 1, 1, 1};
     }
-    if (!s->scene.map_open || (*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::NONE){
+    if (!s->scene.map_open || s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::NONE){
       ui_draw_measures(s);
     }
   }
-  else if ((*s->sm)["controlsState"].getControlsState().getAlertSize() == cereal::ControlsState::AlertSize::MID) {
+  else if (s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::MID) {
     ui_draw_vision_face(s);
     if (s->scene.power_meter_mode < 2){
       ui_draw_vision_power_meter(s);
@@ -3708,6 +3701,7 @@ void ui_nvg_init(UIState *s) {
     {"map_source_icon", "../assets/img_world_icon.png"},
     {"brake_disk", "../assets/img_brake.png"},
     {"one_pedal_mode", "../assets/offroad/icon_car_pedal.png"},
+    {"MADS", "../assets/offroad/icon_car_MADS.png"},
     {"lane_pos_left", "../assets/offroad/icon_lane_pos_left.png"},
     {"lane_pos_right", "../assets/offroad/icon_lane_pos_right.png"},
     {"img_nda", "../assets/img_nda.png"},

@@ -6,7 +6,7 @@ from selfdrive.config import Conversions as CV
 from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.gm import gmcan
 from selfdrive.car.gm.values import DBC, AccState, CanBus, CarControllerParams
-from selfdrive.car.gm.carstate import GAS_PRESSED_THRESHOLD
+from selfdrive.car.gm.carstate import GAS_PRESSED_THRESHOLD, GEAR_SHIFTER2
 from selfdrive.controls.lib.longitudinal_planner import BRAKE_SOURCES, COAST_SOURCES
 from selfdrive.controls.lib.pid import PIDController
 from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
@@ -22,21 +22,15 @@ ONE_PEDAL_ACCEL_PITCH_FACTOR_BP = [4., 8.] # [m/s]
 ONE_PEDAL_ACCEL_PITCH_FACTOR_V = [0.4, 1.] # [unitless in [0-1]]
 ONE_PEDAL_ACCEL_PITCH_FACTOR_INCLINE_V = [0.2, 1.] # [unitless in [0-1]]
 
-ONE_PEDAL_MODE_DECEL_BP = [
-  [i * CV.MPH_TO_MS for i in [0.5, 6.]],
-  [i * CV.MPH_TO_MS for i in [4., 12., 30.]],
-  [i * CV.MPH_TO_MS for i in [4., 16., 30.]]
-  ] # [mph to meters]
-ONE_PEDAL_MODE_DECEL_V = [
-  [-1.0, -1.1],
-  [-1.3, -1.7, -1.8],
-  [-1.7, -2.6, -2.4]
-] # light, medium, and hard one-pedal braking
+ONE_PEDAL_MODE_DECEL_BP = [i * CV.MPH_TO_MS for i in [0.5, 6.]] # [mph to meters]
+ONE_PEDAL_MODE_DECEL_V = [-1.0, -1.1]
 ONE_PEDAL_MIN_SPEED = 2.1
 ONE_PEDAL_DECEL_RATE_LIMIT_UP = 0.8 * DT_CTRL * 4 # m/s^2 per second for increasing braking force
 ONE_PEDAL_DECEL_RATE_LIMIT_DOWN = 0.8 * DT_CTRL * 4 # m/s^2 per second for decreasing
+ONE_PEDAL_DECEL_RATE_LIMIT_SPEED_FACTOR_BP = [i * CV.MPH_TO_MS for i in [0.0, 10.]] # [mph to meters]
+ONE_PEDAL_DECEL_RATE_LIMIT_SPEED_FACTOR_V = [0.2, 1.0] # factor of rate limit
 
-ONE_PEDAL_MAX_DECEL = -3.5
+ONE_PEDAL_MAX_DECEL = min(ONE_PEDAL_MODE_DECEL_V) - 0.5 # don't allow much more than the lowest requested amount
 ONE_PEDAL_SPEED_ERROR_FACTOR_BP = [1.5, 20.] # [m/s] 
 ONE_PEDAL_SPEED_ERROR_FACTOR_V = [0.4, 0.2] # factor of error for non-lead braking decel
 
@@ -89,7 +83,7 @@ class CarController():
     if CS.lka_steering_cmd_counter != self.lka_steering_cmd_counter_last:
       self.lka_steering_cmd_counter_last = CS.lka_steering_cmd_counter
     elif (frame % P.STEER_STEP) == 0:
-      lkas_enabled = (enabled or CS.pause_long_on_gas_press) and CS.lkMode and not (CS.out.steerWarning or CS.out.steerError) and CS.out.vEgo > P.MIN_STEER_SPEED and CS.lane_change_steer_factor > 0.
+      lkas_enabled = (enabled or CS.pause_long_on_gas_press or (CS.MADS_enabled and CS.cruiseMain)) and CS.lkaEnabled and not (CS.out.steerWarning or CS.out.steerError) and CS.out.vEgo > P.MIN_STEER_SPEED and CS.lane_change_steer_factor > 0.
       if lkas_enabled:
         new_steer = int(round(actuators.steer * P.STEER_MAX * CS.lane_change_steer_factor))
         P.v_ego = CS.out.vEgo
@@ -107,18 +101,15 @@ class CarController():
 
     # Gas/regen prep
     if (frame % 4) == 0:
-      if not enabled or (CS.pause_long_on_gas_press and CS.out.gas > GAS_PRESSED_THRESHOLD):
-        # Stock ECU sends max regen when not enabled.
-        self.apply_gas = P.MAX_ACC_REGEN
-        self.apply_brake = 0
+      if CS.out.gas >= 1e-5 or (not CS.out.onePedalModeActive and not CS.MADS_lead_braking_enabled) or CS.out.brakePressed:
         self.one_pedal_pid.reset()
         self.one_pedal_decel = CS.out.aEgo
         self.one_pedal_decel_in = CS.out.aEgo
-      else:
+      if (enabled or (CS.out.onePedalModeActive or CS.MADS_lead_braking_enabled)) or (CS.pause_long_on_gas_press and CS.out.gas > GAS_PRESSED_THRESHOLD):
         t = sec_since_boot()
         k = interp(CS.out.vEgo, ACCEL_PITCH_FACTOR_BP, ACCEL_PITCH_FACTOR_V)
         brake_accel = k * actuators.accelPitchCompensated + (1. - k) * actuators.accel
-        if CS.one_pedal_mode_active and (not CS.one_pedal_mode_op_braking_allowed or t - self.lead_accel_last_t > ONE_PEDAL_LEAD_ACCEL_RATE_LOCKOUT_T):
+        if CS.out.onePedalModeActive and (not CS.MADS_lead_braking_enabled or t - self.lead_accel_last_t > ONE_PEDAL_LEAD_ACCEL_RATE_LOCKOUT_T):
           one_pedal_speed = max(CS.vEgo, ONE_PEDAL_MIN_SPEED)
           threshold_accel = self.params.update_gas_brake_threshold(one_pedal_speed, CS.engineRPM > 0)
         else:
@@ -126,6 +117,9 @@ class CarController():
         self.apply_gas = interp(actuators.accelPitchCompensated, P.GAS_LOOKUP_BP, P.GAS_LOOKUP_V)
         no_pitch_apply_gas = interp(actuators.accel, P.GAS_LOOKUP_BP, P.GAS_LOOKUP_V)
         self.apply_brake = interp(brake_accel, P.BRAKE_LOOKUP_BP, P.BRAKE_LOOKUP_V)
+        
+        
+        CS.MADS_lead_braking_active = CS.MADS_lead_braking_enabled and not enabled and CS.coasting_lead_d > 0.0 and actuators.accel < -0.1 and CS.coasting_long_plan in BRAKE_SOURCES
         
         v_rel = CS.coasting_lead_v - CS.vEgo
         ttc = min(-CS.coasting_lead_d / v_rel if (CS.coasting_lead_d > 0. and v_rel < 0.) else 100.,100.)
@@ -160,41 +154,41 @@ class CarController():
           lead_long_gas_lockout_factor =  0. # 1.0 means regular braking logic is completely unaltered, 0.0 means no cruise braking
           lead_long_brake_lockout_factor =  0. # 1.0 means regular braking logic is completely unaltered, 0.0 means no cruise braking
         
-        if not CS.one_pedal_mode_active and not CS.coast_one_pedal_mode_active:
+        if not CS.out.onePedalModeActive:
           self.one_pedal_pid.reset()
           self.one_pedal_decel = CS.out.aEgo
           self.one_pedal_decel_in = CS.out.aEgo
-        
-        if (CS.one_pedal_mode_active or CS.coast_one_pedal_mode_active):
-          if not CS.one_pedal_mode_active and CS.gear_shifter_ev == 4 and CS.one_pedal_dl_coasting_enabled and CS.vEgo > 0.05:
-            self.apply_gas = P.ZERO_GAS
-          else:
-            self.apply_gas = P.MAX_ACC_REGEN
+        if CS.out.onePedalModeActive and CS.out.gas < 1e-5:
+          self.apply_gas = P.MAX_ACC_REGEN
           pitch_accel = CS.pitch * ACCELERATION_DUE_TO_GRAVITY
           pitch_accel *= interp(CS.vEgo, ONE_PEDAL_ACCEL_PITCH_FACTOR_BP, ONE_PEDAL_ACCEL_PITCH_FACTOR_V if pitch_accel <= 0 else ONE_PEDAL_ACCEL_PITCH_FACTOR_INCLINE_V)
           
-          if CS.one_pedal_mode_active:
-            self.one_pedal_decel_in = interp(CS.vEgo, ONE_PEDAL_MODE_DECEL_BP[CS.one_pedal_brake_mode], ONE_PEDAL_MODE_DECEL_V[CS.one_pedal_brake_mode])
-            if abs(CS.angle_steers) > CS.one_pedal_angle_steers_cutoff_bp[0]:
-              one_pedal_apply_brake_decel_minus1 = interp(CS.vEgo, ONE_PEDAL_MODE_DECEL_BP[max(0,CS.one_pedal_brake_mode-1)], ONE_PEDAL_MODE_DECEL_V[max(0,CS.one_pedal_brake_mode-1)])
-              self.one_pedal_decel_in = interp(abs(CS.angle_steers), CS.one_pedal_angle_steers_cutoff_bp, [self.one_pedal_decel_in, one_pedal_apply_brake_decel_minus1])
+          if CS.gear_shifter_ev == GEAR_SHIFTER2.LOW:
+            self.one_pedal_decel_in = interp(CS.vEgo, ONE_PEDAL_MODE_DECEL_BP, ONE_PEDAL_MODE_DECEL_V)
             
             error_factor = interp(CS.vEgo, ONE_PEDAL_SPEED_ERROR_FACTOR_BP, ONE_PEDAL_SPEED_ERROR_FACTOR_V)
             error = self.one_pedal_decel_in - min(0.0, CS.out.aEgo + pitch_accel)
             error *= error_factor
             one_pedal_decel = self.one_pedal_pid.update(self.one_pedal_decel_in, self.one_pedal_decel_in - error, speed=CS.out.vEgo, feedforward=self.one_pedal_decel_in)
             
-            self.one_pedal_decel = clip(one_pedal_decel, self.one_pedal_decel - ONE_PEDAL_DECEL_RATE_LIMIT_UP * max(1.0, 0.5 - one_pedal_decel*0.5), self.one_pedal_decel + ONE_PEDAL_DECEL_RATE_LIMIT_DOWN)
+            rate_limit_factor = interp(CS.vEgo, ONE_PEDAL_DECEL_RATE_LIMIT_SPEED_FACTOR_BP, ONE_PEDAL_DECEL_RATE_LIMIT_SPEED_FACTOR_V)
+            
+            self.one_pedal_decel = clip(one_pedal_decel, self.one_pedal_decel - ONE_PEDAL_DECEL_RATE_LIMIT_UP * rate_limit_factor, self.one_pedal_decel + ONE_PEDAL_DECEL_RATE_LIMIT_DOWN + rate_limit_factor)
             self.one_pedal_decel = max(self.one_pedal_decel, ONE_PEDAL_MAX_DECEL)
             one_pedal_apply_brake = interp(self.one_pedal_decel, P.BRAKE_LOOKUP_BP, P.BRAKE_LOOKUP_V)
           else:
-            self.one_pedal_decel_in = clip(0.0 if CS.gear_shifter_ev == 4 and CS.one_pedal_dl_coasting_enabled and CS.vEgo > 0.05 else min(CS.out.aEgo,threshold_accel), self.one_pedal_decel_in - ONE_PEDAL_DECEL_RATE_LIMIT_UP, self.one_pedal_decel_in + ONE_PEDAL_DECEL_RATE_LIMIT_DOWN)
+            self.one_pedal_decel_in = clip(0.0 if CS.gear_shifter_ev == GEAR_SHIFTER2.DRIVE and CS.one_pedal_dl_coasting_enabled and CS.vEgo > 0.05 else min(CS.out.aEgo,threshold_accel), self.one_pedal_decel_in - ONE_PEDAL_DECEL_RATE_LIMIT_UP, self.one_pedal_decel_in + ONE_PEDAL_DECEL_RATE_LIMIT_DOWN)
             one_pedal_apply_brake = 0.0
           
-          if not CS.one_pedal_mode_op_braking_allowed \
+          
+          if not CS.MADS_lead_braking_enabled \
               or one_pedal_apply_brake > self.apply_brake \
               or CS.coasting_lead_d < 0.0:
             self.apply_brake = one_pedal_apply_brake
+            CS.MADS_lead_braking_active = False
+          if CS.MADS_lead_braking_active:
+            self.lead_accel_last_t = t
+          
         elif CS.coasting_enabled and lead_long_brake_lockout_factor < 1.0:
           if CS.coasting_long_plan in COAST_SOURCES and self.apply_gas < P.ZERO_GAS or self.apply_brake > 0.0:
             check_speed_ms = (CS.speed_limit if CS.speed_limit_active and CS.speed_limit < CS.v_cruise_kph else CS.v_cruise_kph) * CV.KPH_TO_MS
@@ -218,30 +212,31 @@ class CarController():
           if CS.coasting_long_plan in COAST_SOURCES and self.apply_brake > 0.0:
             self.apply_brake *= lead_long_brake_lockout_factor
         self.apply_gas = int(round(self.apply_gas))
-        if CS.out.gas >= 1e-5:
-          self.apply_brake = 0
-        else:
-          self.apply_brake = int(round(self.apply_brake))
-
-        CS.one_pedal_mode_active_last = CS.one_pedal_mode_active
-        CS.coast_one_pedal_mode_active_last = CS.coast_one_pedal_mode_active
-      CS.brake_cmd = self.apply_brake
+      self.apply_brake = int(round(self.apply_brake))
+      
+    if not CS.cruiseMain or CS.out.brakePressed or CS.out.gearShifter not in ['drive','low']:
+      self.apply_gas = P.MAX_ACC_REGEN
+      self.apply_brake = 0
+    if not enabled or CS.out.gas >= GAS_PRESSED_THRESHOLD:
+      self.apply_gas = P.MAX_ACC_REGEN
+    if CS.out.gas >= 1e-5:
+      self.apply_brake = 0
 
     if CS.showBrakeIndicator:
       CS.apply_brake_percent = 0.
       if CS.vEgo > 0.1:
-        if CS.out.cruiseState.enabled:
+        if CS.out.cruiseState.enabled or CS.out.onePedalModeActive:
           if not CS.pause_long_on_gas_press:
             if self.apply_brake > 1:
               CS.apply_brake_percent = interp(self.apply_brake, [float(P.BRAKE_LOOKUP_V[-1]), float(P.BRAKE_LOOKUP_V[0])], [51., 100.])
-            elif (CS.one_pedal_mode_active or CS.coast_one_pedal_mode_active):
-              CS.apply_brake_percent = interp(CS.hvb_wattage, CS.hvb_wattage_bp, [0., 49.])
+            elif CS.out.onePedalModeActive:
+              CS.apply_brake_percent = interp(CS.hvb_wattage.x, CS.hvb_wattage_bp, [0., 49.])
             elif self.apply_gas < P.ZERO_GAS:
               CS.apply_brake_percent = interp(self.apply_gas, [float(P.GAS_LOOKUP_V[0]), float(P.GAS_LOOKUP_V[1])], [51., 0.])
           else:
-            CS.apply_brake_percent = interp(CS.hvb_wattage, CS.hvb_wattage_bp, [0., 49.])
+            CS.apply_brake_percent = interp(CS.hvb_wattage.x, CS.hvb_wattage_bp, [0., 49.])
         elif CS.is_ev and CS.out.brake == 0.:
-          CS.apply_brake_percent = interp(CS.hvb_wattage, CS.hvb_wattage_bp, [0., 49.])
+          CS.apply_brake_percent = interp(CS.hvb_wattage.x, CS.hvb_wattage_bp, [0., 49.])
         elif CS.out.brake > 0.:
           CS.apply_brake_percent = interp(CS.out.brake, [0., 0.5], [51., 100.])
       elif CS.out.brake > 0.:
@@ -251,7 +246,7 @@ class CarController():
     if (frame % 4) == 0:
       idx = (frame // 4) % 4
 
-      if CS.cruiseMain and not enabled and CS.autoHold and CS.autoHoldActive and not CS.out.gas > 1e-5 and CS.out.gearShifter in ['drive','low'] and CS.out.vEgo < 0.02 and not CS.regenPaddlePressed:
+      if CS.cruiseMain and not enabled and CS.autoHold and CS.autoHoldActive and not CS.out.gas > 1e-5 and CS.time_in_drive >= CS.autohold_min_time_in_drive and CS.out.vEgo < 0.02 and not CS.regen_paddle_pressed:
         # Auto Hold State
         car_stopping = no_pitch_apply_gas < P.ZERO_GAS
         standstill = CS.pcm_acc_status == AccState.STANDSTILL
@@ -262,7 +257,7 @@ class CarController():
         CS.autoHoldActivated = True
 
       else:
-        if CS.pause_long_on_gas_press:
+        if CS.out.gas > 1e-5 or CS.out.gearShifter not in ['drive','low'] or CS.out.brakePressed or not CS.cruiseMain:
           at_full_stop = False
           near_stop = False
           car_stopping = False
@@ -270,8 +265,10 @@ class CarController():
         else:
           car_stopping = no_pitch_apply_gas < P.ZERO_GAS
           standstill = CS.pcm_acc_status == AccState.STANDSTILL
-          at_full_stop = enabled and standstill and car_stopping
-          near_stop = enabled and (CS.out.vEgo < P.NEAR_STOP_BRAKE_PHASE) and car_stopping
+          if standstill:
+            self.apply_gas = P.MAX_ACC_REGEN
+          at_full_stop = (enabled or (CS.out.onePedalModeActive or CS.MADS_lead_braking_enabled)) and standstill and car_stopping
+          near_stop = (enabled or (CS.out.onePedalModeActive or CS.MADS_lead_braking_enabled)) and (CS.out.vEgo < P.NEAR_STOP_BRAKE_PHASE) and car_stopping
 
         can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, CanBus.CHASSIS, self.apply_brake, idx, near_stop, at_full_stop))
         CS.autoHoldActivated = False
@@ -288,6 +285,8 @@ class CarController():
       
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, acc_enabled, at_full_stop))
 
+
+    CS.brake_cmd = self.apply_brake
 
     # Send dashboard UI commands (ACC status), 25hz
     if (frame % 4) == 0:

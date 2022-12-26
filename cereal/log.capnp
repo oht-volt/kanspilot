@@ -554,6 +554,8 @@ struct ControlsState @0x97ff69c53601abf1 {
   state @31 :OpenpilotState;
   enabled @19 :Bool;
   active @36 :Bool;
+  latActive @64 :Bool;
+  madsEnabled @65 :Bool;
 
   longControlState @30 :Car.CarControl.Actuators.LongControlState;
   vPid @2 :Float32;
@@ -1022,6 +1024,7 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
     nudgelessCountdown @6;
     nudgeWarningNoLane @7;
     nudgeWarningOncoming @8;
+    nudgelessLongDisabled @9;
   }
 
   enum LaneTraffic {

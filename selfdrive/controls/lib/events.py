@@ -255,14 +255,14 @@ def startup_fuzzy_fingerprint_alert(CP: car.CarParams, sm: messaging.SubMaster, 
     "WARNING: No Exact Match on Car Model",
     f"Closest Match: {CP.carFingerprint.title()[:40]}",
     AlertStatus.userPrompt, AlertSize.mid,
-    Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 10.)
+    Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.)
 
 def startup_master_display_fingerprint_alert(CP: car.CarParams, sm: messaging.SubMaster, metric: bool) -> Alert:
   return Alert(
-    "Hands on wheel | Eyes on road",
-    f"UNTESTED BRANCH on {CP.carFingerprint.title()[:40]}",
-    AlertStatus.normal, AlertSize.mid,
-    Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 10.)
+      "Hands on wheel | Eyes on road",
+      f"UNTESTED BRANCH on {CP.carFingerprint.title()[:40]}",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.)
   
 def comm_issue_alert(CP: car.CarParams, sm: messaging.SubMaster, metric: bool) -> Alert:
   invalid = [s for s, valid in sm.valid.items() if not valid]
@@ -320,6 +320,8 @@ def pre_lane_change(CP: car.CarParams, sm: messaging.SubMaster, metric: bool) ->
     str2 = "(no auto lane change below {})".format("40mph" if not metric else "65kph")
   elif alert == LaneChangeAlert.nudgelessBlockedOnePedal:
     str2 = "(no auto lane change in one-pedal mode)"
+  elif alert == LaneChangeAlert.nudgelessLongDisabled:
+    str2 = "(no auto lane change when not cruising)"
   
   if str2 == "":
     return Alert(
@@ -623,14 +625,17 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
 
   EventName.belowSteerSpeed: {
     ET.WARNING: below_steer_speed_alert,
+    ET.PERMANENT: below_steer_speed_alert,
   },
 
   EventName.preLaneChangeLeft: {
     ET.WARNING: pre_lane_change,
+    ET.PERMANENT: pre_lane_change,
   },
 
   EventName.preLaneChangeRight: {
     ET.WARNING: pre_lane_change,
+    ET.PERMANENT: pre_lane_change,
   },
 
   EventName.laneChangeBlocked: {
@@ -643,6 +648,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
 
   EventName.laneChange: {
     ET.WARNING: lane_change,
+    ET.PERMANENT: lane_change,
   },
 
   EventName.steerSaturated: {
@@ -753,6 +759,16 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
     ET.NO_ENTRY: NoEntryAlert("Pedal Pressed",
                               visual_alert=VisualAlert.brakePressed),
   },
+  
+  EventName.silentPedalPressed: {
+    ET.USER_DISABLE: Alert(
+      "",
+      "",
+      AlertStatus.normal, AlertSize.none,
+      Priority.LOWEST, VisualAlert.none, AudibleAlert.none, .2, 0., 0.),
+    ET.NO_ENTRY: NoEntryAlert("Pedal Pressed During Attempt",
+                              visual_alert=VisualAlert.brakePressed),
+  },
 
   EventName.wrongCarMode: {
     ET.USER_DISABLE: EngagementAlert(AudibleAlert.chimeDisengage),
@@ -819,6 +835,19 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
   EventName.wrongGear: {
     ET.SOFT_DISABLE: UserSoftDisableAlert("Gear not D"),
     ET.NO_ENTRY: NoEntryAlert("Gear not D"),
+  },
+  
+  EventName.silentWrongGear: {
+    ET.SOFT_DISABLE: Alert(
+      "Gear not D",
+      "openpilot Unavailable",
+      AlertStatus.normal, AlertSize.none,
+      Priority.LOWEST, VisualAlert.none, AudibleAlert.none, 0., 2., 3.),
+    ET.NO_ENTRY: Alert(
+      "Gear not D",
+      "openpilot Unavailable",
+      AlertStatus.normal, AlertSize.none,
+      Priority.LOWEST, VisualAlert.none, AudibleAlert.none, 0., 2., 3.),
   },
 
   # This alert is thrown when the calibration angles are outside of the acceptable range.
@@ -1072,6 +1101,11 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
       "Low-speed blinker",
       AlertStatus.userPrompt, AlertSize.small,
       Priority.LOW, VisualAlert.steerRequired, AudibleAlert.none, 0., 0.4, .3, creation_delay=0.5),
+    ET.PERMANENT: Alert(
+      "Autosteer paused for low-speed blinker",
+      "Low-speed blinker",
+      AlertStatus.userPrompt, AlertSize.small,
+      Priority.LOW, VisualAlert.steerRequired, AudibleAlert.none, 0., 0.4, .3, creation_delay=0.5),
   },
 
   EventName.pauseLongOnGasPress: {
@@ -1080,6 +1114,57 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
       "",
       AlertStatus.normal, AlertSize.small,
       Priority.LOW, VisualAlert.none, AudibleAlert.none, 0., 3., 0.3),
+  },
+  
+  EventName.manualSteeringRequired: {
+    ET.WARNING: Alert(
+      "Autosteer is OFF",
+      "Manual Steering Required",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOW, VisualAlert.none, AudibleAlert.chimeDisengage, 1., 2., 2.),
+  },
+  
+  EventName.madsAlert1: {
+    ET.PERMANENT: Alert(
+      "MADS | Autosteer",
+      "Toggle with LKA button",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.),
+  },  
+  EventName.madsAlert2: {
+    ET.PERMANENT: Alert(
+      "MADS | Lead braking",
+      "Toggle with ACC distance button",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.),
+  },  
+  EventName.madsAlert5: {
+    ET.PERMANENT: Alert(
+      "MADS | Lead braking",
+      "MADS icon red when stopping, white ring when enabled",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.),
+  },
+  EventName.madsAlert3: {
+    ET.PERMANENT: Alert(
+      "MADS | One-pedal driving",
+      "Toggle with regen paddle double-tap",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.),
+  },
+  EventName.madsAlert6: {
+    ET.PERMANENT: Alert(
+      "MADS | One-pedal one-time-stop",
+      "Slow to below 5mph with regen paddle",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.),
+  },
+  EventName.madsAlert4: {
+    ET.PERMANENT: Alert(
+      "MADS | Enabled",
+      "Master on/off using cruise main button",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOWER, VisualAlert.none, AudibleAlert.none, 0., 0., 5.),
   },
 
   EventName.slowingDownSpeed: {
