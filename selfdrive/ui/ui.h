@@ -160,6 +160,23 @@ typedef struct {
   int cnt;
 } line_vertices_data;
 
+typedef struct {
+  bool enabled = false;
+  bool valid = false;
+  long int time = 0;
+  int display_mode = 0; // 0/1 = simple/full
+  char desc_simple[16];
+  char desc_full1[64];
+  char desc_full2[64];
+  char desc_full3[64];
+  char desc_full4[64];
+  char icon[8];
+  bool has_precip = false;
+} weather_info;
+
+void s_to_time_str(char* val, int s);
+void deg_to_str(char* val, float deg);
+
 typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   // Vehicle info
   STEERING_ANGLE = 0,
@@ -202,8 +219,48 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   ROLL_DEVICE,
   LANE_WIDTH,
   LANE_DIST_FROM_CENTER,
-  DISTANCE_TRAVELLED,
-  INTERACTION_TIMER,//40
+  DISTANCE_TRAVELED_SESSION,
+  DISTANCE_TRAVELED_TOTAL,//40
+  DISTANCE_ENGAGED,
+  DISTANCE_ENGAGED_SESSION,
+  DISTANCE_ENGAGED_TOTAL,
+  DISTANCE_ENGAGED_PERCENT_SESSION,
+  DISTANCE_ENGAGED_PERCENT_TOTAL,
+  TIME_CAR_RUNNING_SESSION,
+  TIME_CAR_RUNNING_TOTAL,
+  TIME_OPENPILOT_ENGAGED_SESSION,
+  TIME_OPENPILOT_ENGAGED_TOTAL,
+  TIME_OPENPILOT_ENGAGED,//50
+  TIME_ENGAGED_PERCENT_SESSION,
+  TIME_ENGAGED_PERCENT_TOTAL,
+  DISENGAGEMENT_COUNT_SESSION,
+  DISENGAGEMENT_COUNT_TOTAL,
+  INTERACTION_COUNT_SESSION,
+  INTERACTION_COUNT_TOTAL,
+  INTERVENTION_COUNT_SESSION,
+  INTERVENTION_COUNT_TOTAL,
+  DISTRACTION_COUNT_SESSION,
+  DISTRACTION_COUNT_TOTAL,//60
+  INTERACTION_DISTANCE,
+  INTERVENTION_DISTANCE,
+  DISTRACTION_DISTANCE,
+  DISTANCE_PER_DISENGAGEMENT_SESSION,
+  DISTANCE_PER_DISENGAGEMENT_TOTAL,
+  DISTANCE_PER_INTERACTION_SESSION,
+  DISTANCE_PER_INTERACTION_TOTAL,
+  DISTANCE_PER_INTERVENTION_SESSION,
+  DISTANCE_PER_INTERVENTION_TOTAL,
+  DISTANCE_PER_DISTRACTION_SESSION,//70
+  DISTANCE_PER_DISTRACTION_TOTAL,
+  TIME_PER_DISENGAGEMENT_SESSION,
+  TIME_PER_DISENGAGEMENT_TOTAL,
+  TIME_PER_INTERACTION_SESSION,
+  TIME_PER_INTERACTION_TOTAL,
+  TIME_PER_INTERVENTION_SESSION,
+  TIME_PER_INTERVENTION_TOTAL,
+  TIME_PER_DISTRACTION_SESSION,
+  TIME_PER_DISTRACTION_TOTAL,
+  INTERACTION_TIMER,//80
   INTERVENTION_TIMER,
   DISTRACTION_TIMER,
   // Lead/traffic info
@@ -214,7 +271,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   LEAD_DESIRED_DISTANCE_LENGTH,
   LEAD_DESIRED_DISTANCE_TIME,
   LEAD_COSTS,
-  LEAD_VELOCITY_RELATIVE,//50
+  LEAD_VELOCITY_RELATIVE,//90
   LEAD_VELOCITY_ABS,
   LANE_POSITION,
   LANE_OFFSET,
@@ -225,7 +282,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   TRAFFIC_COUNT_ADJACENT_ONGOING,
   TRAFFIC_ADJ_ONGOING_MIN_DISTANCE,
   // EV info
-  HVB_VOLTAGE,//60
+  HVB_VOLTAGE,//100
   HVB_CURRENT,
   HVB_WATTAGE,
   HVB_WATTVOLT,
@@ -235,7 +292,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   EV_CONSUM_NOW,
   EV_CONSUM_RECENT,
   EV_CONSUM_TRIP,
-  EV_BOTH_NOW,//70
+  EV_BOTH_NOW,//110
   EV_OBSERVED_DRIVETRAIN_EFF,
   // Device info
   CPU_TEMP_AND_PERCENTF,
@@ -246,7 +303,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   MEMORY_TEMPF,
   MEMORY_TEMPC,
   AMBIENT_TEMPF,
-  AMBIENT_TEMPC,//80
+  AMBIENT_TEMPC,//120
   FANSPEED_PERCENT,
   FANSPEED_RPM,
   MEMORY_USAGE_PERCENT,
@@ -257,7 +314,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   VISION_CURLATACCEL,
   VISION_MAXVFORCURCURV,
   VISION_MAXPREDLATACCEL,
-  VISION_VF,//90
+  VISION_VF,//130
   
   NUM_MEASURES
 } UIMeasure;
@@ -296,6 +353,9 @@ typedef struct UIScene {
   int speed_limit_eu_style = false;
 
   std::string current_road_name;
+
+  weather_info weather_info;
+  Rect weather_touch_rect;
   
   // adjustable lane position
   Rect lane_pos_left_touch_rect = {1,1,1,1}, lane_pos_right_touch_rect = {1,1,1,1};

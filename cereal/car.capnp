@@ -140,6 +140,9 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     madsAlert5 @127;
     madsAlert6 @128;
 
+    slipperyRoadsActivated @129;
+    lowVisibilityActivated @130;
+
     driverMonitorLowAccDEPRECATED @68;
     radarCanErrorDEPRECATED @15;
     radarCommIssueDEPRECATED @67;
@@ -187,6 +190,9 @@ struct CarState {
   frictionBrakePercent @44 :Int64; # amount of brake being applied by OP
 
   cruiseMain @72 :Bool;
+
+  slipperyRoadsActive @74 :Bool;
+  lowVisibilityActive @75 :Bool;
   
   madsLeadBrakingActive @73 :Bool; # to color MADS icon
   onePedalModeActive @45 :Bool; # to change max speed to one-peda icon

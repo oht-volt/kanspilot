@@ -193,9 +193,19 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "Decreases device power, CPU, and storage use for running better on older hardware by: 1) defaulting to medium brightness (tap DM icon to change), 2) disable onroad logging (loggerd and proclogd). Your device will not keep or upload logs with this enabled!",
                                   "../assets/offroad/icon_settings.png",
                                   this));
+  toggles.append(new ParamControl("WeatherDisplayEnabled",
+                                  "기상정보 표시",
+                                  "간단한 레이아웃과 전체 레이아웃을 전환하려면 날씨 정보를 누릅니다. 원하는 경우 /data/OpenWeatherMap_apiKey.txt에 자신의 OpenWeatherMap.org API 키를 입력합니다.",
+                                  "../assets/weather/10n.png",
+                                  this));
+  toggles.append(new ParamControl("WeatherSafetyEnabled",
+                                  "기상 안전장치",
+                                  "OpenPilot은 자동으로 더 부드러운 가속과 곡선 제동, 더 먼 거리의 교통 흐름을 따르거나 사용 중 제한 속도 오프셋을 낮추어줍니다. 원하는 경우 /data/OpenWeatherMap_apiKey.txt 파일에 여러분 자신의 OpenWeatherMap.org API 키를 입력합십시오.",
+                                  "../assets/weather/10n.png",
+                                  this));
   toggles.append(new ParamControl("ColorPath",
-                                  "Colored path",
-                                  "Color path according to the amount of lateral (steering) correction being applied",
+                                  "경로색상",
+                                  "횡가속도 보정량에 따른 경로색상",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AdjacentPaths",
