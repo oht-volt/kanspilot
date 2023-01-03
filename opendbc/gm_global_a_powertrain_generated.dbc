@@ -230,6 +230,7 @@ BO_ 842 EBCMWheelSpdRear: 5 K17_EBCM
 BO_ 869 ASCM_365: 4 K124_ASCM
 
 BO_ 880 ASCMActiveCruiseControlStatus: 6 K124_ASCM
+ SG_ RollingCounter : 33|2@0+ (1,0) [0|3] ""  NEO
  SG_ ACCLeadCar : 44|1@0+ (1,0) [0|0] "" Vector__XXX
  SG_ ACCAlwaysOne2 : 32|1@0+ (1,0) [0|0] "" Vector__XXX
  SG_ ACCAlwaysOne : 0|1@0+ (1,0) [0|0] "" Vector__XXX

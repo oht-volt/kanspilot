@@ -840,7 +840,7 @@ class Controls:
     # Only calibrated (car) frame is relevant for the carcontroller
     CC.sccSmoother.autoTrGap = AUTO_TR_CRUISE_GAP
     CC.cruiseControl.override = True
-    CC.cruiseControl.accResumeButton = True
+
     orientation_value = list(self.sm['liveLocationKalman'].calibratedOrientationNED.value)
     if len(orientation_value) > 2:
       CC.orientationNED = orientation_value
@@ -851,6 +851,10 @@ class Controls:
     CC.cruiseControl.cancel = CS.cruiseState.enabled and (not self.enabled or not self.CP.pcmCruise)
     if self.joystick_mode and self.sm.rcv_frame['testJoystick'] > 0 and self.sm['testJoystick'].buttons[0]:
       CC.cruiseControl.cancel = True
+
+    speeds = self.sm['longitudinalPlan'].speeds
+    if len(speeds):
+      CC.cruiseControl.resume = self.enabled and CS.cruiseState.standstill and speeds[-1] > 0.1
 
     hudControl = CC.hudControl
     hudControl.setSpeed = float(self.v_cruise_kph_limit * CV.KPH_TO_MS)

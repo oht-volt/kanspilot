@@ -1291,7 +1291,6 @@ void NvgWindow::drawDebugText(QPainter &p) {
   p.drawText(text_x, y, str);
 
   y += height;
-  p.setPen(QColor(120, 255, 120, 255));
   str.sprintf("Accel: %.3f\n", accel);
   p.drawText(text_x, y, str);
 }

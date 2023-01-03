@@ -127,6 +127,7 @@ class CarInterfaceBase(ABC):
   def get_std_params(candidate, fingerprint):
     ret = car.CarParams.new_message()
     ret.carFingerprint = candidate
+    ret.autoResumeSng = True  # describes whether car can resume from a stop automatically
     ret.alternativeExperience = 1  # see safety_declarations.h for allowed values
 
     # standard ALC params
@@ -140,7 +141,7 @@ class CarInterfaceBase(ABC):
     ret.openpilotLongitudinalControl = False
     ret.stopAccel = -2.0
     ret.stoppingDecelRate = 0.8 # brake_travel/s while trying to stop
-    ret.vEgoStopping = 0.5
+    ret.vEgoStopping = 0.6
     ret.vEgoStarting = 0.5
     ret.stoppingControl = True
     ret.longitudinalTuning.deadzoneBP = [0.]
@@ -157,7 +158,7 @@ class CarInterfaceBase(ABC):
     return ret
 
   @staticmethod
-  def configure_torque_tune(tune, LAT_ACCEL_FACTOR=2.5, FRICTION=0.14, steering_angle_deadzone_deg=0.0, use_steering_angle=True):
+  def configure_torque_tune(tune, LAT_ACCEL_FACTOR=2.6, FRICTION=0.14, steering_angle_deadzone_deg=0.0, use_steering_angle=True):
     tune.init('torque')
     tune.torque.useSteeringAngle = use_steering_angle
     tune.torque.kp = 0.6

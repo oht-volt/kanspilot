@@ -250,6 +250,7 @@ struct CarState {
     nonAdaptive @5 :Bool;
     speedLimit @7 :Float32;
     enabledAcc @8 :Bool;
+    resumeButton @9: Bool;
   }
 
   enum GearShifter {
@@ -382,7 +383,7 @@ struct CarControl {
     override @1: Bool;
     speedOverride @2: Float32;
     accelOverride @3: Float32;
-    accResumeButton @4: Bool;
+    resume @4: Bool;
   }
 
   struct HUDControl {
@@ -468,6 +469,7 @@ struct CarParams {
   alternativeExperience @66 :Int16;  # panda flag for features like no disengage on gas
   unsafeMode @68 :Int16;
   maxLateralAccel @73 :Float32;
+  autoResumeSng @74 :Bool;               # describes whether car can resume from a stop automatically
 
   steerMaxBPDEPRECATED @11 :List(Float32);
   steerMaxVDEPRECATED @12 :List(Float32);

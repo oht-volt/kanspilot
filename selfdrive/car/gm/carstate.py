@@ -58,18 +58,20 @@ class CarState(CarStateBase):
     self.pause_long_on_gas_press = False
     self.gasPressed = False
 
-    # lead_distance
+    # lead_distance and auto resume
+    self.cruiseState_resumeButton = False
     self.lead_distance = 0
     self.lead_speed = 0
     self.sm = messaging.SubMaster(['radarState'])
+    self.buttons_counter = 0
 
 
   def update(self, pt_cp, loopback_cp, ch_cp): # line for brake light & GM: EPS fault workaround (#22404)
     # lead_distance
     self.sm.update(0)
     if self.sm.updated['radarState']:
-      self.lead_distance = 0
-      self.lead_speed = 0
+      self.lead_distance = 0.0
+      self.lead_speed = 0.0
       lead = self.sm['radarState'].leadOne
       if lead is not None:
         self.lead_distance = lead.dRel
@@ -78,6 +80,7 @@ class CarState(CarStateBase):
     ret = car.CarState.new_message()
     self.prev_cruise_buttons = self.cruise_buttons
     self.cruise_buttons = pt_cp.vl["ASCMSteeringButton"]["ACCButtons"]
+    self.buttons_counter = pt_cp.vl["ASCMSteeringButton"]["RollingCounter"]
     self.prev_left_blinker = self.leftBlinker
     self.prev_right_blinker = self.rightBlinker
 
@@ -129,7 +132,7 @@ class CarState(CarStateBase):
       self.a_ego_filtered.update(ret.aEgo)
 
     self.vEgo = ret.vEgo
-    ret.standstill = ret.vEgoRaw < 0.01
+    ret.standstill = ret.vEgoRaw < 0.1
 
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL"]["PRNDL"], None))
     #This brake position value disengages stock ACC, use it to avoid control mismatch.
@@ -172,7 +175,7 @@ class CarState(CarStateBase):
     ret.leftBlinker = pt_cp.vl["BCMTurnSignals"]["TurnSignals"] == 1
     ret.rightBlinker = pt_cp.vl["BCMTurnSignals"]["TurnSignals"] == 2
     ret.parkingBrake = pt_cp.vl["EPBStatus"]["EPBClosed"] == 1
-    ret.cruiseState.available = pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"] != 0
+    ret.cruiseState.available = bool(pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"])# != 0
     ret.espDisabled = pt_cp.vl["ESPStatus"]["TractionControlOn"] != 1
     self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
 
@@ -186,9 +189,11 @@ class CarState(CarStateBase):
     # cruise state
     self.gas_pressed = ret.gasPressed
     ret.cruiseState.enabled = self.pcm_acc_status != AccState.OFF
-    ret.cruiseState.standstill = False
+    ret.cruiseState.standstill = self.pcm_acc_status != AccState.STANDSTILL
     ret.cruiseState.enabledAcc = ret.cruiseState.enabled
     self.cruiseState_enabled = ret.cruiseState.enabled
+    ret.cruiseState.resumeButton = bool(pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCResumeButton"])
+    self.cruiseState_resumeButton = ret.cruiseState.resumeButton
 
     # bellow 1 line for AutoHold
     self.cruiseMain = ret.cruiseState.available
@@ -237,6 +242,7 @@ class CarState(CarStateBase):
       ("AcceleratorPedal2", "AcceleratorPedal2"),
       ("CruiseState", "AcceleratorPedal2"),
       ("ACCButtons", "ASCMSteeringButton"),
+      ("RollingCounter", "ASCMSteeringButton"),
       ("SteeringWheelAngle", "PSCMSteeringAngle"),
       ("SteeringWheelRate", "PSCMSteeringAngle"),
       ("FLWheelSpd", "EBCMWheelSpdFront"),
@@ -260,6 +266,7 @@ class CarState(CarStateBase):
       ("ACCGapLevel", "ASCMActiveCruiseControlStatus"),
       ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
       ("YawRate", "EBCMVehicleDynamic"),
+      ("ACCResumeButton", "ASCMActiveCruiseControlStatus"),
     ]
 
     checks = []

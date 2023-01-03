@@ -79,6 +79,7 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
     ret.carName = "gm"
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
+    ret.autoResumeSng = ret.minEnableSpeed == -1
     ret.pcmCruise = False  # stock cruise control is kept off
 
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
