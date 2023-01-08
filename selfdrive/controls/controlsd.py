@@ -24,6 +24,8 @@ from selfdrive.controls.lib.latcontrol_indi import LatControlINDI
 from selfdrive.controls.lib.latcontrol_lqr import LatControlLQR
 from selfdrive.controls.lib.latcontrol_angle import LatControlAngle
 from selfdrive.controls.lib.latcontrol_torque import LatControlTorque
+from selfdrive.controls.lib.latcontrol_torque_indi import LatControlTorqueINDI
+from selfdrive.controls.lib.latcontrol_torque_lqr import LatControlTorqueLQR
 from selfdrive.controls.lib.events import Events, ET
 from selfdrive.controls.lib.alertmanager import AlertManager
 from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
@@ -90,10 +92,14 @@ class Controls:
     params = Params()
     self.joystick_mode = params.get_bool("JoystickDebugMode")
     joystick_packet = ['testJoystick'] if self.joystick_mode else []
+    
+    self.gray_panda_support_enabled = params.get_bool("GrayPandaSupport")
 
     self.sm = sm
     if self.sm is None:
-      ignore = ['driverCameraState', 'managerState'] if SIMULATION else None
+      ignore = ['driverCameraState', 'managerState'] if SIMULATION else ['liveWeatherData']
+      if self.gray_panda_support_enabled:
+        ignore += ['gpsLocationExternal']
       self.sm = messaging.SubMaster(['deviceState', 'pandaState', 'modelV2', 'liveCalibration',
                                      'driverMonitoringState', 'longitudinalPlan', 'lateralPlan', 'liveLocationKalman',
                                      'managerState', 'liveParameters', 'radarState', 'gpsLocationExternal', 'liveWeatherData'] + self.camera_packets + joystick_packet,
@@ -156,6 +162,10 @@ class Controls:
       self.LaC = LatControlLQR(self.CP)
     elif self.CP.lateralTuning.which() == 'torque':
       self.LaC = LatControlTorque(self.CP, self.CI)
+    elif self.CP.lateralTuning.which() == 'torqueIndi':
+      self.LaC = LatControlTorqueINDI(self.CP, self.CI)
+    elif self.CP.lateralTuning.which() == 'torqueLqr':
+      self.LaC = LatControlTorqueLQR(self.CP, self.CI)
 
     self.initialized = False
     self.state = State.disabled
@@ -191,6 +201,7 @@ class Controls:
     self.low_visibility = False
     self.low_visibility_activated = False
     self.weather_safety_enabled = params.get_bool("WeatherSafetyEnabled")
+    self.weather_valid = False
     
     self.reset_metrics = params.get_bool("MetricResetSwitch")
     if self.reset_metrics:
@@ -235,13 +246,14 @@ class Controls:
     self._params = params
     self.params_write_freq = 30.0
     self.params_write_last_t = sec_since_boot()
+    self.op_params_override_lateral = self._params.get_bool('OPParamsLateralOverride')
+    self.op_params_override_long = self._params.get_bool('OPParamsLongitudinalOverride')
 
     self.v_cruise_kph_limit = 0
     self.road_limit_speed = 0
     self.left_dist = 0
 
     self.slowing_down = False
-    self.slowing_down_alert = False
     self.slowing_down_sound_alert = False
 
     # TODO: no longer necessary, aside from process replay
@@ -268,7 +280,6 @@ class Controls:
 
   def reset(self):
     self.slowing_down = False
-    self.slowing_down_alert = False
     self.slowing_down_sound_alert = False
 
   def update_events(self, CS):
@@ -293,13 +304,19 @@ class Controls:
     t = sec_since_boot()
     
     if t - self.params_check_last_t > self.params_check_freq:
+      if self.op_params_override_lateral:
+        self.LaC.update_op_params()
+      if self.op_params_override_long:
+        self.LoC.update_op_params()
       screen_tapped = self._params.get_bool("ScreenTapped")
       if screen_tapped:
+        self.CI.screen_tapped = True
         put_nonblocking("ScreenTapped", "0")
       self.distance_last = CS.vEgo * (t - self.params_check_last_t)
       self.distance_traveled_total += self.distance_last
-      self.car_running_timer_session += self.params_check_freq
-      self.car_running_timer_total += self.params_check_freq
+      if CS.gearShifter in ['drive', 'low', 'reverse']:
+        self.car_running_timer_session += self.params_check_freq
+        self.car_running_timer_total += self.params_check_freq
       if not self.enabled and self.enabled_last and CS.vEgo > 0.5:
         self.disengagement_count_session += 1
         self.disengagement_count_total += 1
@@ -499,7 +516,7 @@ class Controls:
       #if not NOSENSOR:
       #  self.gpsWasOK = self.gpsWasOK or self.sm['liveLocationKalman'].gpsOK
       #  if self.gpsWasOK and not self.sm['liveLocationKalman'].gpsOK and (self.distance_traveled > 1000):
-          # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
+      #    # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
       #    self.events.add(EventName.noGps)
       if not self.sm.all_alive(self.camera_packets):
         self.events.add(EventName.cameraMalfunction)
@@ -527,8 +544,6 @@ class Controls:
     if self.slowing_down_sound_alert:
       self.slowing_down_sound_alert = False
       self.events.add(EventName.slowingDownSpeedSound)
-    elif self.slowing_down_alert:
-      self.events.add(EventName.slowingDownSpeed)
 
   def data_sample(self):
     """Receive data from sockets and update carState"""
@@ -595,25 +610,27 @@ class Controls:
       
       if self.weather_safety_enabled and self.sm.updated['liveWeatherData']:
         if self.sm['liveWeatherData'].valid:
+          precip_1h = self.sm['liveWeatherData'].rain1Hour * 4 + self.sm['liveWeatherData'].snow1Hour
+          precip_3h = self.sm['liveWeatherData'].rain3Hour * 4 + self.sm['liveWeatherData'].snow3Hour
+          precip = max(precip_1h * 1.5, precip_3h)
           slippery_roads = self.sm['liveWeatherData'].temperature < -1.0 \
-            and self.sm['liveWeatherData'].rain1Hour * 4 + self.sm['liveWeatherData'].snow1Hour > 36
-          low_visibility = self.sm['liveWeatherData'].visibility <= 600 \
-            or self.sm['liveWeatherData'].rain1Hour > 6
+            and precip > 15
+          low_visibility = self.sm['liveWeatherData'].visibility <= 1500 \
+            or precip > 10
           if slippery_roads and (not self.weather_valid or not self.slippery_roads):
-            self.CI.CS.accel_mode = 2
-            self.CI.CS.follow_level = 2
-            put_nonblocking("FollowLevel", str(int(self.CI.CS.follow_level)))
-            put_nonblocking("AccelMode", str(int(self.CI.CS.accel_mode)))
             self.CI.CS.slippery_roads_active = True
             self.slippery_roads_activated = True
+            self.CI.CS.slippery_roads_activated_t = cur_time
+            cloudlog.info(f"Weather safety: Activating slippery road mode for {precip}mm @ {self.sm['liveWeatherData'].temperature}C")
           elif low_visibility and (not self.weather_valid or not self.low_visibility):
-            self.CI.CS.follow_level = 2
-            put_nonblocking("FollowLevel", str(int(self.CI.CS.follow_level)))
             self.CI.CS.low_visibility_active = True
+            self.CI.CS.low_visibility_activated_t = cur_time
             self.low_visibility_activated = True
+            cloudlog.info(f"Weather safety: Activating low visibility mode. Visibility {self.sm['liveWeatherData'].visibility}m, precipitation {precip}mm")
           
           self.slippery_roads = slippery_roads
           self.low_visibility = low_visibility
+        self.weather_valid = self.sm['liveWeatherData'].valid
       
       if not self.slippery_roads and self.CI.CS.slippery_roads_active:
         self.CI.CS.slippery_roads_active = False
@@ -796,7 +813,7 @@ class Controls:
       # accel PID loop
       pid_accel_limits = self.CI.get_pid_accel_limits(self.CP, CS.vEgo, self.v_cruise_kph * CV.KPH_TO_MS, self.CI)
       t_since_plan = (self.sm.frame - self.sm.rcv_frame['longitudinalPlan']) * DT_CTRL
-      actuators.accel = self.LoC.update(self.active or self.CI.CS.MADS_lead_braking_enabled, CS, self.CP, long_plan, pid_accel_limits, t_since_plan)
+      actuators.accel = self.LoC.update(self.active, CS, self.CP, long_plan, pid_accel_limits, t_since_plan, MADS_lead_braking_enabled=self.CI.CS.MADS_lead_braking_enabled)
       
       # compute pitch-compensated accel
       if self.sm.updated['liveParameters']:
@@ -888,13 +905,6 @@ class Controls:
     CC.cruiseControl.accelOverride = float(self.CI.calc_accel_override(CS.aEgo, self.a_target,
                                                                        CS.vEgo, self.v_target))
     
-    CC.onePedalAccelOutput = float(self.CI.CC.one_pedal_decel)
-    CC.onePedalAccelInput = float(self.CI.CC.one_pedal_decel_in)
-    CC.onePedalP = float(self.CI.CC.one_pedal_pid.p)
-    CC.onePedalI = float(self.CI.CC.one_pedal_pid.i)
-    CC.onePedalD = float(self.CI.CC.one_pedal_pid.d)
-    CC.onePedalF = float(self.CI.CC.one_pedal_pid.f)
-
     CC.hudControl.setSpeed = float(self.v_cruise_kph_limit) * CV.KPH_TO_MS
     CC.hudControl.speedVisible = self.enabled
     CC.hudControl.lanesVisible = self.enabled
@@ -932,6 +942,14 @@ class Controls:
       # send car controls over can
       can_sends = self.CI.apply(CC)
       self.pm.send('sendcan', can_list_to_can_capnp(can_sends, msgtype='sendcan', valid=CS.canValid))
+    
+    
+    CC.onePedalAccelOutput = float(self.CI.CC.one_pedal_decel)
+    CC.onePedalAccelInput = float(self.CI.CC.one_pedal_decel_in)
+    CC.onePedalP = float(self.CI.CC.one_pedal_pid.p)
+    CC.onePedalI = float(self.CI.CC.one_pedal_pid.i)
+    CC.onePedalD = float(self.CI.CC.one_pedal_pid.d)
+    CC.onePedalF = float(self.CI.CC.one_pedal_pid.f)
 
     force_decel = (self.sm['driverMonitoringState'].awarenessStatus < 0.) or \
                   (self.state == State.softDisabling)
@@ -966,8 +984,10 @@ class Controls:
     controlsState.longControlState = self.LoC.long_control_state
     controlsState.vPid = float(self.LoC.v_pid)
     controlsState.vCruise = float(self.v_cruise_kph_limit)
+    controlsState.aTarget = float(self.LoC.a_target)
     controlsState.upAccelCmd = float(self.LoC.pid.p)
     controlsState.uiAccelCmd = float(self.LoC.pid.i)
+    controlsState.udAccelCmd = float(self.LoC.pid.d)
     controlsState.ufAccelCmd = float(self.LoC.pid.f)
     controlsState.cumLagMs = -self.rk.remaining * 1000.
     controlsState.startMonoTime = int(start_time * 1e9)
@@ -977,6 +997,12 @@ class Controls:
     controlsState.interventionTimer = int(self.intervention_timer)
     controlsState.distractionTimer = int(self.distraction_timer)
     
+    controlsState.applyGas = int(self.CI.CC.apply_gas)
+    controlsState.applyBrakeOut = int(self.CI.CC.apply_brake_out)
+    controlsState.applyBrakeIn = int(self.CI.CC.apply_brake_in)
+    controlsState.applySteer = int(self.CI.CC.apply_steer)
+    controlsState.brakesAllowed = bool(self.CI.CC.brakes_allowed)
+    controlsState.applySteer = int(self.CI.CC.apply_steer)
     controlsState.distanceTraveledSession = float(self.distance_traveled)
     controlsState.distanceTraveledTotal = float(self.distance_traveled_total)
     controlsState.carRunningTimerTotal = int(self.car_running_timer_total)
@@ -998,6 +1024,10 @@ class Controls:
     controlsState.engagedDistanceTotal = float(self.engaged_dist_total)
     controlsState.engagedDistanceSession = float(self.engaged_dist_session)
     controlsState.distractionDistance = int(self.distraction_dist)
+    controlsState.percentEngagedTimeSession = float(self.openpilot_long_control_timer_session / max(self.car_running_timer_session, 1.0) * 100.0)
+    controlsState.percentEngagedTimeTotal = float(self.openpilot_long_control_timer_total / max(self.car_running_timer_total, 1.0) * 100.0)
+    controlsState.percentEngagedDistanceSession = float(self.engaged_dist_session / max(1.0, self.distance_traveled) * 100.0)
+    controlsState.percentEngagedDistanceTotal = float(self.engaged_dist_total / max(1.0, self.distance_traveled_total) * 100.0)
 
     lat_tuning = self.CP.lateralTuning.which()
     if self.joystick_mode:
@@ -1012,6 +1042,10 @@ class Controls:
       controlsState.lateralControlState.indiState = lac_log
     elif lat_tuning == 'torque':
       controlsState.lateralControlState.torqueState = lac_log
+    elif lat_tuning == 'torqueLqr':
+      controlsState.lateralControlState.torqueLqrState = lac_log
+    elif lat_tuning == 'torqueIndi':
+      controlsState.lateralControlState.torqueIndiState = lac_log
     self.pm.send('controlsState', dat)
 
     # carState

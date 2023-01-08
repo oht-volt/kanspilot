@@ -36,8 +36,8 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
 
-  toggles.append(new ParamControl("EVConsumptionReset",
-                                  "화면에 각종 정보표시(tap me; reset)",
+  toggles.append(new ParamControl("MetricResetSwitch",
+                                  "화면 정보표시(tap me; reset)",
                                   "차량이 켜져 있을 때 현재 속도를 눌러 편집 모드를 잠금 해제한 다음 더 눌러 오른쪽에 표시된 메트릭 수를 순환하십시오. 표시되는 정보를 변경하려면 각 메트릭을 누릅니다. 이 토글을 사용하여 다음 번 차량 시동 시 주행 거리, EV 소비 및 효율 트립 및 5mi/8km 메트릭을 0으로 재설정합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
@@ -48,7 +48,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("MADSEnabled",
                                   "[GM] MADS(tap me)",
-                                  "MADS = 수정된 보조 안전운전. 3개의 독립적으로 전환 가능한 상시 ON 기능: 자동 조향, 리드 브레이크 및 원 페달 모드. 이 토글을 사용하려면 어느 것이라도 사용하면 됨. LKAS 버튼으로, 인게이지 들어가기 전, 심지어 브레이크를 밟은 경우에도 자동 조향을 전환합니다. 메인 크루즈 버튼으로 모든 OP 컨트롤을 차단하십시오. MADS가 실행 중일 때 최대 속도는 MADS 아이콘으로 대체됩니다.",
+                                  "MADS = 보조 안전운전Modified Assistive Driving Safety. 3개의 독립적으로 전환 가능한 상시 ON 기능: 자동 조향, 리드 브레이크 및 원 페달 모드. 이 토글을 사용하려면 어느 것이라도 사용하면 됨. LKAS 버튼으로, 인게이지 들어가기 전, 심지어 브레이크를 밟은 경우에도 자동 조향을 전환합니다. 메인 크루즈 버튼으로 모든 OP 컨트롤을 차단하십시오. MADS가 실행 중일 때 최대 속도는 MADS 아이콘으로 대체됩니다.",
                                   "../assets/offroad/icon_car_MADS.png",
                                   this));
   toggles.append(new ParamControl("MADSLeadBraking",
@@ -65,6 +65,24 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "MADS 스티어링 일시 중지",
                                   "MADS가 활성화되어 있을 때 깜빡이를 켜고 시속 70키로 이하로 감속하면 급격한 회전을 쉽게 수행하기 위해 스티어링이 일시 중지됩니다(오파 의도와 반대일 수 있음). 가속을 재개하거나 다시 70키로를 초과하면 스티어링이 일시 중지가 해제됩니다.",
                                   "../assets/offroad/icon_hands_on_wheel.png",
+                                  this));
+
+  toggles.append(new ParamControl("OPParamsLiveTuneEnabled",
+                                  "사용자 실시간 튜닝",
+                                  "SSH를 통해 장치에 연결하고 '/data/openpilot/' 디렉토리에서 './opparams.py'를 실행하면 많은 기능을 원하는 대로 미세 조정할 수 있습니다. 조정 가능한 대부분의 파라미터는 라이브 튜닝이 가능하며, 이 토글이 활성화된 경우, 주행 중에 수정할 수 있으며  즉시 적용됩니다. 이 토글이 활성화되지 않은 경우, 차량 또는 OpenPilot 재시작이 필요한 \"시작\" 매개 변수가 된다. 이 토글의 변경 사항은 다음에 자동차를 시동할 때 적용되며 'opparam'을 다시 시작해야 합니다.",
+                                  "../assets/offroad/icon_calibration.png",
+                                  this));
+
+  toggles.append(new ParamControl("OPParamsLateralOverride",
+                                  "실시간 횡가속도 조정",
+                                  "This enables the lateral tune specified in opParams.",
+                                  "../assets/offroad/icon_calibration.png",
+                                  this));
+
+  toggles.append(new ParamControl("OPParamsLongitudinalOverride",
+                                  "실시간 롱컨",
+                                  "This enables the longitudinal tune specified in opParams.",
+                                  "../assets/offroad/icon_calibration.png",
                                   this));
   
   toggles.append(new ParamControl("LongRangeLeadsEnabled",
@@ -181,6 +199,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
   toggles.append(new ParamControl("IgnoreMissingNVME",
                                   "NVME 드라이브 오류무시",
                                   "Prevent an error about missing NVME drive from showing on 32GB C3's. (restart device for change to take effect)",
+                                  "../assets/offroad/icon_settings.png",
+                                  this));
+  toggles.append(new ParamControl("GrayPandaSupport",
+                                  "그레이 판다 지원",
+                                  "Necessary to run on gray panda",
                                   "../assets/offroad/icon_settings.png",
                                   this));
   toggles.append(new ParamControl("FPVolt",

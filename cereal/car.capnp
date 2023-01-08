@@ -142,6 +142,7 @@ struct CarEvent @0x9b1657f34caf3ad3 {
 
     slipperyRoadsActivated @129;
     lowVisibilityActivated @130;
+    rebootImminent @131;
 
     driverMonitorLowAccDEPRECATED @68;
     radarCanErrorDEPRECATED @15;
@@ -188,6 +189,7 @@ struct CarState {
   brake @5 :Float32;      # this is user pedal only
   brakePressed @6 :Bool;  # this is user pedal only
   frictionBrakePercent @44 :Int64; # amount of brake being applied by OP
+  brakePressure @77 :Float32;
 
   cruiseMain @72 :Bool;
 
@@ -221,6 +223,8 @@ struct CarState {
   rollingForce @69 :Float32;
   rollingPower @70 :Float32;
   pitchPower @71 :Float32;
+
+  rebootInNSeconds @76 :Int32;
 
   lateralAcceleration @54 :Float32;
   yawRate2 @55 :Float32;
@@ -523,6 +527,8 @@ struct CarParams {
     indi @27 :LateralINDITuning;
     lqr @40 :LateralLQRTuning;
     torque @61 :LateralTorqueTuning;
+    torqueIndi @62 :LateralTorqueINDITuning;
+    torqueLqr @63 :LateralTorqueLQRTuning;
   }
 
   steerLimitAlert @28 :Bool;
@@ -607,6 +613,19 @@ struct CarParams {
     actuatorEffectivenessDEPRECATED @3 :Float32;
   }
 
+  struct LateralTorqueINDITuning {
+    outerLoopGainBP @0 :List(Float32);
+    outerLoopGainV @1 :List(Float32);
+    innerLoopGainBP @2 :List(Float32);
+    innerLoopGainV @3 :List(Float32);
+    timeConstantBP @4 :List(Float32);
+    timeConstantV @5 :List(Float32);
+    actuatorEffectivenessBP @6 :List(Float32);
+    actuatorEffectivenessV @7 :List(Float32);
+    kf @8 :Float32;
+    friction @9 :Float32;
+  }
+
   struct LateralLQRTuning {
     scale @0 :Float32;
     ki @1 :Float32;
@@ -619,6 +638,24 @@ struct CarParams {
 
     k @6 :List(Float32);  # LQR gain
     l @7 :List(Float32);  # Kalman gain
+  }
+
+  struct LateralTorqueLQRTuning {
+    scale @0 :Float32;
+    ki @1 :Float32;
+    dcGain @2 :Float32;
+
+    # State space system
+    a @3 :List(Float32);
+    b @4 :List(Float32);
+    c @5 :List(Float32);
+
+    k @6 :List(Float32);  # LQR gain
+    l @7 :List(Float32);  # Kalman gain
+
+    friction @8 :Float32;
+    useSteeringAngle @9 :Bool;
+    kf @10 :Float32;
   }
 
   enum SafetyModel {

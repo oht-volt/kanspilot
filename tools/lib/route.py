@@ -79,7 +79,7 @@ class Route(object):
     segment_files = defaultdict(list)
 
     for f in files:
-
+      
       fullpath = os.path.join(data_dir, f)
       explorer_match = re.match(EXPLORER_FILE_RE, f)
       op_match = re.match(OP_SEGMENT_DIR_RE, f)

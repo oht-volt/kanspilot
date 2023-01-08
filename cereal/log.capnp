@@ -201,9 +201,9 @@ struct SensorEventData {
     pressure @9 :SensorVec;
     magneticUncalibrated @11 :SensorVec;
     gyroUncalibrated @12 :SensorVec;
-    proximity @13: Float32;
-    light @14: Float32;
-    temperature @15: Float32;
+    proximity @13 :Float32;
+    light @14 :Float32;
+    temperature @15 :Float32;
   }
   source @8 :SensorSource;
 
@@ -563,10 +563,17 @@ struct ControlsState @0x97ff69c53601abf1 {
   vCruise @22 :Float32;
   upAccelCmd @4 :Float32;
   uiAccelCmd @5 :Float32;
+  udAccelCmd @91 :Float32;
   ufAccelCmd @33 :Float32;
   aTarget @35 :Float32;
   curvature @37 :Float32;  # path curvature from vehicle model
   forceDecel @51 :Bool;
+
+  applyGas @94 :Int32;
+  applyBrakeIn @98 :Int32;
+  applyBrakeOut @95 :Int32;
+  brakesAllowed @96 :Bool;
+  applySteer @97 :Int32;
 
   # UI alerts
   alertText1 @24 :Text;
@@ -606,6 +613,10 @@ struct ControlsState @0x97ff69c53601abf1 {
   distanceTraveledSession @82 :Float32;
   distanceTraveledTotal @83 :Float32;
   distractionDistance @84 :Float32;
+  percentEngagedTimeSession @87 :Float32;
+  percentEngagedTimeTotal @88 :Float32;
+  percentEngagedDistanceSession @89 :Float32;
+  percentEngagedDistanceTotal @90 :Float32;
 
 
   lateralControlState :union {
@@ -615,6 +626,8 @@ struct ControlsState @0x97ff69c53601abf1 {
     angleState @58 :LateralAngleState;
     debugState @59 :LateralDebugState;
     torqueState @60 :LateralTorqueState;
+    torqueIndiState @92 :LateralTorqueINDIState;
+    torqueLqrState @93 :LateralTorqueLQRState;
   }
 
   enum OpenpilotState @0xdbe58b96d2d1ac61 {
@@ -649,6 +662,27 @@ struct ControlsState @0x97ff69c53601abf1 {
     delta @8 :Float32;
     output @9 :Float32;
     saturated @10 :Bool;
+    steeringAngleDesiredDeg @11 :Float32;
+    steeringRateDesiredDeg @12 :Float32;
+  }
+
+  struct LateralTorqueINDIState {
+    active @0 :Bool;
+    actualLateralAccel @1 :Float32;
+    actualLateralJerk @2 :Float32;
+    actualLateralJounce @3 :Float32;
+    rateSetPoint @4 :Float32;
+    accelSetPoint @5 :Float32;
+    accelError @6 :Float32;
+    delayedOutput @7 :Float32;
+    delta @8 :Float32;
+    output @9 :Float32;
+    saturated @10 :Bool;
+    lateralAccelerationDesired @11 :Float32;
+    lateralJerkDesired @12 :Float32;
+    f @13 :Float32;
+    friction @14 :Float32;
+    rollCompensation @15 :Float32;
   }
 
   struct LateralPIDState {
@@ -691,6 +725,18 @@ struct ControlsState @0x97ff69c53601abf1 {
     output @3 :Float32;
     lqrOutput @4 :Float32;
     saturated @5 :Bool;
+  }
+
+  struct LateralTorqueLQRState {
+    active @0 :Bool;
+    lateralAcceleration @1 :Float32;
+    i @2 :Float32;
+    output @3 :Float32;
+    lqrOutput @4 :Float32;
+    saturated @5 :Bool;
+    f @6 :Float32;
+    friction @7 :Float32;
+    rollCompensation @8 :Float32;
   }
 
   struct LateralAngleState {
@@ -1043,7 +1089,7 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
     nudgelessBlockedOncoming @2;
     nudgelessBlockedTimeout @3;
     nudgelessBlockedMinSpeed @4;
-    nudgelessBlockedOnePedal @5;
+    nudgelessBlockedMADS @5;
     nudgelessCountdown @6;
     nudgeWarningNoLane @7;
     nudgeWarningOncoming @8;
@@ -1556,8 +1602,8 @@ struct LiveWeatherData {
   weatherID @2 :Int32; # city id
   description @3 :Text;
   icon @4 :Text; # https://openweathermap.org/weather-conditions
-  temperature @5 :Float32; # [¡ÆC]
-  temperatureFeelsLike @6 :Float32; # [¡ÆC]
+  temperature @5 :Float32; # [Â°C]
+  temperatureFeelsLike @6 :Float32; # [Â°C]
   pressure @7 :Int32; # [hPa]
   humidity @8 :Int16; # [%]
   visibility @9 :Int32; # [m]

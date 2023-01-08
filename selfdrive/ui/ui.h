@@ -166,6 +166,8 @@ typedef struct {
   long int time = 0;
   int display_mode = 0; // 0/1 = simple/full
   char desc_simple[16];
+  char desc_simple1[16];
+  char desc_simple2[16];
   char desc_full1[64];
   char desc_full2[64];
   char desc_full3[64];
@@ -356,6 +358,8 @@ typedef struct UIScene {
 
   weather_info weather_info;
   Rect weather_touch_rect;
+  bool weather_simple_show_percip = false;
+  int weather_simple_alernate_wind_precip_update_freq = 4;
   
   // adjustable lane position
   Rect lane_pos_left_touch_rect = {1,1,1,1}, lane_pos_right_touch_rect = {1,1,1,1};

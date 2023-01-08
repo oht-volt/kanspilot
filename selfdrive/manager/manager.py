@@ -42,6 +42,11 @@ def manager_init():
     ("IsMetric", "1"),
     ("CommunityFeaturesToggle", "1"),
     ("ShowDebugUI", "1"),
+    ("WeatherAlternateFrequency", "4"),
+    ("OPParamsRebootInNSeconds", "-1"),
+    ("OPParamsLiveTuneEnabled", "0"),
+    ("OPParamsLateralOverride", "0"),
+    ("OPParamsLongitudinalOverride", "0"),
     ("IgnoreMissingNVME", "0"),
     ("SpeedLimitControl", "0"),
     ("EUSpeedLimitStyle", "0"),
@@ -78,6 +83,7 @@ def manager_init():
     ("AutoAutoLanePosition", "1"),
     ("LongRangeLeadsEnabled", "1"),
     ("AutoLanePositionActive", "1"),
+    ("GrayPandaSupport", "1"),
     ("LanePosition", "1"),
     ("NudgelessLaneChange", "0"),
     ("WeatherSafetyEnabled", "1"),
@@ -106,13 +112,13 @@ def manager_init():
     ("LowOverheadMode", "0"),
     ("FPVolt", "0"),
     ("MeasureConfigNum", "0"),
-    ("MeasureSlot00", "73"), # CPU점유율과 온도 °C
+    ("MeasureSlot00", "113"), # CPU점유율과 온도 °C
     ("MeasureSlot01", "0"), # 핸들각
     ("MeasureSlot02", "1"), # 경로각
     ("MeasureSlot03", "5"), # 엔진RPM
-    ("MeasureSlot04", "86"), # GPS정확도,위성수
-    ("MeasureSlot05", "52"), # 차선위치
-    ("MeasureSlot06", "53"), # 차선오프셑
+    ("MeasureSlot04", "126"), # GPS정확도,위성수
+    ("MeasureSlot05", "92"), # 차선위치
+    ("MeasureSlot06", "93"), # 차선오프셑
     ("MeasureSlot07", "31"), # 고도
     ("MeasureSlot08", "38"), # 차선중앙
     ("MeasureSlot09", "7"), # 냉각수온도
