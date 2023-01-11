@@ -132,7 +132,7 @@ class CarController:
         CC.enabled = enabled
 
         if CC.cruiseControl.resume:
-          self.update_auto_resume(CC, CS, CP, enabled, can_sends)
+          self.update_auto_resume(CC, CS, enabled, can_sends)
 
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
 
@@ -210,14 +210,8 @@ class CarController:
     self.frame += 1
     return new_actuators, can_sends
 
-  def update_auto_resume(self, CC, CS, CP, enabled, can_sends):
+  def update_auto_resume(self, CC, CS, enabled, can_sends):
     actuators = CC.actuators
-
-    speeds = self.sm['longitudinalPlan'].speeds
-    if len(speeds) > 1:
-      v_future = speeds[-1]
-    else:
-      v_future = 100.0
 
     if (self.frame % 4) == 0:
       if not CC.longActive or CS.pause_long_on_gas_press:
@@ -234,8 +228,7 @@ class CarController:
         return
 
       # condition for car stopped behid lead car
-      if CS.brakePressed and v_future >= CP.vEgoStarting \
-        and CP.openpilotLongitudinalControl and CS.out.vEgo < 0.03:
+      if CC.cruiseControl.resume and not CS.out.gasPressed:
         if (self.last_lead_distance == 0) or (self.last_vLead == 0):
           self.last_lead_distance = CS.lead_distance
           self.last_vLead = CS.lead_speed
@@ -247,12 +240,17 @@ class CarController:
 
         elif (abs(CS.lead_distance - self.last_lead_distance) > 0.03) or \
              (abs(CS.lead_speed - self.last_vLead) > 0.01):
-          CC.enabled = AccState.ACTIVE
+          car_stopping = self.apply_gas < self.params.ZERO_GAS
+          standstill = CS.pcm_acc_status == AccState.STANDSTILL
+
+          at_full_stop = standstill and car_stopping
+          near_stop = (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE) and car_stopping
+          CC.enabled == AccState.ACTIVE
           self.apply_gas = self.params.ZERO_GAS + 307
           can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
           CS.cruiseState_resumeButton = True
-          can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CS.cruiseState_resumeButton))
           can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CruiseButtons.RES_ACCEL))
+          can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CS.cruiseState_resumeButton))
 
           self.resume_cnt += 1
 
