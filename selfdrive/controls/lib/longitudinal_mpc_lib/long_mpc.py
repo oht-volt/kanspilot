@@ -40,7 +40,7 @@ X_EGO_COST = 0.
 V_EGO_COST = 0.
 A_EGO_COST = 0.
 J_EGO_COST = 5.0
-A_CHANGE_COST = 20. # 200.
+A_CHANGE_COST = 35. # 200.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .25
 LEAD_DANGER_FACTOR = 0.75
@@ -56,7 +56,7 @@ AUTO_TR_V = [1.0, 1.2, 1.33, 1.45]
 
 AUTO_TR_CRUISE_GAP = 0
 
-DIFF_RADAR_VISION = 2.0
+DIFF_RADAR_VISION = 1.5 #이온 카메라와 내차 범퍼와의 거리(앞차 간격 offset)
 
 # Fewer timestamps don't hurt performance and lead to
 # much better convergence of the MPC with low iterations
@@ -71,8 +71,8 @@ MIN_ACCEL = -3.5
 MAX_ACCEL = 2.0
 T_FOLLOW = 1.45
 
-COMFORT_BRAKE = max(ntune_scc_get("COMFORT_BRAKE"), 2.5) #2.5
-STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 6.0) #6.0
+COMFORT_BRAKE = max(ntune_scc_get("COMFORT_BRAKE"), 2.0) #2.5
+STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 5.5) #6.0
 
 def get_stopped_equivalence_factor(v_lead):
   return (v_lead**2) / (2 * COMFORT_BRAKE)
@@ -218,16 +218,16 @@ class LongitudinalMpc:
   def __init__(self, mode='acc'):
     self.mode = mode
     self.trafficState = 0
-    self.XEgoObstacleCost = 8. #3 증가할수록 정지선정지가 정확해지나, 급감속이 강해집니다
+    self.XEgoObstacleCost = 8. #3 증가할수록 정지선정지가 정확해지나, 급감속이 강해짐
     self.JEgoCost = 5.
-    self.AChangeCost = 20. #neokii 50 적으면 선행차에 대한 반응이 강해집니다
+    self.AChangeCost = 35. #neokii 50 적으면 선행차에 대한 반응이 강해짐
     self.DangerZoneCost = 100.
-    self.trafficStopDistanceAdjust = 1.5 #신호정지 위치 조정
+    self.trafficStopDistanceAdjust = 1.5 #신호정지 위치 조정, 값을 줄이면 정지선으로부터 좀 더 멀리 떨어져서 정지할 수 있음
     self.trafficStopAccel = 1.
     self.trafficStopModelSpeed = False
     self.e2eDecelSpeed = 0
     self.tFollowRatio = 1.0
-    self.stopDistance = STOP_DISTANCE #선행차와 정지하는 거리를 입력합니다.
+    self.stopDistance = STOP_DISTANCE #선행차와 정지하는 거리를 입력한다.
     self.softHoldTimer = 0
     self.lo_timer = 0 
     self.v_cruise = 0.
@@ -410,7 +410,7 @@ class LongitudinalMpc:
         #1단계: 모델값을 이용한 신호감지
         startSign = v[-1] > 5.0 or v[-1] > (v[0]+2)
         # stopSign = v_ego_kph < 80.0 and ((v[-1] < 3.0) or (v[-1] < v[0]*0.70)) and abs(y[N]) < 3.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
-        stopSign = model.stopLine.prob > 0.2
+        stopSign = model.stopLine.prob > 0.2 # 값을 줄이면 정지신호에 민감해지지만 수시로 정지하려고 할 것임
         
         if startSign:
           self.startSignCount = self.startSignCount + 1 #모델은 0.05초  /1 frame

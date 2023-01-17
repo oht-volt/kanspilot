@@ -26,11 +26,8 @@ class CarController:
     self.apply_brake = 0
 
     #auto resume
-    self.resume_cnt = 0
     self.last_lead_distance = 0
     self.last_vLead = 0
-    self.resume_wait_timer = 0
-    self.resume_button = False
 
     self.frame = 0
     self.lka_steering_cmd_counter_last = -1 # GM: EPS fault workaround(#22404)
@@ -130,9 +127,7 @@ class CarController:
         CS.autoHoldActivated = False
 
         CC.enabled = enabled
-
-        if CC.cruiseControl.resume:
-          self.update_auto_resume(CC, CS, enabled, can_sends)
+        self.update_auto_resume(CC, CS, can_sends)
 
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
 
@@ -210,53 +205,26 @@ class CarController:
     self.frame += 1
     return new_actuators, can_sends
 
-  def update_auto_resume(self, CC, CS, enabled, can_sends):
-    actuators = CC.actuators
-
+  def update_auto_resume(self, CC, CS, can_sends):
     if (self.frame % 4) == 0:
-      if not CC.longActive or CS.pause_long_on_gas_press:
-        # Stock ECU sends max regen when not enabled
-        self.apply_gas = self.params.MAX_ACC_REGEN
-        self.apply_brake = 0
-      else:
-        self.apply_gas = int(round(interp(actuators.accel, self.params.GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
-        self.apply_brake = int(round(interp(actuators.accel, self.params.BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
-
       idx = (self.frame // 4) % 4
-
+      car_stopping = self.apply_gas < self.params.ZERO_GAS
+      standstill = CS.pcm_acc_status == AccState.STANDSTILL
       if CS.lead_distance <= 0 or CS.lead_speed <= 0:
         return
 
       # condition for car stopped behid lead car
-      if CC.cruiseControl.resume and not CS.out.gasPressed:
+      if car_stopping and standstill and not CS.out.gasPressed:
         if (self.last_lead_distance == 0) or (self.last_vLead == 0):
           self.last_lead_distance = CS.lead_distance
           self.last_vLead = CS.lead_speed
-          self.resume_cnt = 0
-          self.resume_wait_timer = 0
-
-        elif self.resume_wait_timer > 0:
-          self.resume_wait_timer -= 1
-
-        elif (abs(CS.lead_distance - self.last_lead_distance) > 0.03) or \
+        elif (abs(CS.lead_distance - self.last_lead_distance) > 0.01) or \
              (abs(CS.lead_speed - self.last_vLead) > 0.01):
-          car_stopping = self.apply_gas < self.params.ZERO_GAS
-          standstill = CS.pcm_acc_status == AccState.STANDSTILL
-
-          at_full_stop = standstill and car_stopping
-          near_stop = (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE) and car_stopping
-          CC.enabled == AccState.ACTIVE
           self.apply_gas = self.params.ZERO_GAS + 307
-          can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
+          can_sends.append(create_accel_command(self.packer_pt, CanBus.POWERTRAIN, idx, self.apply_gas))
           CS.cruiseState_resumeButton = True
           can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CruiseButtons.RES_ACCEL))
           can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CS.cruiseState_resumeButton))
-
-          self.resume_cnt += 1
-
-          if self.resume_cnt >= int(randint(4, 5) * 2):
-            self.resume_cnt = 0
-            self.resume_wait_timer = int(randint(20, 25) * 2)
 
       elif self.last_lead_distance != 0:
         self.last_lead_distance = 0

@@ -22,6 +22,15 @@ if [ ! -f "./installer/boot_finish" ]; then
   chmod 700 ./t.sh
   chmod 700 ./unix.sh
   chmod 700 ./tune.py
+  sed -i -e 's/\r$//' ./unix.sh
+  sed -i -e 's/\r$//' ./selfdrive/manager/*.py
+  sed -i -e 's/\r$//' ./launch_env.sh
+  sed -i -e 's/\r$//' ./launch_openpilot.sh
+  sed -i -e 's/\r$//' ./Jenkinsfile
+  sed -i -e 's/\r$//' ./SConstruct
+  sed -i -e 's/\r$//' ./t.sh
+  sed -i -e 's/\r$//' ./tune.py
+
   chmod 744 /system/media/bootanimation.zip
   chmod 700 ./selfdrive/ui/qt/spinner
   chmod 700 ./selfdrive/ui/soundd/soundd
@@ -132,6 +141,29 @@ function two_init {
   fi
 }
 
+function tici_init {
+  # wait longer for weston to come up
+  if [ -f "$BASEDIR/prebuilt" ]; then
+    sleep 3
+  fi
+
+  # TODO: move this to agnos
+  sudo rm -f /data/etc/NetworkManager/system-connections/*.nmmeta
+
+  # set success flag for current boot slot
+  sudo abctl --set_success
+
+  # Check if AGNOS update is required
+  if [ $(< /VERSION) != "$AGNOS_VERSION" ]; then
+    AGNOS_PY="$DIR/selfdrive/hardware/tici/agnos.py"
+    MANIFEST="$DIR/selfdrive/hardware/tici/agnos.json"
+    if $AGNOS_PY --verify $MANIFEST; then
+      sudo reboot
+    fi
+    $DIR/selfdrive/hardware/tici/updater $AGNOS_PY $MANIFEST
+  fi
+}
+
   if [ ! -f "/data/ntune/common.json" ]; then
     mount -o remount,rw /system
     mkdir /data/ntune
@@ -172,7 +204,6 @@ function two_init {
     chmod 666 /data/ntune/lat_lqr.json
     mount -o remount,r /system
   fi
-}
 
 function launch {
   # Remove orphaned git lock if it exists on boot
