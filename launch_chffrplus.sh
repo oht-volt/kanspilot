@@ -139,30 +139,6 @@ function two_init {
     $NEOS_PY --swap-if-ready $MANIFEST
     $DIR/selfdrive/hardware/eon/updater $NEOS_PY $MANIFEST
   fi
-}
-
-function tici_init {
-  # wait longer for weston to come up
-  if [ -f "$BASEDIR/prebuilt" ]; then
-    sleep 3
-  fi
-
-  # TODO: move this to agnos
-  sudo rm -f /data/etc/NetworkManager/system-connections/*.nmmeta
-
-  # set success flag for current boot slot
-  sudo abctl --set_success
-
-  # Check if AGNOS update is required
-  if [ $(< /VERSION) != "$AGNOS_VERSION" ]; then
-    AGNOS_PY="$DIR/selfdrive/hardware/tici/agnos.py"
-    MANIFEST="$DIR/selfdrive/hardware/tici/agnos.json"
-    if $AGNOS_PY --verify $MANIFEST; then
-      sudo reboot
-    fi
-    $DIR/selfdrive/hardware/tici/updater $AGNOS_PY $MANIFEST
-  fi
-}
 
   if [ ! -f "/data/ntune/common.json" ]; then
     mount -o remount,rw /system
@@ -204,6 +180,30 @@ function tici_init {
     chmod 666 /data/ntune/lat_lqr.json
     mount -o remount,r /system
   fi
+}
+
+function tici_init {
+  # wait longer for weston to come up
+  if [ -f "$BASEDIR/prebuilt" ]; then
+    sleep 3
+  fi
+
+  # TODO: move this to agnos
+  sudo rm -f /data/etc/NetworkManager/system-connections/*.nmmeta
+
+  # set success flag for current boot slot
+  sudo abctl --set_success
+
+  # Check if AGNOS update is required
+  if [ $(< /VERSION) != "$AGNOS_VERSION" ]; then
+    AGNOS_PY="$DIR/selfdrive/hardware/tici/agnos.py"
+    MANIFEST="$DIR/selfdrive/hardware/tici/agnos.json"
+    if $AGNOS_PY --verify $MANIFEST; then
+      sudo reboot
+    fi
+    $DIR/selfdrive/hardware/tici/updater $AGNOS_PY $MANIFEST
+  fi
+}
 
 function launch {
   # Remove orphaned git lock if it exists on boot
