@@ -38,7 +38,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
 
   toggles.append(new ParamControl("MetricResetSwitch",
                                   "화면 정보표시(tap me; reset)",
-                                  "차량이 켜져 있을 때 현재 속도를 눌러 편집 모드를 잠금 해제한 다음 더 눌러 오른쪽에 표시된 메트릭 수를 순환하십시오. 표시되는 정보를 변경하려면 각 메트릭을 누릅니다. 이 토글을 사용하여 다음 번 차량 시동 시 주행 거리, EV 소비 및 효율 트립 및 5mi/8km 메트릭을 0으로 재설정합니다.",
+                                  "차량이 켜져 있을 때 현재 속도를 눌러 편집 모드를 잠금해제한 다음 더 눌러 오른쪽에 표시된 메트릭 수를 순환하십시오. 표시되는 정보를 변경하려면 각 메트릭을 누릅니다. 이 토글을 사용하여 다음 번 차량 시동 시 주행 거리, EV 소비 및 효율 트립 및 5mi/8km 메트릭을 0으로 재설정합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
   toggles.append(new ParamControl("DisableDisengageOnGas",
@@ -68,19 +68,19 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
 
   toggles.append(new ParamControl("OPParamsLiveTuneEnabled",
-                                  "사용자 실시간 튜닝",
+                                  "SSH를 통한 사용자자 맞춤조정",
                                   "SSH를 통해 장치에 연결하고 '/data/openpilot/' 디렉토리에서 './opparams.py'를 실행하면 많은 기능을 원하는 대로 미세 조정할 수 있습니다. 조정 가능한 대부분의 파라미터는 라이브 튜닝이 가능하며, 이 토글이 활성화된 경우, 주행 중에 수정할 수 있으며  즉시 적용됩니다. 이 토글이 활성화되지 않은 경우, 차량 또는 OpenPilot 재시작이 필요한 \"시작\" 매개 변수가 된다. 이 토글의 변경 사항은 다음에 자동차를 시동할 때 적용되며 'opparam'을 다시 시작해야 합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
 
   toggles.append(new ParamControl("OPParamsLateralOverride",
-                                  "실시간 횡가속도 조정",
+                                  "횡가속 사용자맞춤",
                                   "This enables the lateral tune specified in opParams.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
 
   toggles.append(new ParamControl("OPParamsLongitudinalOverride",
-                                  "실시간 롱컨",
+                                  "롱컨 사용자맞춤",
                                   "This enables the longitudinal tune specified in opParams.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
@@ -163,7 +163,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("Coasting",
                                   "[GM]타력주행(tap me)",
-                                  "OP will allow the car to coast above the set speed rather than use engine/regen/friction braking. If you also have the \"Brake indicator\" toggle enabled, you can toggle coasting while driving by tapping the brake indicator, but you can only disable coasting while driving if you're traveling below your set speed (or at any speed if you have the \"Engine/regen braking\" toggle enabled).",
+                                  "OP will allow the car to coast above the set speed rather than use engine/regen/friction braking. If this toggle is enabled, then you can toggle coasting while driving by tapping the on-screen max speed indicator, but you can only disable coasting while driving if you're traveling below your set speed (or at any speed if you have the \"Engine/regen braking\" toggle enabled).",
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("CoastingBrakeOverSpeed",
@@ -231,6 +231,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "횡가속도 보정량에 따른 경로색상",
                                   "../assets/offroad/icon_road.png",
                                   this));
+  toggles.append(new ParamControl("AlternateColors",
+                                  "대체 컬러사용",
+                                  "Use alternate color set.",
+                                  "../assets/offroad/icon_road.png",
+                                  this));
   toggles.append(new ParamControl("AdjacentPaths",
                                   "반대/진행차선경로 표시(권장되지않음)",
                                   "레이더확장기능 토글On 필요, 반대차선은 Red, 진행차선은 Green.",
@@ -289,7 +294,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                                  this);
   toggles.append(record_toggle);
   toggles.append(new ParamControl("EndToEndToggle",
-                                  "차선무시(Alpha)",
+                                  "차선사용 무시(Alpha)",
                                   "In this mode openpilot will ignore lanelines and just drive how it thinks a human would.",
                                   "../assets/offroad/icon_road.png",
                                   this));

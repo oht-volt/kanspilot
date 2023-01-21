@@ -125,24 +125,35 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     signalLost @116;
     signalRestored @117;
 
+    manualSteeringRequired @118;
+    silentPedalPressed @119;
+    silentWrongGear @120;
+
+    madsAlert1 @121;
+    madsAlert2 @122;
+    madsAlert3 @123;
+    madsAlert4 @124;
+    madsAlert5 @125;
+    madsAlert6 @126;
+
+    madsLeadBrakingEnabled @130;
+    madsLeadBrakingDisabled @131;
+    madsOnePedalEnabled @132;
+    madsOnePedalDisabled @133;
+    madsOnePedalTemporary @138;
+    madsAutosteerEnabled @136;
+    madsAutosteerDisabled @137;
+    madsEnabled @134;
+    madsDisabled @135;
+
+    slipperyRoadsActivated @127;
+    lowVisibilityActivated @128;
+
+    rebootImminent @129;
+
     #Road speed Limiter
-    slowingDownSpeed @118;
-    slowingDownSpeedSound @119;
-
-    manualSteeringRequired @120;
-    silentPedalPressed @121;
-    silentWrongGear @122;
-
-    madsAlert1 @123;
-    madsAlert2 @124;
-    madsAlert3 @125;
-    madsAlert4 @126;
-    madsAlert5 @127;
-    madsAlert6 @128;
-
-    slipperyRoadsActivated @129;
-    lowVisibilityActivated @130;
-    rebootImminent @131;
+    slowingDownSpeed @139;
+    slowingDownSpeedSound @140;
 
     driverMonitorLowAccDEPRECATED @68;
     radarCanErrorDEPRECATED @15;
@@ -180,6 +191,7 @@ struct CarState {
   yawRate @22 :Float32;     # best estimate of yaw rate
   standstill @18 :Bool;
   wheelSpeeds @2 :WheelSpeeds;
+  clusterSpeed @79 :Int32;
 
   # gas pedal, 0.0-1.0
   gas @3 :Float32;        # this is user + computer
@@ -190,6 +202,7 @@ struct CarState {
   brakePressed @6 :Bool;  # this is user pedal only
   frictionBrakePercent @44 :Int64; # amount of brake being applied by OP
   brakePressure @77 :Float32;
+  regenPaddlePressed @78 :Bool;
 
   cruiseMain @72 :Bool;
 

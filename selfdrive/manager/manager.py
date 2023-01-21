@@ -39,7 +39,6 @@ def manager_init():
     ("HasAcceptedTerms", "0"),
     ("HandsOnWheelMonitoring", "0"),
     ("OpenpilotEnabledToggle", "1"),
-    ("IsMetric", "1"),
     ("CommunityFeaturesToggle", "1"),
     ("ShowDebugUI", "1"),
     ("WeatherAlternateFrequency", "4"),
@@ -56,6 +55,7 @@ def manager_init():
     ("GMAutoHold", "1"),
     ("CruiseSpeedOffset", "0"),
     ("ColorPath", "0"),
+    ("AlternateColors", "1"),
     ("ReverseSpeedAdjust", "1"),
     ("CustomSounds", "0"),
     ("SilentEngageDisengage", "0"),
@@ -111,16 +111,16 @@ def manager_init():
     ("DisableOnroadUploads", "0"),
     ("LowOverheadMode", "0"),
     ("FPVolt", "0"),
-    ("MeasureConfigNum", "0"),
+    ("MeasureConfigNum", "5"),
     ("MeasureSlot00", "113"), # CPU점유율과 온도 °C
     ("MeasureSlot01", "0"), # 핸들각
     ("MeasureSlot02", "1"), # 경로각
     ("MeasureSlot03", "5"), # 엔진RPM
     ("MeasureSlot04", "126"), # GPS정확도,위성수
-    ("MeasureSlot05", "92"), # 차선위치
-    ("MeasureSlot06", "93"), # 차선오프셑
+    ("MeasureSlot05", "38"), # 차선내차위치
+    ("MeasureSlot06", "83"), # 앞차추종 레벨
     ("MeasureSlot07", "31"), # 고도
-    ("MeasureSlot08", "38"), # 차선중앙
+    ("MeasureSlot08", "37"), # 차선폭
     ("MeasureSlot09", "7"), # 냉각수온도
   ]
   if not PC:

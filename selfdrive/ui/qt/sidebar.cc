@@ -76,7 +76,6 @@ void Sidebar::updateState(const UIState &s) {
   }
   char val[1024];
   ItemStatus tempStatus;
-
   auto ts = deviceState.getThermalStatus();
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
     snprintf(val, sizeof(val), "%.1f%s\nGOOD\nCPU", m_ambientTemp, "°C");

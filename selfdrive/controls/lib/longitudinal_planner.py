@@ -121,15 +121,13 @@ class Planner():
     self.params_check_last_t = 0.
     self.params_check_freq = 0.1 # check params at 10Hz
     
-    self.MADS_lead_braking_enabled = self._params.get_bool("MADSLeadBraking")
+    self.MADS_enabled = Params().get_bool("MADSEnabled")
+    self.MADS_lead_braking_enabled = self.MADS_enabled and self._params.get_bool("MADSLeadBraking")
     self.accel_mode = int(self._params.get("AccelMode", encoding="utf8"))  # 0 = normal, 1 = sport; 2 = eco
     self.coasting_lead_d = -1. # [m] lead distance. -1. if no lead
     self.coasting_lead_v = -10. # lead "absolute"" velocity
     self.tr = 1.8
-    
-    self.stopped_t_last = 0.
-    self.seconds_stopped = 0
-    self.standstill_last = False
+    self.seconds_stopped = 0.0
     self.gear_shifter_last = GearShifter.park
     self.update_op_params()
 
@@ -149,12 +147,8 @@ class Planner():
     v_ego = sm['carState'].vEgo
     a_ego = sm['carState'].aEgo
     
-    if sm['carState'].standstill and not self.standstill_last:
-      self.stopped_t_last = t
-    self.standstill_last = sm['carState'].standstill
-    
-    if sm['carState'].standstill:
-      self.seconds_stopped = int(t - self.stopped_t_last)
+    if sm['carState'].standstill and sm['carState'].gearShifter in ['drive','low']:
+      self.seconds_stopped += DT_MDL
     else:
       self.seconds_stopped = 0
 
@@ -205,7 +199,7 @@ class Planner():
     if t - self.params_check_last_t >= self.params_check_freq:
       self.params_check_last_t = t
       self.update_op_params()
-      self.MADS_lead_braking_enabled = self._params.get_bool("MADSLeadBraking")
+      self.MADS_lead_braking_enabled = self.MADS_enabled and self._params.get_bool("MADSLeadBraking")
       accel_mode = int(self._params.get("AccelMode", encoding="utf8"))  # 0 = normal, 1 = sport; 2 = eco
       if accel_mode != self.accel_mode:
           cloudlog.info(f"Acceleration mode changed, new value: {accel_mode} = {['normal','sport','eco','creep'][accel_mode]}")
@@ -316,7 +310,7 @@ class Planner():
     longitudinalPlan.longitudinalPlanSource = self.longitudinalPlanSource
     longitudinalPlan.fcw = self.fcw
     longitudinalPlan.dynamicFollowLevel = self.mpcs['lead0'].follow_level_df
-    longitudinalPlan.secondsStopped = self.seconds_stopped
+    longitudinalPlan.secondsStopped = int(self.seconds_stopped)
 
     longitudinalPlan.visionTurnControllerState = self.vision_turn_controller.state
     longitudinalPlan.visionCurrentLateralAcceleration = float(self.vision_turn_controller._current_lat_acc)

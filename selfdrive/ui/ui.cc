@@ -75,15 +75,15 @@ void deg_to_str(char* val, float deg){
 // If a < 0, interpolate that too based on bg color alpha, else pass through.
 NVGcolor interp_alert_color(float p, int a){
   char c1, c2;
-
+  auto const & bg_colors_ = (QUIState::ui_state.scene.alt_engage_color_enabled ? alt_bg_colors : bg_colors);
   if (p <= 0.){
-    return (a < 0 ? nvgRGBA(bg_colors[STATUS_ENGAGED].red(), 
-                            bg_colors[STATUS_ENGAGED].green(), 
-                            bg_colors[STATUS_ENGAGED].blue(), 
-                            bg_colors[STATUS_ENGAGED].alpha()) 
-                  : nvgRGBA(bg_colors[STATUS_ENGAGED].red(), 
-                            bg_colors[STATUS_ENGAGED].green(), 
-                            bg_colors[STATUS_ENGAGED].blue(), a));
+    return (a < 0 ? nvgRGBA(bg_colors_[STATUS_ENGAGED].red(), 
+                              bg_colors_[STATUS_ENGAGED].green(), 
+                              bg_colors_[STATUS_ENGAGED].blue(), 
+                              bg_colors_[STATUS_ENGAGED].alpha()) 
+                    : nvgRGBA(bg_colors_[STATUS_ENGAGED].red(), 
+                              bg_colors_[STATUS_ENGAGED].green(), 
+                              bg_colors_[STATUS_ENGAGED].blue(), a));
   }
   else if (p <= 0.5){
     c1 = STATUS_ENGAGED; // lower color index
@@ -95,24 +95,24 @@ NVGcolor interp_alert_color(float p, int a){
     c2 = STATUS_ALERT;
   }
   else{
-    return (a < 0 ? nvgRGBA(bg_colors[STATUS_ALERT].red(), 
-                            bg_colors[STATUS_ALERT].green(), 
-                            bg_colors[STATUS_ALERT].blue(), 
-                            bg_colors[STATUS_ALERT].alpha()) 
-                  : nvgRGBA(bg_colors[STATUS_ALERT].red(), 
-                            bg_colors[STATUS_ALERT].green(), 
-                            bg_colors[STATUS_ALERT].blue(), a));
+    return (a < 0 ? nvgRGBA(bg_colors_[STATUS_ALERT].red(), 
+                            bg_colors_[STATUS_ALERT].green(), 
+                            bg_colors_[STATUS_ALERT].blue(), 
+                            bg_colors_[STATUS_ALERT].alpha()) 
+                  : nvgRGBA(bg_colors_[STATUS_ALERT].red(), 
+                            bg_colors_[STATUS_ALERT].green(), 
+                            bg_colors_[STATUS_ALERT].blue(), a));
   }
   
   p *= 2.; // scale to 1
   
   int r, g, b;
   float complement = (1.f - p);
-  r = bg_colors[c1].red() * complement + bg_colors[c2].red() * p;
-  g = bg_colors[c1].green() * complement + bg_colors[c2].green() * p;
-  b = bg_colors[c1].blue() * complement + bg_colors[c2].blue() * p;
+  r = bg_colors_[c1].red() * complement + bg_colors_[c2].red() * p;
+  g = bg_colors_[c1].green() * complement + bg_colors_[c2].green() * p;
+  b = bg_colors_[c1].blue() * complement + bg_colors_[c2].blue() * p;
   if (a < 0){
-    a = bg_colors[c1].alpha() * complement + bg_colors[c2].alpha() * p;
+    a = bg_colors_[c1].alpha() * complement + bg_colors_[c2].alpha() * p;
   }
   
   NVGcolor out = nvgRGBA(r, g, b, a);
@@ -977,6 +977,7 @@ static void update_status(UIState *s) {
       s->scene.power_meter_metric = Params().getBool("PowerMeterMetric");
       s->scene.end_to_end = Params().getBool("EndToEndToggle");
       s->scene.color_path = Params().getBool("ColorPath");
+      s->scene.alt_engage_color_enabled = Params().getBool("AlternateColors");
       s->scene.adjacent_lead_info_print_at_lead = Params().getBool("PrintAdjacentLeadSpeedsAtLead");
       if (!s->scene.end_to_end){
         s->scene.laneless_btn_touch_rect = {1,1,1,1};
@@ -1064,8 +1065,7 @@ static void update_status(UIState *s) {
 QUIState::QUIState(QObject *parent) : QObject(parent) {
   ui_state.sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "deviceState", "roadCameraState", "liveMapData",
-    "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "radarState", "liveLocationKalman",
-    "ubloxGnss", "gpsLocationExternal", "longitudinalPlan", "lateralPlan", "liveParameters", "liveWeatherData",
+    "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "radarState", "liveLocationKalman", "ubloxGnss", "gpsLocationExternal", "longitudinalPlan", "lateralPlan", "liveParameters", "liveWeatherData",
     "carControl", "roadLimitSpeed"
   });
 
