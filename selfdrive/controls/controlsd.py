@@ -498,7 +498,7 @@ class Controls:
     return CS
 
 # bellows are for Slow on Curve by Neokii
-  def cal_curve_speed(self, sm, v_ego, frame):
+  """def cal_curve_speed(self, sm, v_ego, frame):
 
     if frame % 20 == 0:
       md = sm['modelV2']
@@ -525,7 +525,7 @@ class Controls:
       else:
         self.curve_speed_ms = 255.
 
-    return self.curve_speed_ms
+    return self.curve_speed_ms"""
 
   def state_transition(self, CS):
     """Compute conditional state transitions and execute actions on state transitions"""
@@ -572,8 +572,8 @@ class Controls:
       self.reset()
       self.v_cruise_kph_limit = self.v_cruise_kph
 # 2 lines for Slow on Curve
-    curv_speed_ms = self.cal_curve_speed(self.sm, CS.vEgo, self.sm.frame)
-    self.v_cruise_kph_limit = min(self.v_cruise_kph_limit, curv_speed_ms * CV.MS_TO_KPH)
+    """curv_speed_ms = self.cal_curve_speed(self.sm, CS.vEgo, self.sm.frame)
+    self.v_cruise_kph_limit = min(self.v_cruise_kph_limit, curv_speed_ms * CV.MS_TO_KPH)"""
 
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
