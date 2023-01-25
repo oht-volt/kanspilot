@@ -47,6 +47,7 @@ def manager_init() -> None:
     ("LateralControl", "TORQUE"),
     ("UseClusterSpeed", "1"),
     ("LongControlEnabled", "1"),
+    ("SlowOnCurves", "0"),
     ("DisableOpFcw", "1"),
     ("DisableUpdates", "1"),
     ("DisableDisengageOnGas", "1"),

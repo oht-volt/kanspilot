@@ -127,6 +127,8 @@ class Controls:
     except:
       self.is_live_torque = params.get_bool('IsLiveTorque')
 
+    self.longcontrol = params.get_bool('LongControlEnabled')
+    self.slow_on_curves = False if params.get_bool("TurnVisionControl") else params.get_bool('SlowOnCurves')
     self.is_metric = params.get_bool("IsMetric")
     self.is_ldw_enabled = params.get_bool("IsLdwEnabled")
     openpilot_enabled_toggle = params.get_bool("OpenpilotEnabledToggle")
@@ -572,8 +574,9 @@ class Controls:
       self.reset()
       self.v_cruise_kph_limit = self.v_cruise_kph
 # 2 lines for Slow on Curve
-    curv_speed_ms = self.cal_curve_speed(self.sm, CS.vEgo, self.sm.frame)
-    self.v_cruise_kph_limit = min(self.v_cruise_kph_limit, curv_speed_ms * CV.MS_TO_KPH)
+    if self.slow_on_curves and self.curve_speed_ms >= MIN_CURVE_SPEED:
+      curv_speed_ms = self.cal_curve_speed(self.sm, CS.vEgo, self.sm.frame)
+      self.v_cruise_kph_limit = min(self.v_cruise_kph_limit, curv_speed_ms * CV.MS_TO_KPH)
 
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
@@ -839,6 +842,7 @@ class Controls:
     # Orientation and angle rates can be useful for carcontroller
     # Only calibrated (car) frame is relevant for the carcontroller
     CC.sccSmoother.autoTrGap = AUTO_TR_CRUISE_GAP
+    CC.sccSmoother.longControl = self.longcontrol
     CC.cruiseControl.override = True
 
     orientation_value = list(self.sm['liveLocationKalman'].calibratedOrientationNED.value)

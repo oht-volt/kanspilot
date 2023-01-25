@@ -2038,6 +2038,12 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
                                             "Openpilot will control the speed of your car",
                                             "../assets/offroad/icon_road.png",
                                             this));
+  toggles.append(new ParamControl("SlowOnCurves",
+                                  "Enable Slow On Curves",
+                                  "",
+                                  "../assets/offroad/icon_road.png",
+                                  this));
+
   toggles.append(new ParamControl("TurnVisionControl",
                                   "Enable vision based turn control",
                                   "Use vision path predictions to estimate the appropiate speed to drive through turns ahead.",
