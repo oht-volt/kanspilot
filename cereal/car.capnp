@@ -232,6 +232,10 @@ struct CarState {
   cluSpeedMs @45 :Float32;
   vCluRatio @46 :Float32;
 
+  slipperyRoadsActive @47 :Bool;
+  lowVisibilityActive @48 :Bool;
+  cruiseMain @49 :Bool;
+
   struct WheelSpeeds {
     # optional wheel speeds
     fl @0 :Float32;
@@ -250,7 +254,6 @@ struct CarState {
     nonAdaptive @5 :Bool;
     speedLimit @7 :Float32;
     enabledAcc @8 :Bool;
-    resumeButton @9: Bool;
   }
 
   enum GearShifter {
