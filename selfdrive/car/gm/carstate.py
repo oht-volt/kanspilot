@@ -58,8 +58,7 @@ class CarState(CarStateBase):
     self.pause_long_on_gas_press = False
     self.gasPressed = False
 
-    # lead_distance and auto resume
-    self.cruiseState_resumeButton = False
+    # lead_distance
     self.lead_distance = 0
     self.sm = messaging.SubMaster(['radarState'])
     self.buttons_counter = 0
@@ -188,8 +187,6 @@ class CarState(CarStateBase):
     ret.cruiseState.standstill = self.pcm_acc_status != AccState.STANDSTILL
     ret.cruiseState.enabledAcc = ret.cruiseState.enabled
     self.cruiseState_enabled = ret.cruiseState.enabled
-    # ret.cruiseState.resumeButton = bool(pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCResumeButton"])
-    # self.cruiseState_resumeButton = ret.cruiseState.resumeButton
 
     # bellow 1 line for AutoHold
     self.cruiseMain = ret.cruiseState.available
