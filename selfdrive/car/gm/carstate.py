@@ -61,7 +61,6 @@ class CarState(CarStateBase):
     # lead_distance and auto resume
     self.cruiseState_resumeButton = False
     self.lead_distance = 0
-    self.lead_speed = 0
     self.sm = messaging.SubMaster(['radarState'])
     self.buttons_counter = 0
 
@@ -71,11 +70,9 @@ class CarState(CarStateBase):
     self.sm.update(0)
     if self.sm.updated['radarState']:
       self.lead_distance = 0.0
-      self.lead_speed = 0.0
       lead = self.sm['radarState'].leadOne
       if lead is not None:
         self.lead_distance = lead.dRel
-        self.lead_speed = lead.vLead
 
     ret = car.CarState.new_message()
     self.prev_cruise_buttons = self.cruise_buttons
@@ -97,7 +94,6 @@ class CarState(CarStateBase):
     self.v_Ego = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
 
     ret.cluSpeedMs = cluSpeed * self.speed_conv_to_ms
-
 
     ret.wheelSpeeds = self.get_wheel_speeds(
       pt_cp.vl["EBCMWheelSpdFront"]["FLWheelSpd"],
