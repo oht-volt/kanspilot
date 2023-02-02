@@ -199,7 +199,6 @@ class Controls:
     self.sccStockCamAct = 0
 
     self.slowing_down = False
-    self.slowing_down_alert = False
     self.slowing_down_sound_alert = False
 
     self.left_lane_visible = False
@@ -246,7 +245,6 @@ class Controls:
 
   def reset(self):
     self.slowing_down = False
-    self.slowing_down_alert = False
     self.slowing_down_sound_alert = False
 
   def update_events(self, CS):
@@ -450,10 +448,8 @@ class Controls:
 
     # events for roadSpeedLimiter
     if self.slowing_down_sound_alert:
-      self.slowing_down_sound_alert = False
       self.events.add(EventName.slowingDownSpeedSound)
-    elif self.slowing_down_alert:
-      self.events.add(EventName.slowingDownSpeed)
+      self.slowing_down_sound_alert = False
 
   def data_sample(self):
     """Receive data from sockets and update carState"""
@@ -561,14 +557,9 @@ class Controls:
       if CS.vEgo * CV.MS_TO_KPH > apply_limit_speed:
       #  self.events.add(EventName.slowingDownSpeedSound)
 
-        if not self.slowing_down_alert and not self.slowing_down:
+        if not self.slowing_down:
           self.slowing_down_sound_alert = True
           self.slowing_down = True
-
-        self.slowing_down_alert = True
-
-      else:
-        self.slowing_down_alert = False
 
     else:
       self.reset()
@@ -577,6 +568,8 @@ class Controls:
     if self.slow_on_curves and self.curve_speed_ms >= MIN_CURVE_SPEED:
       curv_speed_ms = self.cal_curve_speed(self.sm, CS.vEgo, self.sm.frame)
       self.v_cruise_kph_limit = min(self.v_cruise_kph_limit, curv_speed_ms * CV.MS_TO_KPH)
+    else:
+      pass
 
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
