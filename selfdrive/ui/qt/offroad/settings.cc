@@ -2033,11 +2033,6 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
                                             "Use cluster speed instead of wheel speed.",
                                             "../assets/offroad/icon_road.png",
                                             this));
-  toggles.append(new ParamControl("LongControlEnabled",
-                                            "Enable Long Control",
-                                            "Openpilot will control the speed of your car",
-                                            "../assets/offroad/icon_road.png",
-                                            this));
   toggles.append(new ParamControl("SlowOnCurves",
                                   "Enable Slow On Curves",
                                   "",
