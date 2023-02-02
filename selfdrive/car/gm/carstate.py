@@ -188,8 +188,8 @@ class CarState(CarStateBase):
     ret.cruiseState.standstill = self.pcm_acc_status != AccState.STANDSTILL
     ret.cruiseState.enabledAcc = ret.cruiseState.enabled
     self.cruiseState_enabled = ret.cruiseState.enabled
-    ret.cruiseState.resumeButton = bool(pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCResumeButton"])
-    self.cruiseState_resumeButton = ret.cruiseState.resumeButton
+    # ret.cruiseState.resumeButton = bool(pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCResumeButton"])
+    # self.cruiseState_resumeButton = ret.cruiseState.resumeButton
 
     # bellow 1 line for AutoHold
     self.cruiseMain = ret.cruiseState.available
