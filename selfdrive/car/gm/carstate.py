@@ -53,7 +53,6 @@ class CarState(CarStateBase):
     self.engineRPM = 0
 
     self.use_cluster_speed = Params().get_bool('UseClusterSpeed')
-    self.long_control_enabled = Params().get_bool('LongControlEnabled')
     self.is_metric = False
     self.pause_long_on_gas_press = False
     self.gasPressed = False
