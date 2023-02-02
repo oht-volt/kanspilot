@@ -72,7 +72,7 @@ MAX_ACCEL = 2.0
 T_FOLLOW = 1.45
 
 COMFORT_BRAKE = max(ntune_scc_get("COMFORT_BRAKE"), 2.0) #2.5
-STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 5.5) #6.0
+STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 5.0) #6.0
 
 def get_stopped_equivalence_factor(v_lead):
   return (v_lead**2) / (2 * COMFORT_BRAKE)
