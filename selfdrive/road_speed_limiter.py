@@ -10,12 +10,12 @@ import fcntl
 import struct
 from threading import Thread
 from cereal import messaging
-from common.numpy_fast import clip
+from common.numpy_fast import clip, interp
 from common.realtime import sec_since_boot
 from common.params import Params
 from common.conversions import Conversions as CV
 
-CAMERA_SPEED_FACTOR = 0.98
+CAMERA_SPEED_FACTOR = 0.99
 
 
 class Port:
@@ -39,15 +39,17 @@ class RoadLimitSpeedServer:
     self.last_time_location = 0
 
     broadcast = Thread(target=self.broadcast_thread, args=[])
-    broadcast.setDaemon(True)
+    broadcast.daemon = True
     broadcast.start()
 
     self.gps_sm = messaging.SubMaster(['gpsLocationExternal'], poll=['gpsLocationExternal'])
     self.gps_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+    self.location = None
+
     self.gps_event = threading.Event()
     gps_thread = Thread(target=self.gps_thread, args=[])
-    gps_thread.setDaemon(True)
+    gps_thread.daemon = True
     gps_thread.start()
 
   def gps_thread(self):
@@ -76,26 +78,26 @@ class RoadLimitSpeedServer:
       if self.remote_gps_addr is not None:
         self.gps_sm.update(0)
         if self.gps_sm.updated['gpsLocationExternal']:
-          location = self.gps_sm['gpsLocationExternal']
+          self.location = self.gps_sm['gpsLocationExternal']
 
-          if location.accuracy < 10.:
-            json_location = json.dumps({"location": [
-              location.latitude,
-              location.longitude,
-              location.altitude,
-              location.speed,
-              location.bearingDeg,
-              location.accuracy,
-              location.unixTimestampMillis,
-              # location.source,
-              # location.vNED,
-              location.verticalAccuracy,
-              location.bearingAccuracyDeg,
-              location.speedAccuracy,
-            ]})
+        if self.location is not None: #.accuracy < 10.:
+          json_location = json.dumps({"location": [
+            self.location.latitude,
+            self.location.longitude,
+            self.location.altitude,
+            self.location.speed,
+            self.location.bearingDeg,
+            self.location.accuracy,
+            self.location.unixTimestampMillis,
+            self.location.source,
+            self.location.vNED,
+            self.location.verticalAccuracy,
+            self.location.bearingAccuracyDeg,
+            self.location.speedAccuracy,
+          ]})
 
-            address = (self.remote_gps_addr[0], Port.LOCATION_PORT)
-            self.gps_socket.sendto(json_location.encode(), address)
+          address = (self.remote_gps_addr[0], Port.LOCATION_PORT)
+          self.gps_socket.sendto(json_location.encode(), address)
     except:
       self.remote_gps_addr = None
 
@@ -244,7 +246,12 @@ def main():
 
   with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     try:
-      sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+      
+      try:
+        sock.bind(('0.0.0.0', 843))
+      except:
+        sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+      
       sock.setblocking(False)
 
       while True:
@@ -391,6 +398,7 @@ class SpeedLimiter:
           speed_diff = 0
           if section_adjust_speed is not None and section_adjust_speed:
             speed_diff = (section_limit_speed - section_avg_speed) / 2.
+            speed_diff *= interp(section_left_dist, [500, 1000], [0., 1.])
 
           return section_limit_speed * CAMERA_SPEED_FACTOR + speed_diff, section_limit_speed, section_left_dist, first_started, log
 
