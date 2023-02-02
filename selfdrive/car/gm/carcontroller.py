@@ -7,7 +7,6 @@ from common.numpy_fast import clip, interp
 from opendbc.can.packer import CANPacker
 from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.gm import gmcan
-from selfdrive.car.gm.gmcan import create_buttons, create_resume_button, create_accel_command
 from selfdrive.car import create_gas_interceptor_command
 from selfdrive.car.gm.values import DBC, AccState, CanBus, CarControllerParams, CruiseButtons
 import cereal.messaging as messaging
@@ -24,10 +23,6 @@ class CarController:
     self.apply_steer_last = 0
     self.apply_gas = 0
     self.apply_brake = 0
-
-    #auto resume
-    self.last_lead_distance = 0
-    self.last_vLead = 0
 
     self.frame = 0
     self.lka_steering_cmd_counter_last = -1 # GM: EPS fault workaround(#22404)
@@ -127,8 +122,6 @@ class CarController:
         CS.autoHoldActivated = False
 
         CC.enabled = enabled
-        self.update_auto_resume(CC, CS, can_sends)
-
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
 
     #opkr
@@ -204,30 +197,3 @@ class CarController:
 
     self.frame += 1
     return new_actuators, can_sends
-
-  def update_auto_resume(self, CC, CS, can_sends):
-    if (self.frame % 4) == 0:
-      idx = (self.frame // 4) % 4
-      car_stopping = self.apply_gas < self.params.ZERO_GAS
-      standstill = CS.pcm_acc_status == AccState.STANDSTILL
-      if CS.lead_distance <= 0 or CS.lead_speed <= 0:
-        return
-
-      # condition for car stopped behid lead car
-      if car_stopping and standstill and not CS.out.gasPressed:
-        if (self.last_lead_distance == 0) or (self.last_vLead == 0):
-          self.last_lead_distance = CS.lead_distance
-          self.last_vLead = CS.lead_speed
-        elif (abs(CS.lead_distance - self.last_lead_distance) > 0.01) or \
-             (abs(CS.lead_speed - self.last_vLead) > 0.01):
-          self.apply_gas = self.params.ZERO_GAS + 307
-          can_sends.append(create_accel_command(self.packer_pt, CanBus.POWERTRAIN, idx, self.apply_gas))
-          CS.cruiseState_resumeButton = True
-          can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CruiseButtons.RES_ACCEL))
-          can_sends.append(create_buttons(self.packer_pt, CanBus.POWERTRAIN, idx, CS.cruiseState_resumeButton))
-
-      elif self.last_lead_distance != 0:
-        self.last_lead_distance = 0
-
-      elif self.last_vLead != 0:
-        self.last_vLead = 0

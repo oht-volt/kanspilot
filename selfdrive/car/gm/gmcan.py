@@ -17,13 +17,6 @@ def create_buttons(packer, bus, idx, button):
   values["SteeringButtonChecksum"] = checksum
   return packer.make_can_msg("ASCMSteeringButton", bus, values)
 
-def create_resume_button(packer, bus, idx, button, value):
-  values = {
-    button: value,
-    "RollingCounter": idx,
-  }
-  return packer.make_can_msg("ASCMActiveCruiseControlStatus", bus, values)
-
 def create_steering_control(packer, bus, apply_steer, idx, lkas_active):
 
   values = {
@@ -58,20 +51,6 @@ def create_gas_regen_command(packer, bus, throttle, idx, acc_engaged, at_full_st
 
   return packer.make_can_msg("ASCMGasRegenCmd", bus, values)
 
-
-def create_accel_command(packer, bus, idx, throttle):
-  values = {
-    "RollingCounter": idx,
-    "GasRegenCmd": throttle,
-  }
-
-  dat = packer.make_can_msg("ASCMGasRegenCmd", bus, values)[2]
-  values["GasRegenChecksum"] = (((0xff - dat[1]) & 0xff) << 16) | \
-                               (((0xff - dat[2]) & 0xff) << 8) | \
-                               ((0x100 - dat[3] - idx) & 0xff)
-
-  return packer.make_can_msg("ASCMGasRegenCmd", bus, values)
-
 def create_friction_brake_command(packer, bus, apply_brake, idx, near_stop, at_full_stop):
   mode = 0x1
   if apply_brake > 0:
@@ -92,10 +71,10 @@ def create_friction_brake_command(packer, bus, apply_brake, idx, near_stop, at_f
   checksum = (0x10000 - (mode << 12) - brake - idx) & 0xffff
 
   values = {
-    "RollingCounter" : idx,
-    "FrictionBrakeMode" : mode,
+    "RollingCounter": idx,
+    "FrictionBrakeMode": mode,
     "FrictionBrakeChecksum": checksum,
-    "FrictionBrakeCmd" : -apply_brake
+    "FrictionBrakeCmd": -apply_brake
   }
 
   return packer.make_can_msg("EBCMFrictionBrakeCmd", bus, values)
@@ -105,13 +84,13 @@ def create_acc_dashboard_command(packer, bus, acc_engaged, target_speed_kph, lea
   target_speed = int(target_speed_kph * 16) & 0xfff
 
   values = {
-    "ACCAlwaysOne" : 1,
-    "ACCResumeButton" : 0,
-    "ACCSpeedSetpoint" : target_speed,
-    "ACCGapLevel" : follow_level,
-    "ACCCmdActive" : acc_engaged,
-    "ACCAlwaysOne2" : 1,
-    "ACCLeadCar" : lead_car_in_sight,
+    "ACCAlwaysOne": 1,
+    "ACCResumeButton": 0,
+    "ACCSpeedSetpoint": target_speed,
+    "ACCGapLevel": follow_level,
+    "ACCCmdActive": acc_engaged,
+    "ACCAlwaysOne2": 1,
+    "ACCLeadCar": lead_car_in_sight,
     "FCWAlert": 0x3 if fcw else 0
   }
 
