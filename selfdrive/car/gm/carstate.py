@@ -58,8 +58,7 @@ class CarState(CarStateBase):
     self.pause_long_on_gas_press = False
     self.gasPressed = False
 
-    # lead_distance and auto resume
-    self.cruiseState_resumeButton = False
+    # lead_distance
     self.lead_distance = 0
     self.sm = messaging.SubMaster(['radarState'])
     self.buttons_counter = 0
@@ -260,7 +259,6 @@ class CarState(CarStateBase):
       ("ACCGapLevel", "ASCMActiveCruiseControlStatus"),
       ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
       ("YawRate", "EBCMVehicleDynamic"),
-      ("ACCResumeButton", "ASCMActiveCruiseControlStatus"),
     ]
 
     checks = []
