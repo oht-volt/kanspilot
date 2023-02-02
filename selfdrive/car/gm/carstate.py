@@ -259,7 +259,6 @@ class CarState(CarStateBase):
       ("ACCGapLevel", "ASCMActiveCruiseControlStatus"),
       ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
       ("YawRate", "EBCMVehicleDynamic"),
-      ("ACCResumeButton", "ASCMActiveCruiseControlStatus"),
     ]
 
     checks = []
