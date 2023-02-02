@@ -72,7 +72,7 @@ MAX_ACCEL = 2.0
 T_FOLLOW = 1.45
 
 COMFORT_BRAKE = max(ntune_scc_get("COMFORT_BRAKE"), 2.0) #2.5
-STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 5.5) #6.0
+STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 5.0) #6.0
 
 def get_stopped_equivalence_factor(v_lead):
   return (v_lead**2) / (2 * COMFORT_BRAKE)
@@ -425,8 +425,7 @@ class LongitudinalMpc:
           
         model_x = self.xStop
 
-        self.trafficState = 1 if stopSign else 2 if self.startSignCount*DT_MDL > 0.3 else self.trafficState #0 
-
+        self.trafficState = 1 if stopSign else 2 if self.startSignCount*DT_MDL > 0.3 else self.trafficState
         # SOFT_HOLD: 기능
         if carstate.brakePressed and v_ego < 0.1:  
           self.softHoldTimer += 1
@@ -457,7 +456,7 @@ class LongitudinalMpc:
         else:
           if self.status:
             self.xState = "LEAD"
-          elif stopSign and not self.e2ePaused:                 #신호인식이 되면 정지모드
+          elif stopSign and not self.e2ePaused:  #신호인식이 되면 정지모드
             self.xState = "E2E_STOP"
           else:
             self.xState = "E2E_CRUISE"
@@ -475,7 +474,7 @@ class LongitudinalMpc:
       elif self.xState == "E2E_CRUISE":
         if carstate.gasPressed:
           self.e2ePaused = True
-        if model_x > 150.0 or self.e2ePaused or v_ego_kph > self.e2eDecelSpeed:                # 속도가 빠른경우 cruise_obstacle값보다 model_x값이 적어 속도증가(약80키로전후)를 차단함~
+        if model_x > 150.0 or self.e2ePaused or v_ego_kph > self.e2eDecelSpeed:  # 속도가 빠른경우 cruise_obstacle값보다 model_x값이 적어 속도증가(약80키로전후)를 차단함~
           model_x = 1000.0
       elif self.xState == "SOFT_HOLD":
         #model_x = stopline_x
