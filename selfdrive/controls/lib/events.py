@@ -906,31 +906,23 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
   EventName.autoHoldActivated: {
     ET.PERMANENT: Alert(
       "AutoHold",
-      "You can rest your foot now.",
+      "",
       AlertStatus.normal, AlertSize.none,
       Priority.LOW, VisualAlert.none, AudibleAlert.autoHoldOn, 3.),
   },
 
-  EventName.slowingDownSpeed: {
-    ET.PERMANENT: Alert(
-      "Slowing down",
-      "",
-      AlertStatus.normal, AlertSize.small,
-      Priority.MID, VisualAlert.none, AudibleAlert.none, .1),
-  },
-  
   EventName.slowingDownSpeedSound: {
     ET.PERMANENT: Alert(
       "Slowing down",
       "",
-      AlertStatus.normal, AlertSize.small,
-      Priority.MID, VisualAlert.none, AudibleAlert.slowingDownSpeed, 2.),
+      AlertStatus.normal, AlertSize.none,
+      Priority.LOW, VisualAlert.none, AudibleAlert.slowingDownSpeed, 2.),
   },
   EventName.chimeAtResume: {
     ET.WARNING: Alert(
       "Chime for Depart",
       "",
-      AlertStatus.normal, AlertSize.small,
+      AlertStatus.normal, AlertSize.none,
       Priority.LOW, VisualAlert.none, AudibleAlert.dingdong, 3.),
   },
 }
