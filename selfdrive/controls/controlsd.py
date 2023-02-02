@@ -557,14 +557,9 @@ class Controls:
       if CS.vEgo * CV.MS_TO_KPH > apply_limit_speed:
       #  self.events.add(EventName.slowingDownSpeedSound)
 
-        if not self.slowing_down_alert and not self.slowing_down:
+        if not self.slowing_down:
           self.slowing_down_sound_alert = True
           self.slowing_down = True
-
-        self.slowing_down_alert = True
-
-      else:
-        self.slowing_down_alert = False
 
     else:
       self.reset()
