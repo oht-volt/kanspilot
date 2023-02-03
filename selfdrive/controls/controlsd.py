@@ -193,6 +193,7 @@ class Controls:
     self.desired_curvature = 0.0
     self.desired_curvature_rate = 0.0
 
+
     self.v_cruise_kph_limit = 0
     self.curve_speed_ms = 255.
     self.sccStockCamStatus = 0

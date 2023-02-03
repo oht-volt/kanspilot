@@ -1,7 +1,7 @@
 {
     "liveTorqueParams": 1.0,
     "useSteeringAngle": 1,
-    "latAccelFactor": 2.5,
+    "latAccelFactor": 2.6,
     "friction": 0.14,
     "angle_deadzone_v2": 0.0,
     "isLowSpeedFactor": 1.0
