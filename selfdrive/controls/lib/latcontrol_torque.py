@@ -70,7 +70,7 @@ class LatControlTorque(LatControl):
       if isLowSpeed:
         #low_speed_factor = interp(CS.vEgo, [0, 10, 20], [100, 75, 75])
         #low_speed_factor = interp(CS.vEgo, [0, 15], [500, 0]) # comma 1st
-        low_speed_factor = interp(CS.vEgo, [10., 25.], [80., 50.]) # from Tw
+        low_speed_factor = interp(CS.vEgo, [10.0, 25.0], [225.0, 50.0]) # from Tw
       else:
         low_speed_factor = interp(CS.vEgo, [0, 10, 20], [500, 500, 200]) #from Telly
 

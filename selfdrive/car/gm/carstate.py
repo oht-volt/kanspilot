@@ -53,15 +53,12 @@ class CarState(CarStateBase):
     self.engineRPM = 0
 
     self.use_cluster_speed = Params().get_bool('UseClusterSpeed')
-    self.long_control_enabled = Params().get_bool('LongControlEnabled')
     self.is_metric = False
     self.pause_long_on_gas_press = False
     self.gasPressed = False
 
-    # lead_distance and auto resume
-    self.cruiseState_resumeButton = False
+    # lead_distance
     self.lead_distance = 0
-    self.lead_speed = 0
     self.sm = messaging.SubMaster(['radarState'])
     self.buttons_counter = 0
 
@@ -71,11 +68,9 @@ class CarState(CarStateBase):
     self.sm.update(0)
     if self.sm.updated['radarState']:
       self.lead_distance = 0.0
-      self.lead_speed = 0.0
       lead = self.sm['radarState'].leadOne
       if lead is not None:
         self.lead_distance = lead.dRel
-        self.lead_speed = lead.vLead
 
     ret = car.CarState.new_message()
     self.prev_cruise_buttons = self.cruise_buttons
@@ -97,7 +92,6 @@ class CarState(CarStateBase):
     self.v_Ego = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
 
     ret.cluSpeedMs = cluSpeed * self.speed_conv_to_ms
-
 
     ret.wheelSpeeds = self.get_wheel_speeds(
       pt_cp.vl["EBCMWheelSpdFront"]["FLWheelSpd"],
@@ -192,8 +186,6 @@ class CarState(CarStateBase):
     ret.cruiseState.standstill = self.pcm_acc_status != AccState.STANDSTILL
     ret.cruiseState.enabledAcc = ret.cruiseState.enabled
     self.cruiseState_enabled = ret.cruiseState.enabled
-    ret.cruiseState.resumeButton = bool(pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCResumeButton"])
-    self.cruiseState_resumeButton = ret.cruiseState.resumeButton
 
     # bellow 1 line for AutoHold
     self.cruiseMain = ret.cruiseState.available
@@ -266,7 +258,6 @@ class CarState(CarStateBase):
       ("ACCGapLevel", "ASCMActiveCruiseControlStatus"),
       ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
       ("YawRate", "EBCMVehicleDynamic"),
-      ("ACCResumeButton", "ASCMActiveCruiseControlStatus"),
     ]
 
     checks = []
