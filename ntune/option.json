@@ -5,5 +5,5 @@
     "autoCruiseSetDependsOnNda": 0.0,
     "batteryChargingControl": 1,
     "batteryChargingMin": 70.0,
-    "batteryChargingMax": 80.0
+    "batteryChargingMax": 85.0
 }

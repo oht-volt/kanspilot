@@ -52,7 +52,7 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def get_steer_feedforward_volt(desired_lateral_accel, v_ego):
     ANGLE_COEF = 0.08617848
-    ANGLE_COEF2 = 0.12568428
+    ANGLE_COEF2 = 0.14
     ANGLE_OFFSET = 0.00205026
     SPEED_OFFSET = -3.48009247
     SIGMOID_COEF_RIGHT = 0.56664089
@@ -93,8 +93,8 @@ class CarInterface(CarInterfaceBase):
     # for white panda
     # ret.enableGasInterceptor = 0x201 in fingerprint[0]
     # ret.enableGasInterceptor = 512 in fingerprint[0]
-    ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
-    ret.openpilotLongitudinalControl = Params().get_bool('LongControlEnabled') or ret.enableCamera # or ret.enableGasInterceptor
+    # ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
+    ret.openpilotLongitudinalControl = True
     tire_stiffness_factor = 0.469
     ret.maxSteeringAngleDeg = 90.
 
@@ -206,8 +206,8 @@ class CarInterface(CarInterfaceBase):
     #ret.longitudinalTuning.kpV = [0.9, 0.9, 0.8] #twilsonco
     ret.longitudinalTuning.kiBP = [0, 20 * CV.KPH_TO_MS, 30 * CV.KPH_TO_MS, 50 * CV.KPH_TO_MS, 70 * CV.KPH_TO_MS, 120 * CV.KPH_TO_MS]
     ret.longitudinalTuning.kiV = [0.35, 0.53, 0.62, 0.7, 0.5, 0.36]
-    ret.longitudinalActuatorDelayLowerBound = 0.3
-    ret.longitudinalActuatorDelayUpperBound = 0.3
+    ret.longitudinalActuatorDelayLowerBound = 0.42
+    ret.longitudinalActuatorDelayUpperBound = 0.42
 
     ret.stopAccel = min(ntune_scc_get('stopAccel'), -2.0)
     ret.stoppingDecelRate = max(ntune_scc_get('stoppingDecelRate'), 3.0) #0.4  # brake_travel/s while trying to stop
