@@ -87,8 +87,8 @@ class RoadLimitSpeedServer:
               location.bearingDeg,
               location.accuracy,
               location.unixTimestampMillis,
-              # location.source,
-              # location.vNED,
+              location.source,
+              location.vNED,
               location.verticalAccuracy,
               location.bearingAccuracyDeg,
               location.speedAccuracy,
@@ -244,7 +244,12 @@ def main():
 
   with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     try:
-      sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+      
+      try:
+        sock.bind(('0.0.0.0', 843))
+      except:
+        sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+      
       sock.setblocking(False)
 
       while True:
