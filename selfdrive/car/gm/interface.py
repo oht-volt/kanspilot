@@ -92,7 +92,7 @@ class CarInterface(CarInterfaceBase):
     # or camera is on powertrain bus (LKA cars without ACC).
     # for white panda
     # ret.enableGasInterceptor = 0x201 in fingerprint[0]
-    # ret.enableGasInterceptor = 512 in fingerprint[0]
+    ret.enableGasInterceptor = 512 in fingerprint[0]
     # ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
     ret.openpilotLongitudinalControl = True
     tire_stiffness_factor = 0.469
@@ -196,6 +196,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.steerControlType = car.CarParams.SteerControlType.torque
     ret.stoppingControl = True
+    ret.startingState = False # True # startAccel을 적용하는 startingState를 막음.
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0.0, .15]
@@ -210,6 +211,7 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalActuatorDelayUpperBound = 0.42
 
     ret.stopAccel = min(ntune_scc_get('stopAccel'), -2.0)
+    ret.startAccel = 2.0
     ret.stoppingDecelRate = max(ntune_scc_get('stoppingDecelRate'), 3.0) #0.4  # brake_travel/s while trying to stop
     ret.vEgoStopping = max(ntune_scc_get('vEgoStopping'), 0.6) #0.5
     ret.vEgoStarting = max(ntune_scc_get('vEgoStarting'), 0.3) #0.5 # needs to be >= vEgoStopping to avoid state transition oscillation

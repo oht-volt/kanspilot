@@ -370,13 +370,14 @@ struct CarControl {
     speed @6: Float32; # m/s
     accel @4: Float32; # m/s^2
     longControlState @5: LongControlState;
-
+    curvature @7: Float32;
+    
     enum LongControlState @0xe40f3a917d908282{
       off @0;
       pid @1;
       stopping @2;
 
-      startingDEPRECATED @3;
+      starting @3;
     }
 
   }
@@ -511,10 +512,12 @@ struct CarParams {
   directAccelControl @30 :Bool; # Does the car have direct accel control or just gas/brake
   stoppingControl @31 :Bool; # Does the car allows full control even at lows speeds when stopping
   stopAccel @60 :Float32; # Required acceleraton to keep vehicle stationary
+  startAccel @32 :Float32; # Required acceleration to get car moving
   steerRateCost @33 :Float32; # Lateral MPC cost on steering rate
   steerControlType @34 :SteerControlType;
   radarOffCan @35 :Bool; # True when radar objects aren't visible on CAN
   stoppingDecelRate @52 :Float32; # m/s^2/s while trying to stop
+  startingState @75 :Bool; # Does this car make use of special starting state
 
   steerActuatorDelay @36 :Float32; # Steering wheel actuator delay in seconds
   longitudinalActuatorDelayLowerBound @61 :Float32; # Gas/Brake actuator delay in seconds, lower bound
@@ -706,7 +709,6 @@ struct CarParams {
   safetyModelDEPRECATED @9 :SafetyModel;
   safetyModelPassiveDEPRECATED @42 :SafetyModel = silent;
   minSpeedCanDEPRECATED @51 :Float32;
-  startAccelDEPRECATED @32 :Float32;
   communityFeatureDEPRECATED @46: Bool;
   startingAccelRateDEPRECATED @53 :Float32;
 }

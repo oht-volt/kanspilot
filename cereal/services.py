@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-import os
 from typing import Optional
 
-TICI = os.path.isfile('/TICI')
 RESERVED_PORT = 8022  # sshd
 STARTING_PORT = 8001
 
@@ -19,7 +17,7 @@ class Service:
     self.frequency = frequency
     self.decimation = decimation
 
-DCAM_FREQ = 10. if not TICI else 20.
+DCAM_FREQ = 10.
 
 services = {
   # service: (should_log, frequency, qlog decimation (optional))
@@ -67,7 +65,7 @@ services = {
   "managerState": (True, 2., 1),
   "uploaderState": (True, 0., 1),
   "liveMapData": (True, 0.),
-  "navInstruction": (True, 0., 10),
+  "navInstruction": (True, 1., 10),
   "navRoute": (True, 0.),
   "navThumbnail": (True, 0.),
   "roadLimitSpeed": (False, 0.),

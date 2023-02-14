@@ -358,7 +358,7 @@ class Controls:
     # Check for HW or system issues
     if len(self.sm['radarState'].radarErrors):
       self.events.add(EventName.radarFault)
-    elif not self.sm.valid["pandaStates"]:
+    elif not self.sm.valid['pandaStates']:
       self.events.add(EventName.usbError)
     elif not self.sm.all_checks() or self.can_rcv_error:
 
@@ -389,13 +389,13 @@ class Controls:
       self.events.add(EventName.posenetInvalid)
     if not self.sm['liveLocationKalman'].deviceStable:
       self.events.add(EventName.deviceFalling)
-    #
-    #if not REPLAY:
+
+    if not REPLAY:
     #  # Check for mismatch between openpilot and car's PCM
-    #  cruise_mismatch = CS.cruiseState.enabledAcc and (not self.enabled or not self.CP.pcmCruise)
-    #  self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
-    #  if self.cruise_mismatch_counter > int(1. / DT_CTRL):
-    #    self.events.add(EventName.cruiseMismatch)
+      cruise_mismatch = CS.cruiseState.enabled and (not self.enabled) # or not self.CP.pcmCruise)
+      self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
+      if self.cruise_mismatch_counter > int(6. / DT_CTRL):
+        self.events.add(EventName.cruiseMismatch)
 
     # Check for FCW
     stock_long_is_braking = self.enabled and not self.CP.openpilotLongitudinalControl and CS.aEgo < -1.25
@@ -463,7 +463,8 @@ class Controls:
 
     if not self.initialized:
       all_valid = CS.canValid and self.sm.all_checks()
-      if all_valid or self.sm.frame * DT_CTRL > 3.5 or SIMULATION:
+      timed_out = self.sm.frame * DT_CTRL > (6. if REPLAY else 3.5)
+      if all_valid or timed_out or SIMULATION:
         if not self.read_only:
           self.CI.init(self.CP, self.can_sock, self.pm.sock['sendcan'])
         self.initialized = True
@@ -775,6 +776,7 @@ class Controls:
       actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, params,
                                                                              self.last_actuators, self.steer_limited, self.desired_curvature,
                                                                              self.desired_curvature_rate, self.sm['liveLocationKalman'])
+      actuators.curvature = self.desired_curvature
     else:
       lac_log = log.ControlsState.LateralDebugState.new_message()
       if self.sm.rcv_frame['testJoystick'] > 0:
