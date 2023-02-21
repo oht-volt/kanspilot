@@ -59,8 +59,6 @@ def manager_init() -> None:
     ("AChangeCost", "150"),
     ("DangerZoneCost", "100"),
     ("LeadDangerFactor", "75"),
-    ("StartAccelApply", "0"),
-    ("StopAccelApply", "0"),
     ("TrafficStopDistanceAdjust", "400"),
     ("ApplyLongDynamicCost", "0"), 
     ("TrafficStopAccel", "80"),     

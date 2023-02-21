@@ -256,6 +256,7 @@ class LongitudinalMpc:
     self.xStopFilter2 = StreamingMovingAverage(15) #3
     self.vFilter = StreamingMovingAverage(7)
     self.buttonStopDist = 0
+    self.applyCruiseGap = 1.
     self.stop_line = ntune_scc_enabled("StopAtStopSign")
 
     self.t_follow = T_FOLLOW
@@ -487,6 +488,7 @@ class LongitudinalMpc:
     # Update in ACC mode or ACC/e2e blend
     if self.mode == 'acc':
       self.params[:,5] = self.leadDangerFactor #LEAD_DANGER_FACTOR
+
       if v_ego_kph > 50.0 or self.xState in ["LEAD", "CRUISE"] or (v_ego_kph > 30.0 and (model_x > 60.0 and abs(y[-1])<2.0)):
         self.e2ePaused = False
 
@@ -494,8 +496,8 @@ class LongitudinalMpc:
         #1단계: 모델값을 이용한 신호감지
         model_v = self.vFilter.process(v[-1])
         startSign = model_v > 5.0 or model_v > (v[0]+2)
-        #stopSign = v_ego_kph<80.0 and model_x < 130.0 and ((model_v < 3.0) or (model_v < v[0]*0.70)) and abs(y[N]) < 3.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
-        stopSign = model.stopLine.prob > 0.2 # 값을 줄이면 정지신호에 민감해지지만 수시로 정지하려고 할 것임
+        stopSign = v_ego_kph<80.0 and model_x < 130.0 and ((model_v < 3.0) or (model_v < v[0]*0.70)) and abs(y[N]) < 3.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
+        #stopSign = model.stopLine.prob > 0.3 # 값을 줄이면 정지신호에 민감해지지만 수시로 정지하려고 할 것임
         
         self.startSignCount = self.startSignCount + 1 if startSign else 0
         self.stopSignCount = self.stopSignCount + 1 if stopSign else 0
@@ -545,7 +547,6 @@ class LongitudinalMpc:
           if carstate.gasPressed:
             self.xState = "E2E_CRUISE"
             self.e2ePaused = True
-
         #E2E_CRUISE: 주행상태.
         else:
           if self.status:
@@ -562,7 +563,6 @@ class LongitudinalMpc:
         self.trafficState = 0
 
       fakeCruiseDistance = 0.0
-      self.on_stopping = False 
       #3단계: 조건에 따른. 감속및 주행.
       if self.xState in ["LEAD", "CRUISE"] or self.e2ePaused:
         model_x = 1000.0
@@ -572,6 +572,7 @@ class LongitudinalMpc:
         if model_x > 150.0 or self.e2ePaused or v_ego_kph > self.e2eDecelSpeed:  # 속도가 빠른경우 cruise_obstacle값보다 model_x값이 적어 속도증가(약80키로전후)를 차단함~
           model_x = 1000.0
       elif self.xState == "SOFT_HOLD":
+        #model_x = stopline_x
         v_cruise = 0
         model_x = 0.0
         pass
