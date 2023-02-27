@@ -41,7 +41,7 @@ X_EGO_COST = 0.
 V_EGO_COST = 0.
 A_EGO_COST = 0.
 J_EGO_COST = 5.0
-A_CHANGE_COST = 35. # 200.
+A_CHANGE_COST = 50. # 200.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .25
 LEAD_DANGER_FACTOR = 0.75
@@ -71,7 +71,6 @@ T_DIFFS = np.diff(T_IDXS, prepend=[0.])
 MIN_ACCEL = -3.5
 MAX_ACCEL = 2.0
 T_FOLLOW = 1.45
-
 COMFORT_BRAKE = max(ntune_scc_get("COMFORT_BRAKE"), 2.0) #2.5
 STOP_DISTANCE = max(ntune_scc_get("STOP_DISTANCE"), 5.5) #6.0
 
@@ -134,6 +133,7 @@ def gen_long_model():
   model.f_impl_expr = model.xdot - f_expl
   model.f_expl_expr = f_expl
   return model
+
 
 def gen_long_ocp():
   ocp = AcadosOcp()
@@ -235,7 +235,7 @@ class LongitudinalMpc:
     self.trafficState = 0
     self.XEgoObstacleCost = 7. #3 증가할수록 정지선정지가 정확해지나, 급감속이 강해짐
     self.JEgoCost = 5.
-    self.AChangeCost = 35. #neokii 50 적으면 선행차에 대한 반응이 강해짐
+    self.AChangeCost = 50. #neokii 50 적으면 선행차에 대한 반응이 강해짐
     self.DangerZoneCost = 100.
     self.leadDangerFactor = LEAD_DANGER_FACTOR
     self.trafficStopDistanceAdjust = 0. #신호정지 위치 조정, 값을 줄이면 정지선으로부터 좀 더 멀리 떨어져서 정지할 수 있음
@@ -386,7 +386,8 @@ class LongitudinalMpc:
   def process_lead(self, lead):
     v_ego = self.x0[1]
     if lead is not None and lead.status:
-      x_lead = lead.dRel if lead.radar else max(max(lead.dRel-STOP_DISTANCE, 0.), 20.0)  #비젼의 경우 20M이내는 무시하도록 함... 테스트..
+      x_lead = lead.dRel if lead.radar else max(lead.dRel-STOP_DISTANCE, 0.)
+      #x_lead = lead.dRel
       v_lead = lead.vLead
       a_lead = lead.aLeadK
       a_lead_tau = lead.aLeadTau
@@ -536,6 +537,7 @@ class LongitudinalMpc:
             self.xState = "LEAD"
           elif startSign == 1:  # 출발신호
             self.xState = "E2E_CRUISE"
+            self.e2ePaused = True #출발신호가 나오면 이때부터 신호무시하자... 출발후 정지하는 경우가 생김..
           if carstate.gasPressed: #예외: 정지중 accel을 밟으면 강제주행모드로 변경
             self.xState = "E2E_CRUISE"
             self.e2ePaused = True
@@ -544,6 +546,7 @@ class LongitudinalMpc:
           model_x = 0.0
           if carstate.gasPressed:
             self.xState = "E2E_CRUISE"
+            self.e2ePaused = True
         #E2E_CRUISE: 주행상태.
         else:
           if self.status:
