@@ -3,12 +3,12 @@
   "sccBrakeFactor": 1,
   "sccCurvatureFactor": 0.92,
   "stoppingDecelRate": 3.0,
-  "vEgoStopping": 0.36,
-  "vEgoStarting": 0.25,
+  "vEgoStopping": 0.6,
+  "vEgoStarting": 0.5,
   "stopAccel": -2,
-  "STOP_DISTANCE": 6.0,
+  "STOP_DISTANCE": 5.0,
   "COMFORT_BRAKE": 2.0,
   "StopAtStopSign": 1,
   "TrafficStopDistanceAdjust": 1.0,
-  "X_EGO_OBSTACLE_COST": 7.0
+  "X_EGO_OBSTACLE_COST": 8
 }

@@ -52,25 +52,6 @@ def manager_init() -> None:
     ("DisableUpdates", "1"),
     ("DisableDisengageOnGas", "1"),
     ("ShowDebugUI", "1"),
-
-    #Apilot
-    ("XEgoObstacleCost", "6"),
-    ("JEgoCost", "5"),
-    ("AChangeCost", "150"),
-    ("DangerZoneCost", "100"),
-    ("LeadDangerFactor", "75"),
-    ("TrafficStopDistanceAdjust", "400"),
-    ("ApplyLongDynamicCost", "0"), 
-    ("TrafficStopAccel", "80"),     
-    ("TrafficStopModelSpeed", "0"),         
-    ("StopDistance", "600"), 
-    ("E2eDecelSpeed", "90"),        
-    ("ApplyDynamicTFollow", "110"), 
-    ("ApplyDynamicTFollowApart", "95"), 
-    ("ApplyDynamicTFollowDecel", "110"), 
-    ("TFollowRatio", "100"),
-    ("SoftHoldMode", "1"),
-
     #OPKR
     ("OpkrBatteryChargingControl", "1"),
     ("OpkrBatteryChargingMin", "70"),

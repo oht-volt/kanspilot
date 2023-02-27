@@ -4,7 +4,6 @@ from common.realtime import DT_CTRL
 from selfdrive.controls.lib.drive_helpers import CONTROL_N, apply_deadzone
 from selfdrive.controls.lib.pid import PIDController
 from selfdrive.modeld.constants import T_IDXS
-from common.params import Params
 
 LongCtrlState = car.CarControl.Actuators.LongControlState
 
@@ -16,20 +15,12 @@ ACCEL_MAX_ISO = 2.0  # m/s^2
 def long_control_state_trans(CP, active, long_control_state, v_ego, v_target,
                              v_target_future, brake_pressed, cruise_standstill, radar_state):
   """Update longitudinal control state machine"""
-  cruise_standstill = cruise_standstill and not CP.enableGasInterceptor
   accelerating = v_target_future > v_target
-  planned_stop = (v_target < CP.vEgoStopping and
-                  v_target_future < CP.vEgoStopping and
-                  not accelerating)
-  stay_stopped = (v_ego < CP.vEgoStopping and
-                  (brake_pressed or cruise_standstill))
-  stopping_condition = planned_stop or stay_stopped
+  stopping_condition = (v_ego < 2.0 and cruise_standstill) or \
+                       (v_ego < CP.vEgoStopping and
+                        ((v_target_future < CP.vEgoStopping and not accelerating) or brake_pressed))
 
-  starting_condition = (v_target_future > CP.vEgoStarting and
-                        accelerating and
-                        not cruise_standstill and
-                        not brake_pressed)
-  started_condition = v_ego > CP.vEgoStarting
+  starting_condition = v_target_future > CP.vEgoStarting and accelerating and not cruise_standstill
 
   # neokii
   if radar_state is not None and radar_state.leadOne is not None and radar_state.leadOne.status:
@@ -40,25 +31,14 @@ def long_control_state_trans(CP, active, long_control_state, v_ego, v_target,
 
   else:
     if long_control_state == LongCtrlState.off:
-      if stopping_condition:
-        long_control_state = LongCtrlState.stopping
-      else:
-        long_control_state = LongCtrlState.pid
+      long_control_state = LongCtrlState.pid
 
     elif long_control_state == LongCtrlState.pid:
       if stopping_condition:
         long_control_state = LongCtrlState.stopping
 
     elif long_control_state == LongCtrlState.stopping:
-      if starting_condition and CP.startingState:
-        long_control_state = LongCtrlState.starting
-      elif starting_condition:
-        long_control_state = LongCtrlState.pid
-
-    elif long_control_state == LongCtrlState.starting:
-      if stopping_condition:
-        long_control_state = LongCtrlState.stopping
-      elif started_condition:
+      if starting_condition:
         long_control_state = LongCtrlState.pid
 
   return long_control_state
@@ -115,16 +95,6 @@ class LongControl:
     if self.long_control_state == LongCtrlState.off or CS.gasPressed:
       self.reset(CS.vEgo)
       output_accel = 0.
-
-    elif self.long_control_state == LongCtrlState.stopping:
-      if output_accel > self.CP.stopAccel:
-        output_accel = min(output_accel, 0.0)
-        output_accel -= self.CP.stoppingDecelRate * DT_CTRL
-      self.reset(CS.vEgo)
-
-    elif self.long_control_state == LongCtrlState.starting:
-      output_accel = self.CP.startAccel
-      self.reset(CS.vEgo)
 
     # tracking objects and driving
     elif self.long_control_state == LongCtrlState.pid:

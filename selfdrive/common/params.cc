@@ -191,24 +191,6 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"ShowDebugUI", PERSISTENT},
     {"SoftRestartTriggered", CLEAR_ON_MANAGER_START},
 
-    //Apilot
-    { "XEgoObstacleCost", PERSISTENT },
-    { "JEgoCost", PERSISTENT },
-    { "AChangeCost", PERSISTENT },
-    { "DangerZoneCost", PERSISTENT },
-    { "LeadDangerFactor", PERSISTENT },
-    { "TrafficStopDistanceAdjust", PERSISTENT },
-    { "ApplyLongDynamicCost", PERSISTENT },
-    { "TrafficStopAccel", PERSISTENT },
-    { "TrafficStopModelSpeed", PERSISTENT },
-    { "StopDistance", PERSISTENT },
-    { "E2eDecelSpeed", PERSISTENT },
-    { "ApplyDynamicTFollow", PERSISTENT },
-    { "ApplyDynamicTFollowApart", PERSISTENT },
-    { "ApplyDynamicTFollowDecel", PERSISTENT },
-    { "TFollowRatio", PERSISTENT },
-    { "SoftHoldMode", PERSISTENT },
-
     //OPKR
     {"OpkrBatteryChargingControl", PERSISTENT},
     {"OpkrBatteryChargingMin", PERSISTENT},

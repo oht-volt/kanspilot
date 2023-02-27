@@ -193,7 +193,6 @@ class Controls:
     self.desired_curvature = 0.0
     self.desired_curvature_rate = 0.0
 
-
     self.v_cruise_kph_limit = 0
     self.curve_speed_ms = 255.
     self.sccStockCamStatus = 0
@@ -358,7 +357,7 @@ class Controls:
     # Check for HW or system issues
     if len(self.sm['radarState'].radarErrors):
       self.events.add(EventName.radarFault)
-    elif not self.sm.valid['pandaStates']:
+    elif not self.sm.valid["pandaStates"]:
       self.events.add(EventName.usbError)
     elif not self.sm.all_checks() or self.can_rcv_error:
 
@@ -394,7 +393,7 @@ class Controls:
     #  # Check for mismatch between openpilot and car's PCM
     #  cruise_mismatch = CS.cruiseState.enabledAcc and (not self.enabled or not self.CP.pcmCruise)
     #  self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
-    #  if self.cruise_mismatch_counter > int(6. / DT_CTRL):
+    #  if self.cruise_mismatch_counter > int(1. / DT_CTRL):
     #    self.events.add(EventName.cruiseMismatch)
 
     # Check for FCW
@@ -463,8 +462,7 @@ class Controls:
 
     if not self.initialized:
       all_valid = CS.canValid and self.sm.all_checks()
-      timed_out = self.sm.frame * DT_CTRL > (6. if REPLAY else 3.5)
-      if all_valid or timed_out or SIMULATION:
+      if all_valid or self.sm.frame * DT_CTRL > 3.5 or SIMULATION:
         if not self.read_only:
           self.CI.init(self.CP, self.can_sock, self.pm.sock['sendcan'])
         self.initialized = True
