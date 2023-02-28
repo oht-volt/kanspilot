@@ -7,6 +7,7 @@
   chmod 700 ./scripts/*.sh
   chmod 700 ./launch_chffrplus.sh
   chmod 700 ./launch_openpilot.sh
+  chmod 700 ./selfdrive/monitoring/dmonitoringd.py
   sed -i -e 's/\r$//' ./*.py
   sed -i -e 's/\r$//' ./selfdrive/*.py
   sed -i -e 's/\r$//' ./selfdrive/manager/*.py
@@ -47,3 +48,5 @@
   sed -i -e 's/\r$//' ./SConstruct
   sed -i -e 's/\r$//' ./t.sh
   sed -i -e 's/\r$//' ./tune.py
+  sed -i -e 's/\r$//' ../data/ntune/*.json
+  sed -i -e 's/\r$//' ./selfdrive/monitoring/*.py

@@ -102,7 +102,7 @@ class CarInterface(CarInterfaceBase):
     ret.enableAutoHold = 241 in fingerprint[0]
 
     # Start with a baseline lateral tuning for all GM vehicles. Override tuning as needed in each model section below.
-    ret.minSteerSpeed = 7 * CV.MPH_TO_MS
+    ret.minSteerSpeed = 5 * CV.MPH_TO_MS
     ret.minEnableSpeed = -1
     ret.mass = 1607. + STD_CARGO_KG
     ret.wheelbase = 2.69
