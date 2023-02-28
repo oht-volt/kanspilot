@@ -266,7 +266,7 @@ class nTune():
     if self.checkValue("STOP_DISTANCE", 4.5, 7.0, 5.0):
       updated = True
 
-    if self.checkValue("COMFORT_BRAKE", 2.0, 3.0, 2.0):
+    if self.checkValue("COMFORT_BRAKE", 1.0, 3.0, 2.0):
       updated = True
 
     if self.checkValue("StopAtStopSign", 0., 1., 1.):
@@ -275,7 +275,7 @@ class nTune():
     if self.checkValue("TrafficStopDistanceAdjust", 0., 10., 1.0):
       updated = True
 
-    if self.checkValue("X_EGO_OBSTACLE_COST", 3.0, 8.0, 8.0):
+    if self.checkValue("X_EGO_OBSTACLE_COST", 3.0, 8.0, 7.0):
       updated = True
 
     return updated
