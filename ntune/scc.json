@@ -10,5 +10,5 @@
   "COMFORT_BRAKE": 2.0,
   "StopAtStopSign": 1,
   "TrafficStopDistanceAdjust": 1.0,
-  "X_EGO_OBSTACLE_COST": 8
+  "X_EGO_OBSTACLE_COST": 7
 }

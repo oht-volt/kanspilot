@@ -1,13 +1,13 @@
 {
     "useLiveSteerRatio": 1,
-    "steerRatio": 16.8,
-    "steerActuatorDelay": 0.22,
+    "steerRatio": 15.8,
+    "steerActuatorDelay": 0.2,
     "cameraOffset": -0.01,
     "pathOffset": 0.0,
     "steerLimitTimer": 0.6,
     "steerRatioScale": 0.1,
     "steerRateCost": 1.0,
     "closeToRoadEdge": 1,
-    "leftEdgeOffset": 0.19,
+    "leftEdgeOffset": 0.13,
     "rightEdgeOffset": -0.12
 }

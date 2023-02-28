@@ -15,7 +15,7 @@ from common.realtime import sec_since_boot
 from common.params import Params
 from common.conversions import Conversions as CV
 
-CAMERA_SPEED_FACTOR = 0.98
+CAMERA_SPEED_FACTOR = 0.99
 
 
 class Port:
