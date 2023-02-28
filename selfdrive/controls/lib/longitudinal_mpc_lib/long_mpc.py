@@ -256,7 +256,6 @@ class LongitudinalMpc:
     self.xStopFilter2 = StreamingMovingAverage(15) #3
     self.vFilter = StreamingMovingAverage(7)
     self.buttonStopDist = 0
-    self.applyCruiseGap = 1.
     self.stop_line = ntune_scc_enabled("StopAtStopSign")
 
     self.t_follow = T_FOLLOW

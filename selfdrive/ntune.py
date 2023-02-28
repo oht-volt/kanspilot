@@ -175,13 +175,13 @@ class nTune():
     if self.checkValue("useLiveSteerRatio", 0., 1., 1.):
       updated = True
 
-    if self.checkValue("steerRatio", 10.0, 20.0, 16.5):
+    if self.checkValue("steerRatio", 10.0, 20.0, 15.8):
       updated = True
 
-    if self.checkValue("steerActuatorDelay", 0., 0.8, 0.22):
+    if self.checkValue("steerActuatorDelay", 0., 0.8, 0.2):
       updated = True
 
-    if self.checkValue("cameraOffset", -2.0, 2.0, -0.06):
+    if self.checkValue("cameraOffset", -2.0, 2.0, -0.01):
       updated = True
 
     if self.checkValue("pathOffset", -1.0, 1.0, 0.0):
@@ -199,10 +199,10 @@ class nTune():
     if self.checkValue("closeToRoadEdge", 0., 1., 1.):
       updated = True
 
-    if self.checkValue("leftEdgeOffset", -2., 2., 0.2):
+    if self.checkValue("leftEdgeOffset", -2., 2., 0.13):
       updated = True
 
-    if self.checkValue("rightEdgeOffset", -2., 2., -0.17):
+    if self.checkValue("rightEdgeOffset", -2., 2., -0.12):
       updated = True
 
     return updated
@@ -228,9 +228,9 @@ class nTune():
       updated = True
     if self.checkValue("useSteeringAngle", 0., 1., 1.):
       updated = True
-    if self.checkValue("latAccelFactor", 0.5, 4.5, 2.5):
+    if self.checkValue("latAccelFactor", 0.5, 4.5, 2.6):
       updated = True
-    if self.checkValue("friction", 0.0, 0.2, 0.1):
+    if self.checkValue("friction", 0.0, 0.2, 0.14):
       updated = True
     if self.checkValue("angle_deadzone_v2", 0.0, 2.0, 0.0):
       updated = True
@@ -254,10 +254,10 @@ class nTune():
     if self.checkValue("stoppingDecelRate", 0.4, 3.0, 3.0):
       updated = True
 
-    if self.checkValue("vEgoStopping", 0.4, 1.0, 0.6):
+    if self.checkValue("vEgoStopping", 0.4, 1.0, 0.36):
       updated = True
 
-    if self.checkValue("vEgoStarting", 0.4, 1.0, 0.5):
+    if self.checkValue("vEgoStarting", 0.4, 1.0, 0.35):
       updated = True
 
     if self.checkValue("stopAccel", -3.0, -2.0, -2.0):
@@ -266,16 +266,16 @@ class nTune():
     if self.checkValue("STOP_DISTANCE", 4.5, 7.0, 5.0):
       updated = True
 
-    if self.checkValue("COMFORT_BRAKE", 2.0, 3.0, 2.0):
+    if self.checkValue("COMFORT_BRAKE", 1.0, 3.0, 2.0):
       updated = True
 
     if self.checkValue("StopAtStopSign", 0., 1., 1.):
       updated = True
 
-    if self.checkValue("TrafficStopDistanceAdjust", 0., 10., 1.5):
+    if self.checkValue("TrafficStopDistanceAdjust", 0., 10., 1.0):
       updated = True
 
-    if self.checkValue("X_EGO_OBSTACLE_COST", 3.0, 8.0, 8.0):
+    if self.checkValue("X_EGO_OBSTACLE_COST", 3.0, 8.0, 7.0):
       updated = True
 
     return updated
@@ -303,7 +303,7 @@ class nTune():
     if self.checkValue("batteryChargingMin", 0., 100., 70.):
       updated = True
 
-    if self.checkValue("batteryChargingMax", 0., 100., 80.):
+    if self.checkValue("batteryChargingMax", 0., 100., 85.):
       updated = True
 
     return updated
