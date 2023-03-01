@@ -96,7 +96,6 @@ class CarInterface(CarInterfaceBase):
     # ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
     ret.openpilotLongitudinalControl = True
     tire_stiffness_factor = 0.469
-    ret.maxSteeringAngleDeg = 90.
 
     # for autohold on ui icon
     ret.enableAutoHold = 241 in fingerprint[0]
@@ -143,7 +142,6 @@ class CarInterface(CarInterfaceBase):
         ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
         ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0175], [0.185]]
         ret.lateralTuning.pid.kf = 1. # get_steer_feedforward_volt()
-        ret.maxSteeringAngleDeg = 90.
         # D gain
         ret.lateralTuning.pid.kdBP = [0., 15., 33.]
         ret.lateralTuning.pid.kdV = [0.49, 0.65, 0.725]  #corolla from shane fork : 0.725
