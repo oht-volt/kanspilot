@@ -54,6 +54,8 @@ def manager_init() -> None:
     ("ShowDebugUI", "1"),
 
     #Apilot
+    ("AutoNaviSpeedCtrlStart", "20"),
+    ("AutoNaviSpeedCtrlEnd", "6"),
     ("XEgoObstacleCost", "6"),
     ("JEgoCost", "5"),
     ("AChangeCost", "150"),
@@ -70,7 +72,7 @@ def manager_init() -> None:
     ("ApplyDynamicTFollowDecel", "110"), 
     ("TFollowRatio", "100"),
     ("SoftHoldMode", "1"),
-
+    ("ApplyModelDistOrder", "31"),
     #OPKR
     ("OpkrBatteryChargingControl", "1"),
     ("OpkrBatteryChargingMin", "70"),
@@ -81,7 +83,7 @@ def manager_init() -> None:
     ("OpkrUIBrightness", "0"),
     ("OpkrUIBrightnessOff", "10"),
     ("CloseToRoadEdge", "1"),
-    ("LeftEdgeOffset", "19"),
+    ("LeftEdgeOffset", "13"),
     ("RightEdgeOffset", "-12"),
     ("CameraOffsetAdj", "-10"),
     ("SteerActuatorDelayAdj", "22"),

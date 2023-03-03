@@ -135,6 +135,9 @@ protected:
   QPixmap ic_satellite;
   QPixmap ic_trafficLight_green;
   QPixmap ic_trafficLight_red;
+  QPixmap ic_trafficLight_x;
+  QPixmap ic_trafficLight_none;
+  QPixmap ic_stopman;
 
   void drawMaxSpeed(QPainter &p);
   void drawSpeed(QPainter &p);

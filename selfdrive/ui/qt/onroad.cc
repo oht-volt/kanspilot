@@ -566,8 +566,13 @@ void NvgWindow::initializeGL() {
   ic_nda = QPixmap("../assets/images/img_nda.png");
   ic_hda = QPixmap("../assets/images/img_hda.png");
   ic_satellite = QPixmap("../assets/images/satellite.png");
-  ic_trafficLight_green = QPixmap("../assets/images/img_trafficLight_green.png");
-  ic_trafficLight_red = QPixmap("../assets/images/img_trafficLight_red.png");
+  //ic_trafficLight_green = QPixmap("../assets/images/img_trafficLight_green.png");
+  //ic_trafficLight_red = QPixmap("../assets/images/img_trafficLight_red.png");
+  ic_trafficLight_green = QPixmap("../assets/images/traffic_green.png");
+  ic_trafficLight_red = QPixmap("../assets/images/traffic_red.png");
+  ic_trafficLight_x = QPixmap("../assets/images/traffic_x.png");
+  ic_trafficLight_none = QPixmap("../assets/images/traffic_none.png");
+  ic_stopman = QPixmap("../assets/images/stopman.png");
 }
 
 void NvgWindow::updateFrameMat(int w, int h) {
@@ -868,28 +873,31 @@ void NvgWindow::drawStoplineSignal(QPainter &p) {
 
   const auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
 
-  int trafficLight = 0;
   int TRsign_w = 250;
   int TRsign_h = 140;
   int TRsign_x = 950 + TRsign_w;
-  int TRsign_y = 50;
-  if (lp.getTrafficState() == 2) {
-      trafficLight = 1;
-      p.setOpacity(0.8);
-      p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_green);
-  }
-  else if (lp.getTrafficState() == 1) {
-      trafficLight = 2;
-      p.setOpacity(0.8);
-      p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_red);
+  int TRsign_y = 30;
 
-      if (stop_line.getX() <= 150) {
-        QString sltext;
-        QColor color = QColor(255, 255, 255, 230);
-        sltext.sprintf( "%d m", (int)(stop_line.getX()));
-        configFont(p, "Open Sans", 66, "Bold");
-        drawTextWithColor(p, TRsign_x + 120, TRsign_y + TRsign_h + 60, sltext, color);
+  p.setOpacity(0.8);
+  if (lp.getTrafficState() >= 100) {
+      p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_x);
+  }
+  else {
+      switch (lp.getTrafficState() % 100) {
+      case 0: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_none); break;
+      case 1: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_red); 
+              p.drawPixmap(240, 540, 250, 250, ic_stopman); break;
+      case 2: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_green); break;
+      case 3: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_x); break;
       }
+      if (stop_line.getX() <= 150) {
+      QString sltext;
+      QColor color = QColor(255, 255, 255, 230);
+      sltext.sprintf( "%d m", (int)(stop_line.getX()));
+      configFont(p, "Open Sans", 60, "Bold");
+      drawTextWithColor(p, TRsign_x + 120, TRsign_y + TRsign_h + 60, sltext, color);
+      }  
+
   }
 }
 void NvgWindow::drawBottomIcons(QPainter &p) {

@@ -195,6 +195,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.steerControlType = car.CarParams.SteerControlType.torque
     ret.stoppingControl = True
+    ret.startingState = True
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0.0, .15]
@@ -212,6 +213,7 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingDecelRate = max(ntune_scc_get('stoppingDecelRate'), 3.0) #0.4  # brake_travel/s while trying to stop
     ret.vEgoStopping = max(ntune_scc_get('vEgoStopping'), 0.6) #0.5
     ret.vEgoStarting = max(ntune_scc_get('vEgoStarting'), 0.3) #0.5 # needs to be >= vEgoStopping to avoid state transition oscillation
+    ret.startAccel = 2.0
 
     if params.get_bool("UseNpilotManager"):
       ret.steerActuatorDelay = max(ntune_common_get('steerActuatorDelay'), 0.22)

@@ -3,7 +3,7 @@
   "sccBrakeFactor": 1,
   "sccCurvatureFactor": 0.92,
   "stoppingDecelRate": 3.0,
-  "vEgoStopping": 0.36,
+  "vEgoStopping": 0.4,
   "vEgoStarting": 0.35,
   "stopAccel": -2,
   "STOP_DISTANCE": 5.0,
