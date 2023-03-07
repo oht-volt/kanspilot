@@ -145,7 +145,7 @@ protected:
   void drawSpeedLimit(QPainter &p);
   void drawGpsStatus(QPainter &p);
   void drawDebugText(QPainter &p);
-  void drawHud(QPainter &p);
+  void drawHud(QPainter &p, const cereal::ModelDataV2::Reader &model);
   void drawStoplineSignal(QPainter &p);
 
   int m_fps = 0;

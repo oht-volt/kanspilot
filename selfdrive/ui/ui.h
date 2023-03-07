@@ -221,3 +221,5 @@ public slots:
 };
 
 void ui_update_params(UIState *s);
+void update_model(UIState *s, const cereal::ModelDataV2::Reader &model);
+void update_leads(UIState *s, const cereal::RadarState::Reader &radar_state, const cereal::ModelDataV2::XYZTData::Reader &line);

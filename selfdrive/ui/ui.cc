@@ -44,7 +44,7 @@ static int get_path_length_idx(const cereal::ModelDataV2::XYZTData::Reader &line
   return max_idx;
 }
 
-static void update_leads(UIState *s, const cereal::RadarState::Reader &radar_state, const cereal::ModelDataV2::XYZTData::Reader &line) {
+void update_leads(UIState *s, const cereal::RadarState::Reader &radar_state, const cereal::ModelDataV2::XYZTData::Reader &line) {
   for (int i = 0; i < 2; ++i) {
     auto lead_data = (i == 0) ? radar_state.getLeadOne() : radar_state.getLeadTwo();
     if (lead_data.getStatus()) {
@@ -84,7 +84,7 @@ static void update_stop_line_data(const UIState *s, const cereal::ModelDataV2::S
   *pvd = points;
 }
 
-static void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
+void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
   UIScene &scene = s->scene;
   auto model_position = model.getPosition();
   float max_distance = std::clamp(model_position.getX()[TRAJECTORY_SIZE - 1],
@@ -149,14 +149,6 @@ static void update_state(UIState *s) {
       for (int j = 0; j < 3; j++) {
         scene.view_from_calib.v[i*3 + j] = view_from_calib(i,j);
       }
-    }
-  }
-  if (s->worldObjectsVisible()) {
-    if (sm.updated("modelV2")) {
-      update_model(s, sm["modelV2"].getModelV2());
-    }
-    if (sm.updated("radarState") && sm.rcv_frame("modelV2") > s->scene.started_frame) {
-      update_leads(s, sm["radarState"].getRadarState(), sm["modelV2"].getModelV2().getPosition());
     }
   }
   if (sm.updated("pandaStates")) {
