@@ -91,6 +91,20 @@ private:
   QString getIPAddress();
   LabelControl *ipaddress;
 };
+
+class SelectCar : public QWidget {
+  Q_OBJECT
+public:
+  explicit SelectCar(QWidget* parent = 0);
+
+private:
+
+signals:
+  void backPress();
+  void selectedCar();
+
+};
+
 class LateralControl : public QWidget {
   Q_OBJECT
 public:
@@ -213,6 +227,7 @@ class CommunityPanel : public QWidget {
 private:
   QStackedLayout* main_layout = nullptr;
   QWidget* homeScreen = nullptr;
+  SelectCar* selectCar = nullptr;
   LateralControl* lateralControl = nullptr;
 
   QWidget* homeWidget;

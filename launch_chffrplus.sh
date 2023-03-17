@@ -294,6 +294,7 @@ function launch {
   # write tmux scrollback to a file
   tmux capture-pane -pq -S-1000 > /tmp/launch_log
 
+  python ./selfdrive/car/gm/values.py > /data/params/d/SupportedCars
   dongleid=`cat /data/params/d/DongleId`
 
   if [[ $dongleid == *"Unregistered"* ]]; then
