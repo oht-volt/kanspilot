@@ -312,7 +312,7 @@ class SpeedLimiter:
       return self.roadLimitSpeed.active
     return 0
 
-  def get_max_speed(self, CS, v_cruise_kph):
+  def get_max_speed(self, CS, v_cruise_kph, autoNaviSpeedCtrlStart=12, autoNaviSpeedCtrlEnd=4):
 
     log = ""
     self.recv()
@@ -355,12 +355,12 @@ class SpeedLimiter:
         v_ego = CS.vEgo
         diff_speed = v_ego * 3.6 - (cam_limit_speed * CAMERA_SPEED_FACTOR)
 
-        starting_dist = v_ego * 30.
+        starting_dist = v_ego * autoNaviSpeedCtrlStart
 
         if cam_type == 22:
           safe_dist = v_ego * 3.
         else:
-          safe_dist = v_ego * 6.
+          safe_dist = v_ego * autoNaviSpeedCtrlEnd
 
         if MIN_LIMIT <= cam_limit_speed <= MAX_LIMIT and (self.slowing_down or cam_limit_speed_left_dist < starting_dist):
           if not self.slowing_down:

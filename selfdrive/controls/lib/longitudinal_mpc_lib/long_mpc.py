@@ -57,7 +57,7 @@ AUTO_TR_V = [1.0, 1.2, 1.33, 1.45]
 
 AUTO_TR_CRUISE_GAP = 0
 
-DIFF_RADAR_VISION = 2.0 #이온 카메라와 내차 범퍼와의 거리(앞차 간격 offset)
+DIFF_RADAR_VISION = 3.0
 
 # Fewer timestamps don't hurt performance and lead to
 # much better convergence of the MPC with low iterations
@@ -257,6 +257,7 @@ class LongitudinalMpc:
     self.vFilter = StreamingMovingAverage(7)
     self.buttonStopDist = 0
     self.stop_line = ntune_scc_enabled("StopAtStopSign")
+    self.applyModelDistOrder = 32
 
     self.t_follow = T_FOLLOW
     self.comfort_brake = COMFORT_BRAKE
@@ -417,6 +418,7 @@ class LongitudinalMpc:
     a_ego = carstate.aEgo
 
     model_x = model.position.x[-1]
+    model_stop_x = model.position.x[self.applyModelDistOrder]
     self.lo_timer += 1
     if self.lo_timer > 200:
       self.lo_timer = 0
@@ -443,8 +445,10 @@ class LongitudinalMpc:
     elif self.lo_timer == 140:
       self.tFollowRatio = float(int(Params().get("TFollowRatio", encoding="utf8"))) / 100.     
       self.softHoldMode = int(Params().get("SoftHoldMode", encoding="utf8"))
+    elif self.lo_timer == 160:
+      self.applyModelDistOrder = int(Params().get("ApplyModelDistOrder", encoding="utf8"))
 
-    self.trafficState = 0
+    #self.trafficState = 0
 
     self.status = radarstate.leadOne.status or radarstate.leadTwo.status
 
@@ -456,11 +460,11 @@ class LongitudinalMpc:
 
     # lead값을 고의로 줄여주면, 빨리 감속, lead값을 늘려주면 빨리가속,
     if radarstate.leadOne.status:
-      self.t_follow *= interp(radarstate.leadOne.vRel*3.6, [-100., 0, 100.], [self.applyDynamicTFollow, 1.0, 0.95])
+      self.t_follow *= interp(radarstate.leadOne.vRel*3.6, [-100., 0, 100.], [self.applyDynamicTFollow, 1.0, self.applyDynamicTFollowApart])
       #self.t_follow *= interp(self.prev_a[0], [-4, 0], [self.applyDynamicTFollowDecel, 1.0])
       # 선행차감속도* 내차감속도 : 둘다감속이 심하면 더 t_follow를 크게..
-      self.t_follow *= interp(radarstate.leadOne.aLeadK, [-4, 0], [1.1, 1.0]) # 선행차의 accel텀은 이미 사용하고 있지만(aLeadK).... 그러나, t_follow에 추가로 적용시험
-      self.t_follow *= interp(a_ego, [-4, 0], [1.1, 1.0]) # 내차의 감속도에 추가 적용
+      self.t_follow *= interp(radarstate.leadOne.aLeadK, [-4, 0], [self.applyDynamicTFollowDecel, 1.0]) # 선행차의 accel텀은 이미 사용하고 있지만(aLeadK).... 그러나, t_follow에 추가로 적용시험
+      self.t_follow *= interp(a_ego, [-4, 0], [self.applyDynamicTFollowDecel, 1.0]) # 내차의 감속도에 추가 적용
 
     self.comfort_brake = COMFORT_BRAKE
     self.set_weights(prev_accel_constraint=prev_accel_constraint, v_lead0=lead_xv_0[0,1], v_lead1=lead_xv_1[0,1])
@@ -495,26 +499,32 @@ class LongitudinalMpc:
         #1단계: 모델값을 이용한 신호감지
         model_v = self.vFilter.process(v[-1])
         startSign = model_v > 5.0 or model_v > (v[0]+2)
-        stopSign = v_ego_kph<80.0 and model_x < 130.0 and ((model_v < 3.0) or (model_v < v[0]*0.70)) and abs(y[N]) < 3.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
+        stopSign = v_ego_kph<80.0 and model_x < 130.0 and ((model_v < 3.0) or (model_v < v[0]*0.70)) and abs(y[N]) < 6.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
         #stopSign = model.stopLine.prob > 0.3 # 값을 줄이면 정지신호에 민감해지지만 수시로 정지하려고 할 것임
         
         self.startSignCount = self.startSignCount + 1 if startSign else 0
-        self.stopSignCount = self.stopSignCount + 1 if stopSign else 0
+        ## 현재속도로 정지가 가능한경우에만 신호인식하도록 해보자~, stop_distance는 신호정지시 model_x가 0이므로... 이것도 인지하도록 함.
+        self.stopSignCount = self.stopSignCount + 1 if (stopSign and (model_x > get_safe_obstacle_distance(v_ego, t_follow=T_FOLLOW, comfort_brake=COMFORT_BRAKE, stop_distance=-1.0))) else 0 
 
-        startSign = 1 if self.startSignCount > 0.3 * DT_MDL else 0
-        stopSign = 1 if self.stopSignCount > 0.3 * DT_MDL else 0
+        # trafficState: 2:StartSign, 1:StopSign, 0: Ignore
+        # self.trafficState = 1 if self.stopSignCount * DT_MDL > 0.3 else 2 if self.startSignCount * DT_MDL > 0.3 else 0
+        # 신호등의 상태를 과거값을 기억하고 있으면 어떨까?
+        if self.stopSignCount * DT_MDL > 0.3:
+           self.trafficState = 1 
+        elif self.startSignCount * DT_MDL > 0.3:
+           self.trafficState = 2 
 
         if self.xState == "E2E_STOP": # and abs(self.xStop - model_x) < 20.0:
-          stopFilterX = self.xStopFilter.process(model_x, median = True)  # -v_ego는 longitudinalPlan에서 v_ego만큼 더해서 나옴.. 마지막에 급감속하는 문제가 발생..
+          stopFilterX = self.xStopFilter.process(model_stop_x, median = True)  # -v_ego는 longitudinalPlan에서 v_ego만큼 더해서 나옴.. 마지막에 급감속하는 문제가 발생..
           self.xStop = self.xStopFilter2.process(stopFilterX)
         else:
-          self.xStop = model_x
-          self.xStopFilter.set(model_x)
-          self.xStopFilter2.set(model_x)
+          self.xStop = model_stop_x
+          self.xStopFilter.set(model_stop_x)
+          self.xStopFilter2.set(model_stop_x)
           
         model_x = self.xStop
 
-        self.trafficState = 1 if self.stopSignCount*DT_MDL > 0.3 else 2 if self.startSignCount*DT_MDL > 0.3 else 0
+        #self.trafficState = 1 if self.stopSignCount*DT_MDL > 0.3 else 2 if self.startSignCount*DT_MDL > 0.3 else 0
         if self.e2ePaused:
           self.trafficState += 100  # 이렇게하면.... 이벤트발생이 안됨...
 
@@ -534,7 +544,7 @@ class LongitudinalMpc:
             v_cruise = 0.0
           if radarstate.leadOne.status and (radarstate.leadOne.dRel - model_x) < 2.0:
             self.xState = "LEAD"
-          elif startSign == 1:  # 출발신호
+          elif self.trafficState == 2:  # 출발신호
             self.xState = "E2E_CRUISE"
             self.e2ePaused = True #출발신호가 나오면 이때부터 신호무시하자... 출발후 정지하는 경우가 생김..
           if carstate.gasPressed: #예외: 정지중 accel을 밟으면 강제주행모드로 변경
@@ -550,7 +560,7 @@ class LongitudinalMpc:
         else:
           if self.status:
             self.xState = "LEAD"
-          elif stopSign == 1 and not self.e2ePaused:                 #신호인식이 되면 정지모드
+          elif self.trafficState == 1 and not self.e2ePaused and not carstate.gasPressed:                 #신호인식이 되면 정지모드
             self.buttonStopDist = 0
             self.xState = "E2E_STOP"
           else:
@@ -583,7 +593,12 @@ class LongitudinalMpc:
         if False: #self.trafficStopModelSpeed:
           v_cruise = v[0]
 
-      x2 = model_x * np.ones(N+1) + self.trafficStopDistanceAdjust
+      # 급격히 정지하는 걸 막아보자~ 시험.
+      stop_x = model_x
+      if self.xState == "E2E_STOP" and model_x < 3.0: # 신호정지이고 3M이내이면.. 급정거... 최소거리확보해야할... test
+        stop_x = max(v_ego * v_ego / (1.0 * 2), model_x)  # -1 m/s^2으로 감속할때 정지거리..
+
+      x2 = stop_x * np.ones(N+1) + self.trafficStopDistanceAdjust
 
       # Fake an obstacle for cruise, this ensures smooth acceleration to set speed
       # when the leads are no factor.

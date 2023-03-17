@@ -135,6 +135,9 @@ protected:
   QPixmap ic_satellite;
   QPixmap ic_trafficLight_green;
   QPixmap ic_trafficLight_red;
+  QPixmap ic_trafficLight_x;
+  QPixmap ic_trafficLight_none;
+  QPixmap ic_stopman;
 
   void drawMaxSpeed(QPainter &p);
   void drawSpeed(QPainter &p);
@@ -142,7 +145,7 @@ protected:
   void drawSpeedLimit(QPainter &p);
   void drawGpsStatus(QPainter &p);
   void drawDebugText(QPainter &p);
-  void drawHud(QPainter &p);
+  void drawHud(QPainter &p, const cereal::ModelDataV2::Reader &model);
   void drawStoplineSignal(QPainter &p);
 
   int m_fps = 0;

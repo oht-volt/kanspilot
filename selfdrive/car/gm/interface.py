@@ -142,6 +142,7 @@ class CarInterface(CarInterfaceBase):
         ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
         ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0175], [0.185]]
         ret.lateralTuning.pid.kf = 1. # get_steer_feedforward_volt()
+
         # D gain
         ret.lateralTuning.pid.kdBP = [0., 15., 33.]
         ret.lateralTuning.pid.kdV = [0.49, 0.65, 0.725]  #corolla from shane fork : 0.725
@@ -194,6 +195,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.steerControlType = car.CarParams.SteerControlType.torque
     ret.stoppingControl = True
+    ret.startingState = True
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0.0, .15]
@@ -211,6 +213,7 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingDecelRate = max(ntune_scc_get('stoppingDecelRate'), 3.0) #0.4  # brake_travel/s while trying to stop
     ret.vEgoStopping = max(ntune_scc_get('vEgoStopping'), 0.6) #0.5
     ret.vEgoStarting = max(ntune_scc_get('vEgoStarting'), 0.3) #0.5 # needs to be >= vEgoStopping to avoid state transition oscillation
+    ret.startAccel = 2.0
 
     if params.get_bool("UseNpilotManager"):
       ret.steerActuatorDelay = max(ntune_common_get('steerActuatorDelay'), 0.22)

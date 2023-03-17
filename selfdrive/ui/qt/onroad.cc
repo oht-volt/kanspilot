@@ -566,8 +566,13 @@ void NvgWindow::initializeGL() {
   ic_nda = QPixmap("../assets/images/img_nda.png");
   ic_hda = QPixmap("../assets/images/img_hda.png");
   ic_satellite = QPixmap("../assets/images/satellite.png");
-  ic_trafficLight_green = QPixmap("../assets/images/img_trafficLight_green.png");
-  ic_trafficLight_red = QPixmap("../assets/images/img_trafficLight_red.png");
+  //ic_trafficLight_green = QPixmap("../assets/images/img_trafficLight_green.png");
+  //ic_trafficLight_red = QPixmap("../assets/images/img_trafficLight_red.png");
+  ic_trafficLight_green = QPixmap("../assets/images/traffic_green.png");
+  ic_trafficLight_red = QPixmap("../assets/images/traffic_red.png");
+  ic_trafficLight_x = QPixmap("../assets/images/traffic_x.png");
+  ic_trafficLight_none = QPixmap("../assets/images/traffic_none.png");
+  ic_stopman = QPixmap("../assets/images/stopman.png");
 }
 
 void NvgWindow::updateFrameMat(int w, int h) {
@@ -592,61 +597,71 @@ void NvgWindow::updateFrameMat(int w, int h) {
 }
 
 void NvgWindow::drawLaneLines(QPainter &painter, const UIState *s) {
+  painter.save();
   const UIScene &scene = s->scene;
   // lanelines
   for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
-    painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, std::clamp<float>(scene.lane_line_probs[i], 0.0, 0.7)));
+    float prob = std::clamp<float>(scene.lane_line_probs[i]*2.0, 0.5, 1.0);
+    painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, prob));
+    //painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, std::clamp<float>(scene.lane_line_probs[i], 0.0, 0.7)));
     painter.drawPolygon(scene.lane_line_vertices[i].v, scene.lane_line_vertices[i].cnt);
   }
 
   // road edges
   for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
-    painter.setBrush(QColor::fromRgbF(1.0, 0, 0, std::clamp<float>(1.0 - scene.road_edge_stds[i], 0.0, 1.0)));
-    painter.drawPolygon(scene.road_edge_vertices[i].v, scene.road_edge_vertices[i].cnt);
+      float prob = std::clamp<float>((2.0 - scene.road_edge_stds[i])*2.0, 0.5, 1.0);
+      painter.setBrush(QColor::fromRgbF(1.0, 0, 1.0, prob));
+      //painter.setBrush(QColor::fromRgbF(1.0, 0, 1.0, std::clamp<float>(1.0 - scene.road_edge_stds[i], 0.0, 1.0)));
+      painter.drawPolygon(scene.road_edge_vertices[i].v, scene.road_edge_vertices[i].cnt);
   }
 
   // paint path
   QLinearGradient bg(0, height(), 0, height() / 4);
+  float start_hue, curve_hue;
   if (scene.end_to_end) {
-    const auto &orientation = (*s->sm)["modelV2"].getModelV2().getOrientation();
-    float orientation_future = 0;
-    if (orientation.getZ().size() > 16) {
-      orientation_future = std::abs(orientation.getZ()[16]);  // 2.5 seconds
+    const auto &acceleration = (*s->sm)["modelV2"].getModelV2().getAcceleration();
+    float acceleration_future = 0;
+    if (acceleration.getZ().size() > 16) {
+      acceleration_future = acceleration.getX()[16];  // 2.5 seconds
     }
+    start_hue = 60;
     // straight: 112, in turns: 70
-    float curve_hue = fmax(70, 112 - (orientation_future * 420));
+    curve_hue = fmax(fmin(start_hue + acceleration_future * 45, 148), 0);
     // FIXME: painter.drawPolygon can be slow if hue is not rounded
     curve_hue = int(curve_hue * 100 + 0.5) / 100;
 
-    bg.setColorAt(0.0, QColor::fromHslF(148 / 360., 0.94, 0.51, 0.4));
-    bg.setColorAt(0.75 / 1.5, QColor::fromHslF(curve_hue / 360., 1.0, 0.68, 0.35));
+    bg.setColorAt(0.0, QColor::fromHslF(start_hue / 360., 0.97, 0.56, 0.4));
+    bg.setColorAt(0.5, QColor::fromHslF(curve_hue / 360., 1.0, 0.68, 0.35));
     bg.setColorAt(1.0, QColor::fromHslF(curve_hue / 360., 1.0, 0.68, 0.0));
   } else {
-
     const auto &orientation = (*s->sm)["modelV2"].getModelV2().getOrientation();
     float orientation_future = 0;
     if (orientation.getZ().size() > 16) {
       orientation_future = std::abs(orientation.getZ()[16]);  // 2.5 seconds
     }
-    float curve_hue = fmax(0, 220 - (orientation_future * 800));
+    start_hue = 148;
+    // straight: 112, in turns: 70
+    curve_hue = fmax(70, 112 - (orientation_future * 420));
+
     // FIXME: painter.drawPolygon can be slow if hue is not rounded
     curve_hue = int(curve_hue * 100 + 0.5) / 100;
 
-    bg.setColorAt(0.0, QColor::fromHslF(220 / 360., 0.94, 0.5, 0.4));
-    bg.setColorAt(0.75 / 1.5, QColor::fromHslF(curve_hue / 360., 1.0, 0.68, 0.35));
+    bg.setColorAt(0.0, QColor::fromHslF(start_hue / 360., 0.94, 0.51, 0.4));
+    bg.setColorAt(0.5, QColor::fromHslF(curve_hue / 360., 1.0, 0.68, 0.35));
     bg.setColorAt(1.0, QColor::fromHslF(curve_hue / 360., 1.0, 0.68, 0.0));
   }
   painter.setBrush(bg);
   painter.drawPolygon(scene.track_vertices.v, scene.track_vertices.cnt);
+
+  painter.restore();
 }
 
 void NvgWindow::drawLead(QPainter &painter, const cereal::ModelDataV2::LeadDataV3::Reader &lead_data, const QPointF &vd, bool is_radar) {
+  painter.save();
   const float speedBuff = 10.;
   const float leadBuff = 40.;
   const float d_rel = lead_data.getX()[0];
   const float v_rel = lead_data.getV()[0];
-
-  painter.save();
 
   float fillAlpha = 0;
   if (d_rel < leadBuff) {
@@ -660,6 +675,8 @@ void NvgWindow::drawLead(QPainter &painter, const cereal::ModelDataV2::LeadDataV
   float sz = std::clamp((25 * 30) / (d_rel / 3 + 30), 15.0f, 30.0f) * 2.35;
   float x = std::clamp((float)vd.x(), 0.f, width() - sz / 2);
   float y = std::fmin(height() - sz * .6, (float)vd.y());
+
+  if (y > height() - 180) y = height() - 180;
 
   float g_xo = sz / 5;
   float g_yo = sz / 10;
@@ -720,19 +737,24 @@ void NvgWindow::paintGL() {
 }
 
 void NvgWindow::paintEvent(QPaintEvent *event) {
-  QPainter p;
-  p.begin(this);
+  UIState *s = uiState();
+  const cereal::ModelDataV2::Reader &model = (*s->sm)["modelV2"].getModelV2();
+
+  QPainter p(this);
 
   p.beginNativePainting();
   CameraViewWidget::paintGL();
-  p.endNativePainting();
-
-  UIState *s = uiState();
-  if (s->worldObjectsVisible() || Params().getBool("IsOpenpilotViewEnabled")) {
-    drawHud(p);
+  SubMaster &sm = *(s->sm);
+  if (s->worldObjectsVisible()) {
+    if (sm.rcv_frame("modelV2") > s->scene.started_frame) {
+      update_model(s, sm["modelV2"].getModelV2());
+      if (sm.rcv_frame("radarState") > s->scene.started_frame) {
+        update_leads(s, sm["radarState"].getRadarState(), sm["modelV2"].getModelV2().getPosition());
+      }
+    }
+    drawHud(p, model);
   }
-
-  p.end();
+  p.endNativePainting();
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
@@ -792,7 +814,7 @@ void NvgWindow::drawText2(QPainter &p, int x, int y, int flags, const QString &t
   p.drawText(QRect(x, y, rect.width()+1, rect.height()), flags, text);
 }
 
-void NvgWindow::drawHud(QPainter &p) {
+void NvgWindow::drawHud(QPainter &p, const cereal::ModelDataV2::Reader &model) {
 
   p.setRenderHint(QPainter::Antialiasing);
   p.setPen(Qt::NoPen);
@@ -868,28 +890,31 @@ void NvgWindow::drawStoplineSignal(QPainter &p) {
 
   const auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
 
-  int trafficLight = 0;
   int TRsign_w = 250;
   int TRsign_h = 140;
   int TRsign_x = 950 + TRsign_w;
-  int TRsign_y = 50;
-  if (lp.getTrafficState() == 2) {
-      trafficLight = 1;
-      p.setOpacity(0.8);
-      p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_green);
-  }
-  else if (lp.getTrafficState() == 1) {
-      trafficLight = 2;
-      p.setOpacity(0.8);
-      p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_red);
+  int TRsign_y = 30;
 
-      if (stop_line.getX() <= 150) {
-        QString sltext;
-        QColor color = QColor(255, 255, 255, 230);
-        sltext.sprintf( "%d m", (int)(stop_line.getX()));
-        configFont(p, "Open Sans", 66, "Bold");
-        drawTextWithColor(p, TRsign_x + 120, TRsign_y + TRsign_h + 60, sltext, color);
+  p.setOpacity(0.8);
+  if (lp.getTrafficState() >= 100) {
+      p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_x);
+  }
+  else {
+      switch (lp.getTrafficState() % 100) {
+      case 0: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_none); break;
+      case 1: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_red); 
+              p.drawPixmap(240, 540, 250, 250, ic_stopman); break;
+      case 2: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_green); break;
+      case 3: p.drawPixmap(TRsign_x, TRsign_y, TRsign_w, TRsign_h, ic_trafficLight_x); break;
       }
+      if (stop_line.getX() <= 150) {
+      QString sltext;
+      QColor color = QColor(255, 255, 255, 230);
+      sltext.sprintf( "%d m", (int)(stop_line.getX()));
+      configFont(p, "Open Sans", 60, "Bold");
+      drawTextWithColor(p, TRsign_x + 120, TRsign_y + TRsign_h + 60, sltext, color);
+      }  
+
   }
 }
 void NvgWindow::drawBottomIcons(QPainter &p) {
