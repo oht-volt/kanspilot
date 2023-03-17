@@ -190,3 +190,12 @@ DBC = {
   CAR.BUICK_REGAL: dbc_dict('gm_global_a_powertrain_generated', 'gm_global_a_object', chassis_dbc='gm_global_a_chassis'),
   CAR.ESCALADE_ESV: dbc_dict('gm_global_a_powertrain_generated', 'gm_global_a_object', chassis_dbc='gm_global_a_chassis'),
 }
+
+def main():
+  for member, value in vars(CAR).items():
+    if not member.startswith("_"):
+      print(value)
+
+
+if __name__ == "__main__":
+  main()
