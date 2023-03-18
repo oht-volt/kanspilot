@@ -873,6 +873,10 @@ static void ui_draw_measures(UIState *s){
   if (s->scene.measure_cur_num_slots){
     SubMaster &sm = *(s->sm);
     UIScene &scene = s->scene;
+    const int measure_cur_num_slots = scene.measure_cur_num_slots;
+    if (scene.map_open){
+      scene.measure_cur_num_slots = MIN(scene.measure_num_rows, 4);
+    }
     const Rect maxspeed_rect = {bdr_s * 2, int(bdr_s * 1.5), 184, 202};
     int center_x = s->fb_w - face_wheel_radius - bdr_s * 2;
     center_x -= s->scene.power_meter_rect.w + s->fb_w / 256;
@@ -1457,12 +1461,87 @@ static void ui_draw_measures(UIState *s){
             snprintf(val, sizeof(val), "%.1f", scene.car_state.getAEgo());
             snprintf(unit, sizeof(unit), "m/s²");
             break;}
+
+          case UIMeasure::TIME_TO_STOP_CUR:
+            {
+            float a = scene.car_state.getAEgo();
+            float t = a < -0.5 ? -scene.car_state.getVEgo() / a : 0.0;
+            if (a > 0.0){
+              snprintf(val, sizeof(val), "%.1f", t);
+            }
+            else{
+              snprintf(val, sizeof(val), "---");
+            }
+            snprintf(name, sizeof(name), "STOP TIME");
+            snprintf(unit, sizeof(unit), "s");
+            break;}
+
+          case UIMeasure::TIME_TO_STOP_MIN:
+            {
+            float t = scene.car_state.getVEgo() / 7.0;
+            snprintf(name, sizeof(name), "MIN STOP TIME");
+            snprintf(val, sizeof(val), "%.1f", t);
+            snprintf(unit, sizeof(unit), "s");
+            break;}
+
+          case UIMeasure::DIST_TO_STOP_CUR:
+            {
+            float a = scene.car_state.getAEgo();
+            float v = scene.car_state.getVEgo();
+            float d = a < -0.5 ? -(v*v) / (2*a) : 0.0;
+            snprintf(name, sizeof(name), "STOP DIST");
+            if (!scene.is_metric){
+              d *= 3.28;
+              snprintf(unit, sizeof(unit), "ft");
+            }
+            else{
+              snprintf(unit, sizeof(unit), "m");
+            }
+            if (d > 0.0){
+              snprintf(val, sizeof(val), "%.0f", d);
+            }
+            else{
+              snprintf(val, sizeof(val), "---");
+            }
+            break;}
+          
+          case UIMeasure::DIST_TO_STOP_MIN:
+            {
+            float a = 7.0;
+            float v = scene.car_state.getVEgo();
+            float d = v*v / (2*a);
+            snprintf(name, sizeof(name), "MIN STOP DIST");
+            if (!scene.is_metric){
+              d *= 3.28;
+              snprintf(val, sizeof(val), "%.1f", d);
+              snprintf(unit, sizeof(unit), "ft");
+            }
+            else{
+              snprintf(val, sizeof(val), "%.1f", d);
+              snprintf(unit, sizeof(unit), "m");
+            }
+            break;}
           
           case UIMeasure::LAT_ACCEL:
             {
             snprintf(name, sizeof(name), "횡가속도");
             snprintf(val, sizeof(val), "%.1f", sm["liveLocationKalman"].getLiveLocationKalman().getAccelerationCalibrated().getValue()[1]);
             snprintf(unit, sizeof(unit), "m/s²");
+            break;}
+
+          case UIMeasure::KINETIC_ENERGY:
+            {
+            snprintf(name, sizeof(name), "KIN EN");
+            float v = scene.car_state.getVEgo();
+            float T = v*v * scene.mass * 1e-3;
+            if (T > 1e3){
+              snprintf(val, sizeof(val), "%.2f", T * 1e-3);
+              snprintf(unit, sizeof(unit), "MJ");
+            }
+            else{
+              snprintf(val, sizeof(val), "%.0f", T);
+              snprintf(unit, sizeof(unit), "KJ");
+            }
             break;}
 
           case UIMeasure::DRAG_FORCE:
@@ -3238,15 +3317,17 @@ static void ui_draw_vision_turnspeed(UIState *s) {
 }
 
 static void ui_draw_vision_speed(UIState *s) {
-  const int speed = s->scene.car_state.getClusterSpeed();
-  const std::string speed_str = std::to_string(speed);
-  nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BASELINE);
-  ui_draw_text(s, s->fb_w / 2, 210, speed_str.c_str(), 96 * 2.5, COLOR_WHITE, "sans-bold");
-  ui_draw_text(s, s->fb_w / 2, 290, s->scene.is_metric ? "km/h" : "mph", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
-  s->scene.speed_rect = {s->fb_w / 2 - 50, 150, 150, 300};
+  if (s->scene.show_cur_speed){
+    const int speed = s->scene.car_state.getClusterSpeed();
+    const std::string speed_str = std::to_string(speed);
+    nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BASELINE);
+    ui_draw_text(s, s->fb_w / 2, 210, speed_str.c_str(), 96 * 2.5, COLOR_WHITE, "sans-bold");
+    ui_draw_text(s, s->fb_w / 2, 290, s->scene.is_metric ? "km/h" : "mph", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
+  }
+  s->scene.speed_rect = {s->fb_w / 2 - 50, 0, 200, 450};
 }
 
-static void ui_draw_speed_limit(UIState *s)
+static void ui_draw_neokii_spd_limit(UIState *s)
 {
   const SubMaster &sm = *(s->sm);
   const auto scc_smoother = sm["carControl"].getCarControl().getSccSmoother();
@@ -3488,9 +3569,9 @@ static void ui_draw_vision_power_meter(UIState *s) {
     pow_cur[ipow++] = MAX(0., s->scene.car_state.getEvPower());
     pow_cur[ipow++] = MAX(0., s->scene.car_state.getBrakePower());
     pow_cur[ipow++] = MAX(0., s->scene.car_state.getRegenPower());
-    float drag_power = s->scene.car_state.getDragPower() * 1e-3;
-    float rolling_resistance_power = s->scene.car_state.getRollingPower() * 1e-3;
-    float pitch_power = s->scene.car_state.getPitchPower() * 1e-3;
+    // float drag_power = s->scene.car_state.getDragPower() * 1e-3;
+    // float rolling_resistance_power = s->scene.car_state.getRollingPower() * 1e-3;
+    // float pitch_power = s->scene.car_state.getPitchPower() * 1e-3;
     for (ipow = 0; ipow < 4; ++ipow){
       pow_cur[ipow] *= 1e-3; // convert from W to kW
       s->scene.power_cur[ipow] = s->scene.power_meter_ema_k * pow_cur[ipow] + (1. - s->scene.power_meter_ema_k) * s->scene.power_cur[ipow];
@@ -3527,27 +3608,27 @@ static void ui_draw_vision_power_meter(UIState *s) {
       nvgFillColor(s->vg, COLOR_GRACE_BLUE_ALPHA(outer_fill_alpha));
       nvgFill(s->vg);
 
-      // add lines to indicate drag and rolling resistance losses
-      if (pow_rel > 0.){
-        int h_drag = hu * drag_power / s->scene.power_max[1];
-        int h_rr = h_drag + hu * rolling_resistance_power / s->scene.power_max[1];
-        int h_pitch = h_rr + hu * pitch_power / s->scene.power_max[1];
-        nvgBeginPath(s->vg);
-        nvgRect(s->vg, xi+2, y_mid - h_rr - h_pitch / 2, wi-4, h_pitch);
-        nvgStrokeWidth(s->vg, 5);
-        nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
-        nvgStroke(s->vg);
-        nvgBeginPath(s->vg);
-        nvgRect(s->vg, xi+2, y_mid - h_drag - h_rr / 2, wi-4, h_rr);
-        nvgStrokeWidth(s->vg, 5);
-        nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
-        nvgStroke(s->vg);
-        nvgBeginPath(s->vg);
-        nvgRect(s->vg, xi+2, y_mid - h_drag / 2, wi-4, h_drag);
-        nvgStrokeWidth(s->vg, 5);
-        nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
-        nvgStroke(s->vg);
-      }
+      // add lines to indicate drag and rolling resistance losses (I like the idea but it's too much)
+      // if (pow_rel > 0.){
+      //   int h_drag = hu * drag_power / s->scene.power_max[1];
+      //   int h_rr = h_drag + hu * rolling_resistance_power / s->scene.power_max[1];
+      //   int h_pitch = h_rr + hu * pitch_power / s->scene.power_max[1];
+      //   nvgBeginPath(s->vg);
+      //   nvgRect(s->vg, xi+2, y_mid - h_rr - h_pitch / 2, wi-4, h_pitch);
+      //   nvgStrokeWidth(s->vg, 5);
+      //   nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
+      //   nvgStroke(s->vg);
+      //   nvgBeginPath(s->vg);
+      //   nvgRect(s->vg, xi+2, y_mid - h_drag - h_rr / 2, wi-4, h_rr);
+      //   nvgStrokeWidth(s->vg, 5);
+      //   nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
+      //   nvgStroke(s->vg);
+      //   nvgBeginPath(s->vg);
+      //   nvgRect(s->vg, xi+2, y_mid - h_drag / 2, wi-4, h_drag);
+      //   nvgStrokeWidth(s->vg, 5);
+      //   nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
+      //   nvgStroke(s->vg);
+      // }
 
       xi += wi;
       pow_rel_max = MAX(pow_rel, pow_rel_max);
@@ -3573,26 +3654,26 @@ static void ui_draw_vision_power_meter(UIState *s) {
       pow_rel_max = MAX(pow_rel, pow_rel_max);
 
             // add lines to indicate drag and rolling resistance losses
-      if (pow_rel > 0.){
-        int h_drag = hu_ice * drag_power / s->scene.power_max[0];
-        int h_rr = h_drag + hu_ice * rolling_resistance_power / s->scene.power_max[0];
-        int h_pitch = h_rr + hu * pitch_power / s->scene.power_max[0];
-        nvgBeginPath(s->vg);
-        nvgRect(s->vg, xi+2, y_mid - h_rr - h_pitch / 2, wi-4, h_pitch);
-        nvgStrokeWidth(s->vg, 5);
-        nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
-        nvgStroke(s->vg);
-        nvgBeginPath(s->vg);
-        nvgRect(s->vg, xi+2, y_mid - h_drag - h_rr / 2, wi-4, h_rr);
-        nvgStrokeWidth(s->vg, 5);
-        nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
-        nvgStroke(s->vg);
-        nvgBeginPath(s->vg);
-        nvgRect(s->vg, xi+2, y_mid - h_drag / 2, wi-4, h_drag);
-        nvgStrokeWidth(s->vg, 5);
-        nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
-        nvgStroke(s->vg);
-      }
+      // if (pow_rel > 0.){
+      //   int h_drag = hu_ice * drag_power / s->scene.power_max[0];
+      //   int h_rr = h_drag + hu_ice * rolling_resistance_power / s->scene.power_max[0];
+      //   int h_pitch = h_rr + hu * pitch_power / s->scene.power_max[0];
+      //   nvgBeginPath(s->vg);
+      //   nvgRect(s->vg, xi+2, y_mid - h_rr - h_pitch / 2, wi-4, h_pitch);
+      //   nvgStrokeWidth(s->vg, 5);
+      //   nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
+      //   nvgStroke(s->vg);
+      //   nvgBeginPath(s->vg);
+      //   nvgRect(s->vg, xi+2, y_mid - h_drag - h_rr / 2, wi-4, h_rr);
+      //   nvgStrokeWidth(s->vg, 5);
+      //   nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
+      //   nvgStroke(s->vg);
+      //   nvgBeginPath(s->vg);
+      //   nvgRect(s->vg, xi+2, y_mid - h_drag / 2, wi-4, h_drag);
+      //   nvgStrokeWidth(s->vg, 5);
+      //   nvgStrokeColor(s->vg, COLOR_WHITE_ALPHA(150));
+      //   nvgStroke(s->vg);
+      // }
     }
 
 
@@ -3681,7 +3762,7 @@ static void ui_draw_vision_power_meter(UIState *s) {
       }
       nvgFillColor(s->vg, COLOR_WHITE_ALPHA(180));
       nvgFontFace(s->vg, "sans-semibold");
-      snprintf(val, sizeof(val), (abs(pow) >= 10 ? "%.0f%s" : "%.1f%s"), pow, unit);
+      snprintf(val, sizeof(val), "%.0f%s", pow, unit);
       nvgTextAlign(s->vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
       nvgFontSize(s->vg, 100);
       nvgText(s->vg, outer_rect.right(), y + 5,val,NULL);
@@ -4144,11 +4225,16 @@ static void ui_draw_vision_header(UIState *s) {
                                         nvgRGBAf(0, 0, 0, 0.45), nvgRGBAf(0, 0, 0, 0));
   ui_fill_rect(s->vg, {0, 0, s->fb_w , header_h}, gradient);
   ui_draw_vision_maxspeed(s);
-  ui_draw_vision_speedlimit(s);
   ui_draw_vision_speed(s);
-  ui_draw_vision_turnspeed(s);
+  if (s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::NONE){
+    ui_draw_vision_turnspeed(s);
+    ui_draw_vision_speedlimit(s);
+  }
+  else if (s->scene.controls_state.getAlertSize() == cereal::ControlsState::AlertSize::SMALL){
+    ui_draw_vision_speedlimit(s);
+  }
   ui_draw_vision_event(s);
-  ui_draw_speed_limit(s);
+  ui_draw_neokii_spd_limit(s);
 }
 
 static void ui_draw_vision(UIState *s) {

@@ -589,6 +589,7 @@ struct ControlsState @0x97ff69c53601abf1 {
   cumLagMs @15 :Float32;
   canErrorCounter @57 :UInt32;
 
+  parkedTimer @100 :Int32;
   interactionTimer @61 :Int32;
   interventionTimer @62 :Int32;
   distractionTimer @63 :Int32;
@@ -618,6 +619,8 @@ struct ControlsState @0x97ff69c53601abf1 {
   percentEngagedTimeTotal @88 :Float32;
   percentEngagedDistanceSession @89 :Float32;
   percentEngagedDistanceTotal @90 :Float32;
+
+  lacCorrectionFactor @101 :Float32;
 
 
   lateralControlState :union {
@@ -717,6 +720,13 @@ struct ControlsState @0x97ff69c53601abf1 {
     kp @11 :Float32;
     ki @12 :Float32;
     kd @13 :Float32;
+    gainUpdateFactor @14 :Float32;
+    desiredLateralJerk @15 :Float32;
+    friction @16 :Float32;
+    steerAngleError @17 :Float32;
+    currentLateralJerk @18 :Float32;
+    lookaheadCurvature @19 :Float32;
+    lookaheadCurvatureRate @20 :Float32;
    }
 
   struct LateralLQRState {

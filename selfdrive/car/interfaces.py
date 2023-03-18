@@ -5,6 +5,7 @@ from typing import Dict
 
 from cereal import car
 from common.kalman.simple_kalman import KF1D
+from common.numpy_fast import interp
 from common.realtime import DT_CTRL
 from common.params import Params
 from selfdrive.car import gen_empty_fingerprint
@@ -80,6 +81,16 @@ class CarInterfaceBase():
   @staticmethod
   def get_steer_feedforward_torque_default(desired_lateral_accel, v_ego):
     return desired_lateral_accel
+  
+  @staticmethod
+  def get_steer_feedforward_function_torque_lat_jerk_default(desired_lateral_jerk, v_ego, desired_lateral_acceleration, friction, friction_threshold):
+    if friction < 0.0:
+      f = 0.0
+    else:
+      f = friction
+    return interp(desired_lateral_jerk,
+                  [-friction_threshold, friction_threshold],
+                  [-f, f])
 
   @staticmethod
   def get_steer_feedforward_function():
@@ -88,6 +99,10 @@ class CarInterfaceBase():
   @staticmethod
   def get_steer_feedforward_function_torque():
     return CarInterfaceBase.get_steer_feedforward_torque_default
+  
+  @staticmethod
+  def get_steer_feedforward_function_torque_lat_jerk():
+    return CarInterfaceBase.get_steer_feedforward_function_torque_lat_jerk_default
 
   # returns a set of default params to avoid repetition in car specific params
   @staticmethod

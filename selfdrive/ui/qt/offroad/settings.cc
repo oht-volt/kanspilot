@@ -226,6 +226,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "OpenPilot은 자동으로 더 부드러운 가속과 곡선 제동, 더 먼 거리의 교통 흐름을 따르거나 사용 중 제한 속도 오프셋을 낮추어줍니다. 원하는 경우 /data/OpenWeatherMap_apiKey.txt 파일에 여러분 자신의 OpenWeatherMap.org API 키를 입력합십시오.",
                                   "../assets/weather/10n.png",
                                   this));
+  toggles.append(new ParamControl("AutoBrightness",
+                                  "자동밝기 조정",
+                                  "Set brightness automatically. High during the day and medium at night, after sunset. You can override this until the next car start by manually changing brightness by tapping the face icon at bottom-left.",
+                                  "../assets/offroad/icon_metric.png",
+                                  this));
   toggles.append(new ParamControl("ColorPath",
                                   "경로색상",
                                   "횡가속도 보정량에 따른 경로색상",
@@ -240,6 +245,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "반대/진행차선경로 표시(권장되지않음)",
                                   "레이더확장기능 토글On 필요, 반대차선은 Red, 진행차선은 Green.",
                                   "../assets/offroad/icon_road.png",
+                                  this));
+  toggles.append(new ParamControl("PrintCurrentSpeed",
+                                  "현재속도 표시",
+                                  "Print current vehicle speed on Comma device screen",
+                                  "../assets/offroad/icon_metric.png",
                                   this));
   toggles.append(new ParamControl("PrintLeadInfo",
                                   "리드카 정보표시",
