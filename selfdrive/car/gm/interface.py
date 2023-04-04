@@ -101,7 +101,7 @@ class CarInterface(CarInterfaceBase):
     ret.enableAutoHold = 241 in fingerprint[0]
 
     # Start with a baseline lateral tuning for all GM vehicles. Override tuning as needed in each model section below.
-    ret.minSteerSpeed = 5 * CV.MPH_TO_MS
+    ret.minSteerSpeed = 1 * CV.MPH_TO_MS
     ret.minEnableSpeed = -1
     ret.mass = 1607. + STD_CARGO_KG
     ret.wheelbase = 2.69
@@ -229,10 +229,11 @@ class CarInterface(CarInterfaceBase):
   # returns a car.CarState
   def update(self, c: car.CarControl, can_strings: List[bytes]) -> car.CarState:
     self.cp.update_strings(can_strings)
+    self.cp_cam.update_strings(can_strings)
     self.cp_loopback.update_strings(can_strings) # GM: EPS fault workaround (#22404)
 
     self.cp_chassis.update_strings(can_strings) # for Brake Light
-    ret = self.CS.update(self.cp, self.cp_loopback, self.cp_chassis) # GM: EPS fault workaround (#22404)
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis) # GM: EPS fault workaround (#22404)
 
     #brake autohold
     if not self.CS.autoholdBrakeStart and self.CS.brakePressVal > 40.0:
@@ -243,7 +244,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.cruiseGap = self.CS.follow_level
 
-    ret.canValid = self.cp.can_valid and self.cp_loopback.can_valid # GM: EPS fault workaround (#22404)
+    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid # GM: EPS fault workaround (#22404)
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     ret.engineRPM = self.CS.engineRPM
@@ -353,9 +354,6 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   def apply(self, c, controls):
-    cruiseControl = c.cruiseControl
-    pcm_cancel_cmd = cruiseControl.cancel
-
     # For Openpilot, "enabled" includes pre-enable.
     # In GM, PCM faults out if ACC command overlaps user gas.
     pause_long_on_gas_press = c.enabled and self.CS.gasPressed and not self.CS.out.brake > 0. and not self.disengage_on_gas

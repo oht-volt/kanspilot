@@ -223,8 +223,9 @@ class CarInterfaceBase(ABC):
       events.add(EventName.speedTooHigh)
     if cs_out.cruiseState.nonAdaptive:
       events.add(EventName.wrongCruiseMode)
-    # if cs_out.brakeHoldActive and self.CP.openpilotLongitudinalControl:
-    #   events.add(EventName.brakeHold)
+    if cs_out.brakeHoldActive and self.CP.openpilotLongitudinalControl:
+      #events.add(EventName.brakeHold)
+      pass
     if cs_out.parkingBrake:
       events.add(EventName.parkBrake)
 
@@ -252,7 +253,8 @@ class CarInterfaceBase(ABC):
       if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.enabled:
-        events.add(EventName.pcmDisable)
+        #events.add(EventName.pcmDisable)  #ajouatom: MAD모드 구현시 이것만 코멘트하면 됨.
+        pass
 
     return events
 
