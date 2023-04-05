@@ -91,7 +91,7 @@ BO_ 201 ECMEngineStatus: 8 K20_ECM
  SG_ EngineTPS : 39|8@0+ (0.392156863,0) [0|100.000000065] "%" NEO
  SG_ EngineRPM : 15|16@0+ (0.25,0) [0|0] "RPM" NEO
  SG_ CruiseMainOn : 29|1@0+ (1,0) [0|1] "" NEO
- SG_ Brake_Pressed : 40|1@0+ (1,0) [0|1] "" NEO
+ SG_ BrakePressed : 40|1@0+ (1,0) [0|1] "" NEO
  SG_ Standstill : 2|1@0+ (1,0) [0|1] "" NEO
 
 BO_ 209 EBCMBrakePedalSensors: 7 K17_EBCM
@@ -103,6 +103,7 @@ BO_ 209 EBCMBrakePedalSensors: 7 K17_EBCM
  SG_ BrakeNormalized2 : 47|8@0- (-1,0) [0|255] "" XXX
 
 BO_ 241 EBCMBrakePedalPosition: 6 K17_EBCM
+ SG_ BrakePressed : 1|1@0+ (1,0) [0|1] "" XXX
  SG_ BrakePedalPosition : 15|8@0+ (1,0) [0|255] ""  NEO
 
 BO_ 298 BCMDoorBeltStatus: 8 K9_BCM
@@ -177,6 +178,7 @@ BO_ 352 VehicleIgnition: 5 XXX
 
 BO_ 497 VehicleIgnitionAlt: 8 XXX
  SG_ Ignition : 5|1@0+ (1,0) [0|1] "" XXX
+ SG_ ParkBrake : 36|1@0+ (1,0) [0|3] "" XXX
 
 BO_ 501 ECMPRDNL2: 8 K20_ECM
  SG_ TransmissionState : 48|4@1+ (1,0) [0|7] "" NEO
