@@ -13,9 +13,9 @@ const int GM_MAX_RT_DELTA = 128;          // max delta torque allowed for real t
 const uint32_t GM_RT_INTERVAL = 250000;    // 250ms between real time checks
 const int GM_MAX_RATE_UP = 20;
 const int GM_MAX_RATE_DOWN = 32;
-const int GM_DRIVER_TORQUE_ALLOWANCE = 100;
+const int GM_DRIVER_TORQUE_ALLOWANCE = 50;
 const int GM_DRIVER_TORQUE_FACTOR = 4;
-const int GM_MAX_GAS = 4095;
+const int GM_MAX_GAS = 3072;
 const int GM_MAX_REGEN = 1404;
 const int GM_MAX_BRAKE = 350;
 const CanMsg GM_TX_MSGS[] = {{384, 0, 4}, {1033, 0, 7}, {1034, 0, 7}, {715, 0, 8}, {880, 0, 6}, {512, 0, 6}, {789, 0, 5}, {800, 0, 6},  // pt bus
@@ -28,7 +28,7 @@ AddrCheckStruct gm_addr_checks[] = {
   {.msg = {{388, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
   {.msg = {{842, 0, 5, .expected_timestep = 100000U}, { 0 }, { 0 }}},
   {.msg = {{481, 0, 7, .expected_timestep = 100000U}, { 0 }, { 0 }}},
-  {.msg = {{241, 0, 6, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{201, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
   {.msg = {{452, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
 };
 #define GM_RX_CHECK_LEN (sizeof(gm_addr_checks) / sizeof(gm_addr_checks[0]))
@@ -81,10 +81,8 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     cruise_button_prev = button;
     }
 
-    if (addr == 241) {
-      // Brake pedal's potentiometer returns near-zero reading
-      // even when pedal is not pressed
-      brake_pressed = GET_BYTE(to_push, 1) >= 10U;
+    if (addr == 201) {
+      //brake_pressed = GET_BIT(to_push, 40U) != 0U;
     }
 
     if (addr == 452) {
@@ -93,19 +91,17 @@ static int gm_rx_hook(CANPacket_t *to_push) {
 
     // exit controls on regen paddle
     if (addr == 189) {
-      brake_pressed = GET_BYTE(to_push, 0) & 0x20U;
-      //if (regen) {
-      //  controls_allowed = 0;
-      //}
+      bool regen = GET_BYTE(to_push, 0) & 0x20U;
+      if (regen) {
+        controls_allowed = 0;
+      }
     }
 
     // Check if ASCM or LKA camera are online
     // on powertrain bus.
     // 384 = ASCMLKASteeringCmd
     // 715 = ASCMGasRegenCmd
-    //generic_rx_checks(((addr == 384) || (addr == 715)));
-    generic_rx_checks(addr == 384);
-    //TODO: relay malfunction firing when 715 is stock
+    generic_rx_checks(((addr == 384) || (addr == 715)));
   }
   return valid;
 }

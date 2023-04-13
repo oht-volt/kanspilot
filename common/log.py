@@ -1,7 +1,7 @@
 import datetime
 import common.CTime1000 as tm
 
-ROOT_LOG = '/data/log/'
+ROOT_LOG = '/data/media/0/videos/'
 
 
 global_alertTextMsg1 = 'T1'
@@ -61,3 +61,7 @@ class Loger:
                     pass
                 finally:  # try end 
                     pass       
+
+
+
+

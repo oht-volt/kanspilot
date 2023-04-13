@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
 from typing import List
 from cereal import car, log
-from math import fabs, erf
+from math import fabs, erf, atan
+from panda import Panda
+from common.realtime import sec_since_boot
 
-from common.numpy_fast import interp
 from common.conversions import Conversions as CV
-from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint, get_safety_config
-from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, CruiseButtons, \
-                                    AccState, FINGERPRINTS, CarControllerParams
-from selfdrive.car.interfaces import CarInterfaceBase
+from selfdrive.car import STD_CARGO_KG, create_button_event, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint, get_safety_config
+from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
+from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, CruiseButtons, EV_CAR, CAMERA_ACC_CAR, \
+                                    AccState, FINGERPRINTS, CarControllerParams, CanBus
+from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType
 from common.params import Params
 from decimal import Decimal
-from selfdrive.ntune import ntune_common_get, ntune_lqr_get, ntune_torque_get, ntune_scc_get
-from selfdrive.car.isotp_parallel_query import IsoTpParallelQuery
+from selfdrive.ntune import ntune_common_get, ntune_torque_get, ntune_scc_get
 from common.log import Loger
-from selfdrive.car.disable_ecu import enable_radar_tracks, disable_ecu
 
-GearShifter = car.CarState.GearShifter
-EventName = car.CarEvent.EventName
 ButtonType = car.CarState.ButtonEvent.Type
+EventName = car.CarEvent.EventName
+GearShifter = car.CarState.GearShifter
+TransmissionType = car.CarParams.TransmissionType
+NetworkLocation = car.CarParams.NetworkLocation
 
+BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.SET_DECEL: ButtonType.decelCruise,
+                CruiseButtons.MAIN: ButtonType.altButton3, CruiseButtons.CANCEL: ButtonType.cancel}
 
 # meant for traditional ff fits
 def get_steer_feedforward_sigmoid1(angle, speed, ANGLE_COEF, ANGLE_COEF2, ANGLE_OFFSET, SPEED_OFFSET, SIGMOID_COEF_RIGHT, SIGMOID_COEF_LEFT, SPEED_COEF):
@@ -45,7 +49,7 @@ class CarInterface(CarInterfaceBase):
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
-    _params = CarControllerParams()
+    _params = CarControllerParams(CP)
     return _params.ACCEL_MIN, _params.ACCEL_MAX
 
   # Determined by iteratively plotting and minimizing error for f(angle, speed) = steer.
@@ -67,7 +71,7 @@ class CarInterface(CarInterfaceBase):
     return 0.04689655 * sigmoid * (v_ego + 10.028217)
 
   def get_steer_feedforward_function(self):
-    if self.CP.carFingerprint == CAR.VOLT:
+    if self.CP.carFingerprint in (CAR.VOLT, CAR.VOLT2018, CAR.VOLT_CC):
       return self.get_steer_feedforward_volt
     elif self.CP.carFingerprint == CAR.ACADIA:
       return self.get_steer_feedforward_acadia
@@ -79,66 +83,73 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
     ret.carName = "gm"
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
-    ret.autoResumeSng = ret.minEnableSpeed == -1
-    ret.pcmCruise = False  # stock cruise control is kept off
+    ret.autoResumeSng = False
+    # ret.pcmCruise = False  # stock cruise control is kept off
+    # ret.enableGasInterceptor = 0x201 in fingerprint[0]
+
+    if candidate in EV_CAR:
+      ret.transmissionType = TransmissionType.direct
+    else:
+      ret.transmissionType = TransmissionType.automatic
+
+    ret.longitudinalTuning.deadzoneBP = [0.]
+    ret.longitudinalTuning.deadzoneV = [0.15]
+
+    ret.longitudinalTuning.kpBP = [5., 35.]
+    ret.longitudinalTuning.kiBP = [0.]
+    if candidate in CAMERA_ACC_CAR:
+      ret.networkLocation = NetworkLocation.fwdCamera
+      ret.radarOffCan = True  # no radar
+      ret.pcmCruise = True
+      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM
+      ret.minEnableSpeed = 5 * CV.KPH_TO_MS
+      ret.minSteerSpeed = 10 * CV.KPH_TO_MS
+
+    else:  # ASCM, OBD-II harness
+      ret.openpilotLongitudinalControl = True
+      ret.networkLocation = NetworkLocation.gateway
+      ret.radarOffCan = RADAR_HEADER_MSG not in fingerprint[CanBus.OBSTACLE]
+      ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
+      # supports stop and go, but initial engage must (conservatively) be above 18mph
+      ret.minEnableSpeed = -1 * CV.MPH_TO_MS
+      ret.minSteerSpeed = 5 * CV.MPH_TO_MS
+
+      # Tuning
+      ret.longitudinalTuning.kpV = [2.4, 1.5]
+      ret.longitudinalTuning.kiV = [0.36]
 
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
     # These cars likely still work fine. Once a user confirms each car works and a test route is
-    # added to selfdrive/test/test_routes, we can remove it from this list.
-    ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL}
+    # added to selfdrive/car/tests/routes.py, we can remove it from this list.
+    ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL, CAR.EQUINOX} or \
+                      (ret.networkLocation == NetworkLocation.gateway and ret.radarOffCan)
 
-    # Presence of a camera on the object bus is ok.
-    # Have to go to read_only if ASCM is online (ACC-enabled cars),
-    # or camera is on powertrain bus (LKA cars without ACC).
-    # for white panda
-    # ret.enableGasInterceptor = 0x201 in fingerprint[0]
-    ret.enableGasInterceptor = 512 in fingerprint[0]
-    # ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
-    ret.openpilotLongitudinalControl = True
+    # Start with a baseline tuning for all GM vehicles. Override tuning as needed in each model section below.
+    ret.steerActuatorDelay = 0.22  # Default delay, not measured yet
     tire_stiffness_factor = 0.469
+
+    ret.steerLimitTimer = 0.4
+    ret.radarTimeStep = 0.0667  # GM radar runs at 15Hz instead of standard 20Hz
+    ret.longitudinalActuatorDelayUpperBound = 0.5  # large delay to initially start braking
+
+    if candidate in (CAR.VOLT, CAR.VOLT2018, CAR.VOLT_CC):
+      ret.mass = 1607. + STD_CARGO_KG
+      ret.wheelbase = 2.69
+      ret.steerRatio = 17.7  # Stock 15.7, LiveParameters
+      tire_stiffness_factor = 0.469  # Stock Michelin Energy Saver A/S, LiveParameters
+      ret.centerToFront = ret.wheelbase * 0.45  # Volt Gen 1, TODO corner weigh
+      ret.steerActuatorDelay = 0.2
+
 
     # for autohold on ui icon
     ret.enableAutoHold = 241 in fingerprint[0]
-
-    # Start with a baseline lateral tuning for all GM vehicles. Override tuning as needed in each model section below.
-    ret.minSteerSpeed = 1 * CV.MPH_TO_MS
-    ret.minEnableSpeed = -1
-    ret.mass = 1607. + STD_CARGO_KG
-    ret.wheelbase = 2.69
-    ret.steerRatio = 16.7
-    ret.steerActuatorDelay = 0.22  # Default delay, not measured yet
-    ret.steerRatioRear = 0.
-    ret.centerToFront = ret.wheelbase * 0.49 # wild guess
-
     ret.disableLateralLiveTuning = False
 
     # lateral
     lateral_control = Params().get("LateralControl", encoding='utf-8')
-    if lateral_control == 'INDI':
-      ret.lateralTuning.init('indi')
-      ret.lateralTuning.indi.innerLoopGainBP = [0.]
-      ret.lateralTuning.indi.innerLoopGainV = [3.3]
-      ret.lateralTuning.indi.outerLoopGainBP = [0.]
-      ret.lateralTuning.indi.outerLoopGainV = [2.8]
-      ret.lateralTuning.indi.timeConstantBP = [0.]
-      ret.lateralTuning.indi.timeConstantV = [1.4]
-      ret.lateralTuning.indi.actuatorEffectivenessBP = [0.]
-      ret.lateralTuning.indi.actuatorEffectivenessV = [1.8]
-    elif lateral_control == 'LQR':
-      ret.lateralTuning.init('lqr')
-
-      ret.lateralTuning.lqr.scale = 1600.
-      ret.lateralTuning.lqr.ki = 0.01
-      ret.lateralTuning.lqr.dcGain = 0.0025
-
-      ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
-      ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
-      ret.lateralTuning.lqr.c = [1., 0.]
-      ret.lateralTuning.lqr.k = [-110., 451.]
-      ret.lateralTuning.lqr.l = [0.33, 0.318]
-    elif lateral_control == 'PID':
+    if lateral_control == 'PID':
       ret.lateralTuning.init('pid')
-      if candidate == CAR.VOLT:
+      if candidate in (CAR.VOLT, CAR.VOLT2018, CAR.VOLT_CC):
         ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
         ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0175], [0.185]]
         ret.lateralTuning.pid.kf = 1. # get_steer_feedforward_volt()
@@ -195,7 +206,6 @@ class CarInterface(CarInterfaceBase):
 
     ret.steerControlType = car.CarParams.SteerControlType.torque
     ret.stoppingControl = True
-    ret.startingState = True
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0.0, .15]
@@ -213,15 +223,8 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingDecelRate = max(ntune_scc_get('stoppingDecelRate'), 3.0) #0.4  # brake_travel/s while trying to stop
     ret.vEgoStopping = max(ntune_scc_get('vEgoStopping'), 0.6) #0.5
     ret.vEgoStarting = max(ntune_scc_get('vEgoStarting'), 0.3) #0.5 # needs to be >= vEgoStopping to avoid state transition oscillation
-    ret.startAccel = 2.0
 
-    if params.get_bool("UseNpilotManager"):
-      ret.steerActuatorDelay = max(ntune_common_get('steerActuatorDelay'), 0.22)
-      ret.steerLimitTimer = max(ntune_common_get('steerLimitTimer'), 3.0)
-    else:
-      ret.steerActuatorDelay = float(Decimal(params.get("SteerActuatorDelayAdj", encoding="utf8")) * Decimal('0.01'))
-      ret.steerLimitTimer = float(Decimal(params.get("SteerLimitTimerAdj", encoding="utf8")) * Decimal('0.01'))
-
+    ret.steerLimitTimer = 0.6
     ret.radarTimeStep = 1/15  # GM radar runs at 15Hz instead of standard 20Hz
 
     return ret
@@ -242,8 +245,6 @@ class CarInterface(CarInterfaceBase):
     cruiseEnabled = self.CS.pcm_acc_status != AccState.OFF
     ret.cruiseState.enabled = cruiseEnabled
 
-    ret.cruiseGap = self.CS.follow_level
-
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid # GM: EPS fault workaround (#22404)
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
@@ -263,9 +264,7 @@ class CarInterface(CarInterfaceBase):
       if but == CruiseButtons.RES_ACCEL:
         if not (ret.cruiseState.enabled and ret.standstill):
           be.type = ButtonType.accelCruise  # Suppress resume button if we're resuming from stop so we don't adjust speed.
-      #elif but == CruiseButtons.RESUME:
-      #  if ret.autoResume and ret.cruiseState.enabled and ret.standstill:
-      #    be.type = ButtonType.resumeCruise
+
       elif but == CruiseButtons.SET_DECEL:
         if not cruiseEnabled and not self.CS.lkMode:
           self.lkMode = True
@@ -286,6 +285,7 @@ class CarInterface(CarInterfaceBase):
        if self.CS.follow_level < 1:
          self.CS.follow_level = 3
 
+    ret.cruiseGap = self.CS.follow_level
     events = self.create_common_events(ret, pcm_enable=False)
 
     if ret.vEgo < self.CP.minEnableSpeed and self.CS.pcm_acc_status != AccState.ACTIVE:
@@ -296,21 +296,20 @@ class CarInterface(CarInterfaceBase):
     if self.CS.autoHoldActivated:
       events.add(car.CarEvent.EventName.autoHoldActivated)
 
-    #opkr
-    if self.CC.e2e_standstill:
-      events.add(EventName.chimeAtResume)  
     # handle button presses
     for b in ret.buttonEvents:
       # do enable on both accel(or resume) and decel buttons
       if b.type == ButtonType.accelCruise and c.hudControl.setSpeed > 0 and c.hudControl.setSpeed < 70 and not b.pressed:
-        events.add(EventName.buttonEnable)
-      if b.type == ButtonType.resumeCruise and c.hudControl.setSpeed > 0 and c.hudControl.setSpeed < 70 and not b.pressed:
         events.add(EventName.buttonEnable)
       if b.type == ButtonType.decelCruise and not b.pressed:
         events.add(EventName.buttonEnable)
       # do disable on button down
       if b.type == ButtonType.cancel and b.pressed:
         events.add(EventName.buttonCancel)
+
+    #opkr
+    if self.CC.e2e_standstill:
+      events.add(EventName.chimeAtResume)  
 
     ret.events = events.to_msg()
 
@@ -353,14 +352,17 @@ class CarInterface(CarInterfaceBase):
 
     return self.CS.out
 
-  def apply(self, c, controls):
+  def apply(self, c):
     # For Openpilot, "enabled" includes pre-enable.
     # In GM, PCM faults out if ACC command overlaps user gas.
-    pause_long_on_gas_press = c.enabled and self.CS.gasPressed and not self.CS.out.brake > 0. and not self.disengage_on_gas
+    pause_long_on_gas_press = c.enabled and self.CS.out.gasPressed and not self.CS.out.brake > 0. and not self.disengage_on_gas
+    t = sec_since_boot()
+    if pause_long_on_gas_press and not self.CS.pause_long_on_gas_press:
+      if t - self.CS.last_pause_long_on_gas_press_t > 300.:
+        self.CS.last_pause_long_on_gas_press_t = t
+
     self.CS.pause_long_on_gas_press = pause_long_on_gas_press
     enabled = c.enabled or self.CS.pause_long_on_gas_press
-
-    ret = self.CC.update(c, self.CS, enabled, controls)
 
     # Release Auto Hold and creep smoothly when regenpaddle pressed
     if (self.CS.regenPaddlePressed or (self.CS.brakePressVal > 9.0 and self.CS.prev_brakePressVal < self.CS.brakePressVal)) and self.CS.autoHold:
@@ -372,4 +374,4 @@ class CarInterface(CarInterfaceBase):
         self.CS.autoHoldActive = True
       elif self.CS.out.vEgo < 0.01 and self.CS.out.brakePressed:
         self.CS.autoHoldActive = True
-    return ret
+    return self.CC.update(c, self.CS, enabled)

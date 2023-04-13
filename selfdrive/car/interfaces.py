@@ -2,23 +2,25 @@ import yaml
 import os
 import time
 from abc import abstractmethod, ABC
-from typing import Any, Dict, Optional, Tuple, List
-from common.numpy_fast import interp
+from typing import Any, Dict, Optional, Tuple, List, Callable
 
 from cereal import car
 from common.basedir import BASEDIR
+from common.conversions import Conversions as CV
 from common.kalman.simple_kalman import KF1D
+from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
 from common.params import Params
-from selfdrive.car import gen_empty_fingerprint
-from common.conversions import Conversions as CV
+from selfdrive.car import apply_hysteresis, gen_empty_fingerprint
 from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX, apply_deadzone
 from selfdrive.controls.lib.events import Events
 from selfdrive.controls.lib.vehicle_model import VehicleModel
 from selfdrive.ntune import ntune_option_get, ntune_option_enabled
 
+ButtonType = car.CarState.ButtonEvent.Type
 GearShifter = car.CarState.GearShifter
 EventName = car.CarEvent.EventName
+TorqueFromLateralAccelCallbackType = Callable[[float, car.CarParams.LateralTorqueTuning, float, float, bool], float]
 
 MAX_CTRL_SPEED = (V_CRUISE_MAX + 4) * CV.KPH_TO_MS
 ACCEL_MAX = 2.0
@@ -39,7 +41,9 @@ class CarInterfaceBase(ABC):
     self.frame = 0
     self.steering_unpressed = 0
     self.low_speed_alert = False
+    self.no_steer_warning = False
     self.silent_steer_warning = True
+    self.v_ego_cluster_seen = False
     self.disengage_on_gas = not Params().get_bool("DisableDisengageOnGas")
 
     self.CS = None
@@ -53,7 +57,7 @@ class CarInterfaceBase(ABC):
       self.cp_body = self.CS.get_body_can_parser(CP)
       self.cp_chassis = self.CS.get_chassis_can_parser(CP) #this line for brakeLights
       self.cp_loopback = self.CS.get_loopback_can_parser(CP)
-      self.can_parsers = [self.cp, self.cp_cam, self.cp_adas, self.cp_body, self.cp_chassis, self.cp_loopback]
+      self.can_parsers = [self.cp, self.cp_cam, self.cp_adas, self.cp_body, self.cp_loopback, self.cp_chassis]
 
     self.CC = None
     if CarController is not None:
@@ -95,7 +99,7 @@ class CarInterfaceBase(ABC):
       friction = 0.0
     return (lateral_accel_value / torque_params['latAccelFactor']) + friction
 
-  def torque_from_lateral_accel(self):
+  def torque_from_lateral_accel(self) -> TorqueFromLateralAccelCallbackType:
     return self.torque_from_lateral_accel_linear
 
   @staticmethod
@@ -136,12 +140,13 @@ class CarInterfaceBase(ABC):
     ret.wheelSpeedFactor = 1.0
     ret.maxLateralAccel = 1.8
     ret.pcmCruise = True     # openpilot's state is tied to the PCM's cruise state on most cars
+    ret.pcmCruiseSpeed = True  # openpilot's state is tied to the PCM's cruise speed
     ret.minEnableSpeed = -1. # enable is done by stock ACC, so ignore this
     ret.steerRatioRear = 0.  # no rear steering, at least on the listed cars aboveA
-    ret.openpilotLongitudinalControl = False
+    ret.openpilotLongitudinalControl = True
     ret.stopAccel = -2.0
     ret.stoppingDecelRate = 0.8 # brake_travel/s while trying to stop
-    ret.vEgoStopping = 0.6
+    ret.vEgoStopping = 0.5
     ret.vEgoStarting = 0.5
     ret.stoppingControl = True
     ret.longitudinalTuning.deadzoneBP = [0.]
@@ -186,6 +191,20 @@ class CarInterfaceBase(ABC):
     ret.canValid = all(cp.can_valid for cp in self.can_parsers if cp is not None)
     ret.canTimeout = any(cp.bus_timeout for cp in self.can_parsers if cp is not None)
 
+    if ret.vEgoCluster == 0.0 and not self.v_ego_cluster_seen:
+      ret.vEgoCluster = ret.vEgo
+    else:
+      self.v_ego_cluster_seen = True
+
+    # Many cars apply hysteresis to the ego dash speed
+    if self.CS is not None:
+      ret.vEgoCluster = apply_hysteresis(ret.vEgoCluster, self.CS.out.vEgoCluster, self.CS.cluster_speed_hyst_gap)
+      if abs(ret.vEgo) < self.CS.cluster_min_speed:
+        ret.vEgoCluster = 0.0
+
+    if ret.cruiseState.speedCluster == 0:
+      ret.cruiseState.speedCluster = ret.cruiseState.speed
+
     # copy back for next iteration
     reader = ret.as_reader()
     if self.CS is not None:
@@ -194,10 +213,11 @@ class CarInterfaceBase(ABC):
     return reader
 
   @abstractmethod
-  def apply(self, c: car.CarControl, controls) -> Tuple[car.CarControl.Actuators, List[bytes]]:
+  def apply(self, c: car.CarControl) -> Tuple[car.CarControl.Actuators, List[bytes]]:
     pass
 
-  def create_common_events(self, cs_out, extra_gears=None, gas_resume_speed=-1, pcm_enable=True):
+  def create_common_events(self, cs_out, extra_gears=None, pcm_enable=True, allow_enable=True,
+                           enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
     events = Events()
 
     if cs_out.doorOpen:
@@ -213,8 +233,6 @@ class CarInterfaceBase(ABC):
       events.add(EventName.wrongCarMode)
     if cs_out.espDisabled:
       events.add(EventName.espDisabled)
-    if cs_out.gasPressed:
-      events.add(EventName.gasPressed)
     if cs_out.stockFcw:
       events.add(EventName.stockFcw)
     if cs_out.stockAeb:
@@ -228,32 +246,52 @@ class CarInterfaceBase(ABC):
       pass
     if cs_out.parkingBrake:
       events.add(EventName.parkBrake)
+    if cs_out.accFaulted:
+      events.add(EventName.accFaulted)
+    if cs_out.steeringPressed:
+      events.add(EventName.steerOverride)
+
+    # Handle button presses
+    for b in cs_out.buttonEvents:
+      # Enable OP long on falling edge of enable buttons (defaults to accelCruise and decelCruise, overridable per-port)
+      if not self.CP.pcmCruise and (b.type in enable_buttons and not b.pressed):
+        events.add(EventName.buttonEnable)
+      # Disable on rising and falling edge of cancel for both stock and OP long
+      if b.type == ButtonType.cancel:
+        events.add(EventName.buttonCancel)
 
     # Handle permanent and temporary steering faults
     self.steering_unpressed = 0 if cs_out.steeringPressed else self.steering_unpressed + 1
     if cs_out.steerFaultTemporary:
-      # if the user overrode recently, show a less harsh alert
-      if self.silent_steer_warning or cs_out.standstill or self.steering_unpressed < int(1.5 / DT_CTRL):
-        self.silent_steer_warning = True
-        events.add(EventName.steerTempUnavailableSilent)
+      if cs_out.steeringPressed and (not self.CS.out.steerFaultTemporary or self.no_steer_warning):
+        self.no_steer_warning = True
       else:
-        events.add(EventName.steerTempUnavailable)
+        self.no_steer_warning = False
+
+        # if the user overrode recently, show a less harsh alert
+        if self.silent_steer_warning or cs_out.standstill or self.steering_unpressed < int(1.5 / DT_CTRL):
+          self.silent_steer_warning = True
+          events.add(EventName.steerTempUnavailableSilent)
+        else:
+          events.add(EventName.steerTempUnavailable)
     else:
+      self.no_steer_warning = False
       self.silent_steer_warning = False
     if cs_out.steerFaultPermanent:
       events.add(EventName.steerUnavailable)
 
     # Disable on rising edge of gas or brake. Also disable on brake when speed > 0.
-    if (self.disengage_on_gas and cs_out.gasPressed and (not self.CS.out.gasPressed) and cs_out.vEgo > gas_resume_speed) or \
-       (cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill)):
-      events.add(EventName.pedalPressed)
+    #if (self.disengage_on_gas and cs_out.gasPressed and (not self.CS.out.gasPressed)) or \
+    #   (cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill)):
+    #  events.add(EventName.pedalPressed)
 
     # we engage when pcm is active (rising edge)
+    # enabling can optionally be blocked by the car interface
     if pcm_enable:
-      if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
+      if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled and allow_enable:
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.enabled:
-        #events.add(EventName.pcmDisable)  #ajouatom: MAD∏µÂ ±∏«ˆΩ√ ¿Ã∞Õ∏∏ ƒ⁄∏‡∆Æ«œ∏È µ .
+        #events.add(EventName.pcmDisable)  #ajouatom: MADÎ™®Îìú Íµ¨ÌòÑÏãú Ïù¥Í≤ÉÎßå ÏΩîÎ©òÌä∏ÌïòÎ©¥ Îê®.
         pass
 
     return events
@@ -285,7 +323,8 @@ class CarStateBase(ABC):
     self.right_blinker_cnt = 0
     self.left_blinker_prev = False
     self.right_blinker_prev = False
-
+    self.cluster_speed_hyst_gap = 0.0
+    self.cluster_min_speed = 0.0  # min speed before dropping to 0
     self.pause_long_on_gas_press = False
 
     # Q = np.matrix([[10.0, 0.0], [0.0, 100.0]])

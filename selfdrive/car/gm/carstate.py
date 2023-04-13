@@ -1,3 +1,4 @@
+import copy
 from cereal import car
 from common.filter_simple import FirstOrderFilter
 from common.numpy_fast import mean, interp
@@ -6,12 +7,16 @@ from common.conversions import Conversions as CV
 from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
 from selfdrive.car.interfaces import CarStateBase
-from selfdrive.car.gm.values import DBC, CAR, AccState, CanBus, STEER_THRESHOLD, CruiseButtons
+from selfdrive.car.gm.values import DBC, CAR, AccState, CanBus, STEER_THRESHOLD, CruiseButtons, CC_ONLY_CAR
 from common.params import Params
 import cereal.messaging as messaging
 
-from selfdrive.kegman_kans_conf import kegman_kans_conf
-kegman_kans = kegman_kans_conf()
+TransmissionType = car.CarParams.TransmissionType
+NetworkLocation = car.CarParams.NetworkLocation
+GearShifter = car.CarState.GearShifter
+STANDSTILL_THRESHOLD = 10 * 0.0311 * CV.KPH_TO_MS
+#PREV_BUTTON_SAMPLES = 8
+CLUSTER_SAMPLE_RATE = 20  # frames
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -20,14 +25,18 @@ class CarState(CarStateBase):
 
     self.leftBlinker = False
     self.rightBlinker = False
-    self.shifter_values = can_define.dv["ECMPRDNL"]["PRNDL"]
-    self.lka_steering_cmd_counter = 0 # GM: EPS fault workaround (#22404)
+    self.shifter_values = can_define.dv["ECMPRDNL2"]["PRNDL2"]
+    self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
+    self.cluster_min_speed = CV.KPH_TO_MS / 2.
+
+    self.loopback_lka_steering_cmd_updated = False
+    self.pt_lka_steering_cmd_counter = 0
+    self.cam_lka_steering_cmd_counter = 0
 
     self.a_ego_filtered_rc = 1.0
     self.a_ego_filtered = FirstOrderFilter(0.0, self.a_ego_filtered_rc, DT_CTRL)
 
     self.gas_pressed = False
-    self.cruiseState_enabled = False
     self.cruise_buttons = False
     self.prev_cruise_buttons = False
     self.vEgo = 0
@@ -39,6 +48,7 @@ class CarState(CarStateBase):
     self.distance_button = 0
     self.follow_level = 2
     self.lkMode = True
+
     #bellow 5lines for Autohold
     self.autoHold = False
     self.autoHoldActive = False
@@ -55,7 +65,6 @@ class CarState(CarStateBase):
     self.use_cluster_speed = Params().get_bool('UseClusterSpeed')
     self.is_metric = False
     self.pause_long_on_gas_press = False
-    self.gasPressed = False
 
     # lead_distance
     self.lead_distance = 0
@@ -63,7 +72,9 @@ class CarState(CarStateBase):
     self.buttons_counter = 0
 
 
-  def update(self, pt_cp, loopback_cp, ch_cp): # line for brake light & GM: EPS fault workaround (#22404)
+    self.cluster_speed = 0
+    self.cluster_speed_counter = CLUSTER_SAMPLE_RATE
+  def update(self, pt_cp, cam_cp, loopback_cp, chassis_cp): # line for brake light & GM: EPS fault workaround (#22404)
     # lead_distance
     self.sm.update(0)
     if self.sm.updated['radarState']:
@@ -73,11 +84,18 @@ class CarState(CarStateBase):
         self.lead_distance = lead.dRel
 
     ret = car.CarState.new_message()
+
     self.prev_cruise_buttons = self.cruise_buttons
     self.cruise_buttons = pt_cp.vl["ASCMSteeringButton"]["ACCButtons"]
     self.buttons_counter = pt_cp.vl["ASCMSteeringButton"]["RollingCounter"]
-    self.prev_left_blinker = self.leftBlinker
-    self.prev_right_blinker = self.rightBlinker
+    self.pscm_status = copy.copy(pt_cp.vl["PSCMStatus"])
+    self.moving_backward = pt_cp.vl["EBCMWheelSpdRear"]["MovingBackward"] != 0
+
+    # Variables used for avoiding LKAS faults
+    self.loopback_lka_steering_cmd_updated = len(loopback_cp.vl_all["ASCMLKASteeringCmd"]["RollingCounter"]) > 0 #GM: EPS fault workaround (#22404)
+    if self.CP.networkLocation == NetworkLocation.fwdCamera:
+      self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
+      self.cam_lka_steering_cmd_counter = cam_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
 
     self.is_metric = Params().get_bool("IsMetric")
     self.speed_conv_to_ms = CV.KPH_TO_MS * 1.609344 if self.is_metric else CV.MPH_TO_MS
@@ -126,14 +144,43 @@ class CarState(CarStateBase):
       self.a_ego_filtered.update(ret.aEgo)
 
     self.vEgo = ret.vEgo
-    ret.standstill = ret.vEgoRaw < 0.1
 
-    ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL"]["PRNDL"], None))
-    #This brake position value disengages stock ACC, use it to avoid control mismatch.
-    ret.brake = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"] / 0xd0
-    # Brake pedal's potentiometer returns near-zero reading even when pedal is not pressed.
-    ret.brakePressed = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"] >= 8
+    self.cluster_speed_counter += 1
+    if self.cluster_speed_counter > CLUSTER_SAMPLE_RATE:
+      self.cluster_speed = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
+      self.cluster_speed_counter = 0
+    ret.vEgoCluster = self.cluster_speed * self.speed_conv_to_ms
 
+    ret.standstill = ret.wheelSpeeds.rl <= STANDSTILL_THRESHOLD and ret.wheelSpeeds.rr <= STANDSTILL_THRESHOLD
+
+
+    if pt_cp.vl["ECMPRDNL2"]["ManualMode"] == 1:
+      ret.gearShifter = self.parse_gear_shifter("T")
+    else:
+      ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL2"]["PRNDL2"], None))
+
+    if self.CP.networkLocation == NetworkLocation.fwdCamera:
+      if self.CP.carFingerprint in CC_ONLY_CAR:
+        ret.brake = pt_cp.vl["EBCMBrakePedalPosition"]["BrakePedalPosition"] / 0xd0
+      else:
+        ret.brake = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"]
+      ret.brakePressed = pt_cp.vl["ECMEngineStatus"]["BrakePressed"] != 0
+    else:
+      ret.brake = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"]
+      # Some Volt 2016-17 have loose brake pedal push rod retainers which causes the ECM to believe
+      # that the brake is being intermittently pressed without user interaction.
+      # To avoid a cruise fault we need to use a conservative brake position threshold
+      # https://static.nhtsa.gov/odi/tsbs/2017/MC-10137629-9999.pdf
+      ret.brakePressed = ret.brake > 1e-5
+
+
+    # Regen braking is braking
+    if self.CP.transmissionType == TransmissionType.direct:
+      ret.regenBraking = bool(pt_cp.vl["EBCMRegenPaddle"]["RegenPaddle"])
+      self.regenPaddlePressed = ret.regenBraking
+      ret.brakePressed = ret.brakePressed or self.regenPaddlePressed
+    ret.gas = pt_cp.vl["AcceleratorPedal2"]["AcceleratorPedal2"] / 254.
+    ret.gasPressed = ret.gas > 1e-5
     # brake autohold
     self.prev_brakePressVal = self.brakePressVal
     self.brakePressVal = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"]
@@ -143,7 +190,6 @@ class CarState(CarStateBase):
 
     ret.gas = pt_cp.vl["AcceleratorPedal2"]["AcceleratorPedal2"] / 254.
     ret.gasPressed = ret.gas > 1e-5
-    self.gasPressed = ret.gasPressed # disengage on gas
 
     ret.steeringAngleDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelAngle"]
     ret.steeringRateDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelRate"]
@@ -151,7 +197,6 @@ class CarState(CarStateBase):
     ret.steeringTorque = pt_cp.vl["PSCMStatus"]["LKADriverAppldTrq"]
     ret.steeringTorqueEps = pt_cp.vl["PSCMStatus"]["LKATorqueDelivered"]
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
-    self.lka_steering_cmd_counter = loopback_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"] #GM: EPS fault workaround (#22404)
 
     # 0 inactive, 1 active, 2 temporarily limited, 3 failed
     self.lkas_status = pt_cp.vl["PSCMStatus"]["LKATorqueDeliveredStatus"]
@@ -168,59 +213,67 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = pt_cp.vl["BCMDoorBeltStatus"]["LeftSeatBelt"] == 0
     ret.leftBlinker = pt_cp.vl["BCMTurnSignals"]["TurnSignals"] == 1
     ret.rightBlinker = pt_cp.vl["BCMTurnSignals"]["TurnSignals"] == 2
-    ret.parkingBrake = pt_cp.vl["EPBStatus"]["EPBClosed"] == 1
-    ret.cruiseState.available = bool(pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"])# != 0
+
+    ret.parkingBrake = pt_cp.vl["VehicleIgnitionAlt"]["ParkBrake"] == 1
+    ret.cruiseState.available = pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"] != 0
     ret.espDisabled = pt_cp.vl["ESPStatus"]["TractionControlOn"] != 1
     self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
+    ret.accFaulted = False # (pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.FAULTED or
+    if self.CP.carFingerprint in CC_ONLY_CAR:
+      ret.accFaulted = False
 
-    ret.brakePressed = ret.brake > 1e-5
 
-    # Regen braking is braking
-    if self.car_fingerprint == CAR.VOLT:
-      self.regenPaddlePressed = bool(pt_cp.vl["EBCMRegenPaddle"]["RegenPaddle"])
-      ret.brakePressed = ret.brakePressed or self.regenPaddlePressed
-
-    # cruise state
-    self.gas_pressed = ret.gasPressed
-    ret.cruiseState.enabled = self.pcm_acc_status != AccState.OFF
-    ret.cruiseState.standstill = self.pcm_acc_status != AccState.STANDSTILL
-    ret.cruiseState.enabledAcc = ret.cruiseState.enabled
-    self.cruiseState_enabled = ret.cruiseState.enabled
-
-    # bellow 1 line for AutoHold
-    self.cruiseMain = ret.cruiseState.available
-
-    if ret.cruiseState.enabled:
-      ret.cruiseState.speed = pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCSpeedSetpoint"] * CV.MPH_TO_MS
+    ret.cruiseState.enabled = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] != AccState.OFF
+    ret.cruiseState.standstill = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.STANDSTILL
+    if (self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in CC_ONLY_CAR) and\
+         ret.cruiseState.enabled:
+      ret.cruiseState.speed = cam_cp.vl["ASCMActiveCruiseControlStatus"]["ACCSpeedSetpoint"] * CV.MPH_TO_MS
+      ret.stockAeb = cam_cp.vl["AEBCmd"]["AEBCmdActive"] != 0
+      # openpilot controls nonAdaptive when not pcmCruise
+      if self.CP.pcmCruise:
+        ret.cruiseState.nonAdaptive = cam_cp.vl["ASCMActiveCruiseControlStatus"]["ACCCruiseState"] not in (2, 3)
     else:
       ret.cruiseState.speed = 0
 
+    # AutoHold
+    self.cruiseMain = ret.cruiseState.available
+    self.autoHold = True
+    if self.CP.enableAutoHold: # display on Ui
+      ret.autoHoldActivated = self.autoHoldActivated
     #Cruise Gap
     ret.cruiseGap = self.follow_level
-
+    # engine Rpm
     self.engineRPM = pt_cp.vl["ECMEngineStatus"]["EngineRPM"]
-
-    # bellow line for Brake Light
-    ret.brakeLights = ch_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
-
-    # bellow Lines are for Autohold
-    if kegman_kans.conf['AutoHold'] == "1":
-      self.autoHold = True
-    else:
-      self.autoHold = False
-    # autohold on ui icon
-    if self.CP.enableAutoHold:
-      ret.autoHoldActivated = self.autoHoldActivated
+    # Brake Light
+    ret.brakeLights = chassis_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
 
     return ret
 
   def get_follow_level(self):
     return self.follow_level
 
+  @staticmethod
+  def get_cam_can_parser(CP):
+    signals = []
+    checks = []
+    if CP.networkLocation == NetworkLocation.fwdCamera:
+      signals += [
+        ("AEBCmdActive", "AEBCmd"),
+        ("RollingCounter", "ASCMLKASteeringCmd"),
+        ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
+      ]
+      checks += []
+      if CP.carFingerprint not in CC_ONLY_CAR:
+        signals += [
+          ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
+          ("ACCCruiseState", "ASCMActiveCruiseControlStatus"),
+        ]
+        checks += []
+
+    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, CanBus.CAMERA, enforce_checks=False)
 
   @staticmethod
   def get_can_parser(CP):
-    # this function generates lists for signal, messages and initial values
     signals = [
       # sig_name, sig_address
       ("BrakePedalPos", "ECMAcceleratorPos"),
@@ -241,41 +294,59 @@ class CarState(CarStateBase):
       ("FRWheelSpd", "EBCMWheelSpdFront"),
       ("RLWheelSpd", "EBCMWheelSpdRear"),
       ("RRWheelSpd", "EBCMWheelSpdRear"),
-      ("PRNDL", "ECMPRDNL"),
+      ("MovingForward", "EBCMWheelSpdRear"),
+      ("MovingBackward", "EBCMWheelSpdRear"),
+      ("PRNDL2", "ECMPRDNL2"),
+      ("ManualMode", "ECMPRDNL2"),
       ("LKADriverAppldTrq", "PSCMStatus"),
       ("LKATorqueDelivered", "PSCMStatus"),
       ("LKATorqueDeliveredStatus", "PSCMStatus"),
+      ("HandsOffSWlDetectionStatus", "PSCMStatus"),
+      ("HandsOffSWDetectionMode", "PSCMStatus"),
+      ("LKATotalTorqueDelivered", "PSCMStatus"),
+      ("PSCMStatusChecksum", "PSCMStatus"),
+      ("RollingCounter", "PSCMStatus"),
       ("TractionControlOn", "ESPStatus"),
-      ("EPBClosed", "EPBStatus"),
+      ("ParkBrake", "VehicleIgnitionAlt"),
       ("CruiseMainOn", "ECMEngineStatus"),
-      ("Brake_Pressed", "ECMEngineStatus"),
+      ("BrakePressed", "ECMEngineStatus"),
       ("LKAButton", "ASCMSteeringButton"),
       ("DistanceButton", "ASCMSteeringButton"),
-      ("LKATorqueDelivered", "PSCMStatus"),
-      ("EngineRPM", "ECMEngineStatus"),
       ("VehicleSpeed", "ECMVehicleSpeed"),
-      ("BrakePedalPos", "ECMAcceleratorPos"),
       ("ACCGapLevel", "ASCMActiveCruiseControlStatus"),
-      ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
+      ("EngineRPM", "ECMEngineStatus"),
       ("YawRate", "EBCMVehicleDynamic"),
     ]
 
     checks = []
 
-    if CP.carFingerprint == CAR.VOLT:
+    # Used to read back last counter sent to PT by camera
+    if CP.networkLocation == NetworkLocation.fwdCamera:
+      signals += [
+        ("RollingCounter", "ASCMLKASteeringCmd"),
+      ]
+      checks += []
+
+    if CP.transmissionType == TransmissionType.direct:
       signals.append(("RegenPaddle", "EBCMRegenPaddle"))
       checks.append(("EBCMRegenPaddle", 50))
 
+    if CP.carFingerprint in CC_ONLY_CAR:
+      signals.remove(("BrakePedalPos", "ECMAcceleratorPos"))
+      signals.append(("BrakePedalPosition", "EBCMBrakePedalPosition"))
+      checks.remove(("ECMAcceleratorPos", 80))
+      checks.append(("EBCMBrakePedalPosition", 100))
+
     return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, CanBus.POWERTRAIN, enforce_checks=False)
 
-
-# GM: EPS fault workaround (#22404)
   @staticmethod
   def get_loopback_can_parser(CP):
     signals = [
       ("RollingCounter", "ASCMLKASteeringCmd"),
     ]
+
     checks = []
+
     return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, CanBus.LOOPBACK, enforce_checks=False)
 
 ## all bellows are for Brake Light
