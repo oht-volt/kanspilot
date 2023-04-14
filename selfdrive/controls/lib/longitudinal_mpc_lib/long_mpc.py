@@ -499,7 +499,7 @@ class LongitudinalMpc:
         #1단계: 모델값을 이용한 신호감지
         model_v = self.vFilter.process(v[-1])
         startSign = model_v > 5.0 or model_v > (v[0]+2)
-        stopSign = v_ego_kph<80.0 and model_x < 130.0 and ((model_v < 3.0) or (model_v < v[0]*0.70)) and abs(y[N]) < 10.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
+        stopSign = v_ego_kph<80.0 and model_x < 130.0 and ((model_v < 3.0) or (model_v < v[0]*0.70)) and abs(y[N]) < 6.0 #직선도로에서만 감지하도록 함~ 모델속도가 70% 감소할때만..
         #stopSign = model.stopLine.prob > 0.3 # 값을 줄이면 정지신호에 민감해지지만 수시로 정지하려고 할 것임
         
         self.startSignCount = self.startSignCount + 1 if startSign else 0

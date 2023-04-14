@@ -37,6 +37,7 @@ class CarState(CarStateBase):
     self.a_ego_filtered = FirstOrderFilter(0.0, self.a_ego_filtered_rc, DT_CTRL)
 
     self.gas_pressed = False
+    self.cruiseState_enabled = False
     self.cruise_buttons = False
     self.prev_cruise_buttons = False
     self.vEgo = 0
@@ -226,6 +227,7 @@ class CarState(CarStateBase):
     ret.cruiseState.enabled = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] != AccState.OFF
     ret.cruiseState.standstill = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.STANDSTILL
     if (self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in CC_ONLY_CAR) and\
+    self.cruiseState_enabled = ret.cruiseState.enabled
          ret.cruiseState.enabled:
       ret.cruiseState.speed = cam_cp.vl["ASCMActiveCruiseControlStatus"]["ACCSpeedSetpoint"] * CV.MPH_TO_MS
       ret.stockAeb = cam_cp.vl["AEBCmd"]["AEBCmdActive"] != 0

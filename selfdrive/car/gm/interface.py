@@ -83,7 +83,7 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
     ret.carName = "gm"
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
-    ret.autoResumeSng = False
+    ret.autoResumeSng = ret.minEnableSpeed == -1
     # ret.pcmCruise = False  # stock cruise control is kept off
     # ret.enableGasInterceptor = 0x201 in fingerprint[0]
 
@@ -206,6 +206,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.steerControlType = car.CarParams.SteerControlType.torque
     ret.stoppingControl = True
+    ret.startingState = True
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0.0, .15]
@@ -356,11 +357,6 @@ class CarInterface(CarInterfaceBase):
     # For Openpilot, "enabled" includes pre-enable.
     # In GM, PCM faults out if ACC command overlaps user gas.
     pause_long_on_gas_press = c.enabled and self.CS.out.gasPressed and not self.CS.out.brake > 0. and not self.disengage_on_gas
-    t = sec_since_boot()
-    if pause_long_on_gas_press and not self.CS.pause_long_on_gas_press:
-      if t - self.CS.last_pause_long_on_gas_press_t > 300.:
-        self.CS.last_pause_long_on_gas_press_t = t
-
     self.CS.pause_long_on_gas_press = pause_long_on_gas_press
     enabled = c.enabled or self.CS.pause_long_on_gas_press
 

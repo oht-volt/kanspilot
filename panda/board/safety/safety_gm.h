@@ -82,7 +82,9 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     }
 
     if (addr == 201) {
-      //brake_pressed = GET_BIT(to_push, 40U) != 0U;
+      // Brake pedal's potentiometer returns near-zero reading
+      // even when pedal is not pressed
+      // brake_pressed = GET_BYTE(to_push, 1) >= 10U;
     }
 
     if (addr == 452) {
@@ -101,7 +103,9 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     // on powertrain bus.
     // 384 = ASCMLKASteeringCmd
     // 715 = ASCMGasRegenCmd
-    generic_rx_checks(((addr == 384) || (addr == 715)));
+    //generic_rx_checks(((addr == 384) || (addr == 715)));
+    generic_rx_checks(addr == 384);
+    //TODO: relay malfunction firing when 715 is stock
   }
   return valid;
 }

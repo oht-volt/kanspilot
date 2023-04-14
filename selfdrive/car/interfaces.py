@@ -281,9 +281,10 @@ class CarInterfaceBase(ABC):
       events.add(EventName.steerUnavailable)
 
     # Disable on rising edge of gas or brake. Also disable on brake when speed > 0.
-    #if (self.disengage_on_gas and cs_out.gasPressed and (not self.CS.out.gasPressed)) or \
-    #   (cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill)):
-    #  events.add(EventName.pedalPressed)
+    if (self.disengage_on_gas and cs_out.gasPressed and (not self.CS.out.gasPressed) and cs_out.vEgo > gas_resume_speed) or \
+       (cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill)):
+      #events.add(EventName.pedalPressed)
+      pass
 
     # we engage when pcm is active (rising edge)
     # enabling can optionally be blocked by the car interface
