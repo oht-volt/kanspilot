@@ -268,7 +268,8 @@ class Controls:
     # Disable on rising edge of accelerator or brake. Also disable on brake when speed > 0
     if (self.disengage_on_gas and CS.gasPressed and (not self.CS_prev.gasPressed) and CS.vEgo > -1) or \
          (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)):
-      self.events.add(EventName.pedalPressed)
+      #self.events.add(EventName.pedalPressed)
+      pass
 	# TODO : check this line. jc01rho.
     if CS.gasPressed:
       self.events.add(EventName.pedalPressedPreEnable if self.disengage_on_gas else
@@ -393,13 +394,13 @@ class Controls:
       self.events.add(EventName.posenetInvalid)
     if not self.sm['liveLocationKalman'].deviceStable:
       self.events.add(EventName.deviceFalling)
-    #
-    #if not REPLAY:
-    #  # Check for mismatch between openpilot and car's PCM
-    #  cruise_mismatch = CS.cruiseState.enabledAcc and (not self.enabled or not self.CP.pcmCruise)
-    #  self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
-    #  if self.cruise_mismatch_counter > int(6. / DT_CTRL):
-    #    self.events.add(EventName.cruiseMismatch)
+    
+    if not REPLAY:
+      # Check for mismatch between openpilot and car's PCM
+      cruise_mismatch = CS.cruiseState.enabledAcc and (not self.enabled or not self.CP.pcmCruise)
+      self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
+      if self.cruise_mismatch_counter > int(6. / DT_CTRL):
+        self.events.add(EventName.cruiseMismatch)
 
     # Check for FCW
     stock_long_is_braking = self.enabled and not self.CP.openpilotLongitudinalControl and CS.aEgo < -1.25

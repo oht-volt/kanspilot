@@ -40,6 +40,7 @@ class CarInterfaceBase(ABC):
     self.steering_unpressed = 0
     self.low_speed_alert = False
     self.silent_steer_warning = True
+    self.v_ego_cluster_seen = False
     self.disengage_on_gas = not Params().get_bool("DisableDisengageOnGas")
 
     self.CS = None
@@ -53,7 +54,7 @@ class CarInterfaceBase(ABC):
       self.cp_body = self.CS.get_body_can_parser(CP)
       self.cp_chassis = self.CS.get_chassis_can_parser(CP) #this line for brakeLights
       self.cp_loopback = self.CS.get_loopback_can_parser(CP)
-      self.can_parsers = [self.cp, self.cp_cam, self.cp_adas, self.cp_body, self.cp_chassis, self.cp_loopback]
+      self.can_parsers = [self.cp, self.cp_cam, self.cp_adas, self.cp_body, self.cp_loopback, self.cp_chassis]
 
     self.CC = None
     if CarController is not None:
@@ -138,10 +139,10 @@ class CarInterfaceBase(ABC):
     ret.pcmCruise = True     # openpilot's state is tied to the PCM's cruise state on most cars
     ret.minEnableSpeed = -1. # enable is done by stock ACC, so ignore this
     ret.steerRatioRear = 0.  # no rear steering, at least on the listed cars aboveA
-    ret.openpilotLongitudinalControl = False
+    ret.openpilotLongitudinalControl = True
     ret.stopAccel = -2.0
     ret.stoppingDecelRate = 0.8 # brake_travel/s while trying to stop
-    ret.vEgoStopping = 0.6
+    ret.vEgoStopping = 0.5
     ret.vEgoStarting = 0.5
     ret.stoppingControl = True
     ret.longitudinalTuning.deadzoneBP = [0.]
@@ -185,6 +186,20 @@ class CarInterfaceBase(ABC):
 
     ret.canValid = all(cp.can_valid for cp in self.can_parsers if cp is not None)
     ret.canTimeout = any(cp.bus_timeout for cp in self.can_parsers if cp is not None)
+
+    if ret.vEgoCluster == 0.0 and not self.v_ego_cluster_seen:
+      ret.vEgoCluster = ret.vEgo
+    else:
+      self.v_ego_cluster_seen = True
+
+    # Many cars apply hysteresis to the ego dash speed
+    if self.CS is not None:
+      ret.vEgoCluster = apply_hysteresis(ret.vEgoCluster, self.CS.out.vEgoCluster, self.CS.cluster_speed_hyst_gap)
+      if abs(ret.vEgo) < self.CS.cluster_min_speed:
+        ret.vEgoCluster = 0.0
+
+    if ret.cruiseState.speedCluster == 0:
+      ret.cruiseState.speedCluster = ret.cruiseState.speed
 
     # copy back for next iteration
     reader = ret.as_reader()
@@ -246,14 +261,15 @@ class CarInterfaceBase(ABC):
     # Disable on rising edge of gas or brake. Also disable on brake when speed > 0.
     if (self.disengage_on_gas and cs_out.gasPressed and (not self.CS.out.gasPressed) and cs_out.vEgo > gas_resume_speed) or \
        (cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill)):
-      events.add(EventName.pedalPressed)
+      #events.add(EventName.pedalPressed)
+      pass
 
     # we engage when pcm is active (rising edge)
     if pcm_enable:
       if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.enabled:
-        #events.add(EventName.pcmDisable)  #ajouatom: MAD¸ðµå ±¸Çö½Ã ÀÌ°Í¸¸ ÄÚ¸àÆ®ÇÏ¸é µÊ.
+        #events.add(EventName.pcmDisable)  #ajouatom: MADï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ì°Í¸ï¿½ ï¿½Ú¸ï¿½Æ®ï¿½Ï¸ï¿½ ï¿½ï¿½.
         pass
 
     return events

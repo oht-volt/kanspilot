@@ -261,7 +261,7 @@ class CarInterface(CarInterfaceBase):
         be.pressed = False
         but = self.CS.prev_cruise_buttons
       if but == CruiseButtons.RES_ACCEL:
-        if not (ret.cruiseState.enabled and ret.standstill):
+        if not (cruiseEnabled and ret.standstill):
           be.type = ButtonType.accelCruise  # Suppress resume button if we're resuming from stop so we don't adjust speed.
       #elif but == CruiseButtons.RESUME:
       #  if ret.autoResume and ret.cruiseState.enabled and ret.standstill:
@@ -282,9 +282,9 @@ class CarInterface(CarInterfaceBase):
       self.CS.lkMode = not self.CS.lkMode
 
     if self.CS.distance_button and self.CS.distance_button != self.CS.prev_distance_button:
-       self.CS.follow_level -= 1
-       if self.CS.follow_level < 1:
-         self.CS.follow_level = 3
+       self.CS.follow_level += 1
+       if self.CS.follow_level > 3:
+         self.CS.follow_level = 1
 
     events = self.create_common_events(ret, pcm_enable=False)
 
