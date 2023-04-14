@@ -92,18 +92,13 @@ class CarInterface(CarInterfaceBase):
     else:
       ret.transmissionType = TransmissionType.automatic
 
-    ret.longitudinalTuning.deadzoneBP = [0.]
-    ret.longitudinalTuning.deadzoneV = [0.15]
-
-    ret.longitudinalTuning.kpBP = [5., 35.]
-    ret.longitudinalTuning.kiBP = [0.]
     if candidate in CAMERA_ACC_CAR:
       ret.networkLocation = NetworkLocation.fwdCamera
       ret.radarOffCan = True  # no radar
       ret.pcmCruise = True
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM
       ret.minEnableSpeed = 5 * CV.KPH_TO_MS
-      ret.minSteerSpeed = 10 * CV.KPH_TO_MS
+      ret.minSteerSpeed = 1 * CV.KPH_TO_MS
 
     else:  # ASCM, OBD-II harness
       ret.openpilotLongitudinalControl = True
@@ -112,11 +107,7 @@ class CarInterface(CarInterfaceBase):
       ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
       # supports stop and go, but initial engage must (conservatively) be above 18mph
       ret.minEnableSpeed = -1 * CV.MPH_TO_MS
-      ret.minSteerSpeed = 5 * CV.MPH_TO_MS
-
-      # Tuning
-      ret.longitudinalTuning.kpV = [2.4, 1.5]
-      ret.longitudinalTuning.kiV = [0.36]
+      ret.minSteerSpeed = 1 * CV.MPH_TO_MS
 
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
     # These cars likely still work fine. Once a user confirms each car works and a test route is
@@ -124,25 +115,29 @@ class CarInterface(CarInterfaceBase):
     ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL, CAR.EQUINOX} or \
                       (ret.networkLocation == NetworkLocation.gateway and ret.radarOffCan)
 
-    # Start with a baseline tuning for all GM vehicles. Override tuning as needed in each model section below.
-    ret.steerActuatorDelay = 0.22  # Default delay, not measured yet
+    # Presence of a camera on the object bus is ok.
+    # Have to go to read_only if ASCM is online (ACC-enabled cars),
+    # or camera is on powertrain bus (LKA cars without ACC).
+    # for white panda
+    # ret.enableGasInterceptor = 0x201 in fingerprint[0]
+    ret.enableGasInterceptor = 512 in fingerprint[0]
+    # ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
+    ret.openpilotLongitudinalControl = True
     tire_stiffness_factor = 0.469
-
-    ret.steerLimitTimer = 0.4
-    ret.radarTimeStep = 0.0667  # GM radar runs at 15Hz instead of standard 20Hz
-    ret.longitudinalActuatorDelayUpperBound = 0.5  # large delay to initially start braking
-
-    if candidate in (CAR.VOLT, CAR.VOLT2018, CAR.VOLT_CC):
-      ret.mass = 1607. + STD_CARGO_KG
-      ret.wheelbase = 2.69
-      ret.steerRatio = 17.7  # Stock 15.7, LiveParameters
-      tire_stiffness_factor = 0.469  # Stock Michelin Energy Saver A/S, LiveParameters
-      ret.centerToFront = ret.wheelbase * 0.45  # Volt Gen 1, TODO corner weigh
-      ret.steerActuatorDelay = 0.2
-
 
     # for autohold on ui icon
     ret.enableAutoHold = 241 in fingerprint[0]
+
+    # Start with a baseline lateral tuning for all GM vehicles. Override tuning as needed in each model section below.
+    ret.minSteerSpeed = 1 * CV.MPH_TO_MS
+    ret.minEnableSpeed = -1
+    ret.mass = 1607. + STD_CARGO_KG
+    ret.wheelbase = 2.69
+    ret.steerRatio = 16.7
+    ret.steerActuatorDelay = 0.22  # Default delay, not measured yet
+    ret.steerRatioRear = 0.
+    ret.centerToFront = ret.wheelbase * 0.49 # wild guess
+
     ret.disableLateralLiveTuning = False
 
     # lateral
@@ -224,7 +219,7 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingDecelRate = max(ntune_scc_get('stoppingDecelRate'), 3.0) #0.4  # brake_travel/s while trying to stop
     ret.vEgoStopping = max(ntune_scc_get('vEgoStopping'), 0.6) #0.5
     ret.vEgoStarting = max(ntune_scc_get('vEgoStarting'), 0.3) #0.5 # needs to be >= vEgoStopping to avoid state transition oscillation
-
+    ret.startAccel = 2.0
     ret.steerLimitTimer = 0.6
     ret.radarTimeStep = 1/15  # GM radar runs at 15Hz instead of standard 20Hz
 
@@ -263,7 +258,7 @@ class CarInterface(CarInterfaceBase):
         be.pressed = False
         but = self.CS.prev_cruise_buttons
       if but == CruiseButtons.RES_ACCEL:
-        if not (ret.cruiseState.enabled and ret.standstill):
+        if not (cruiseEnabled and ret.standstill):
           be.type = ButtonType.accelCruise  # Suppress resume button if we're resuming from stop so we don't adjust speed.
 
       elif but == CruiseButtons.SET_DECEL:
@@ -282,9 +277,9 @@ class CarInterface(CarInterfaceBase):
       self.CS.lkMode = not self.CS.lkMode
 
     if self.CS.distance_button and self.CS.distance_button != self.CS.prev_distance_button:
-       self.CS.follow_level -= 1
-       if self.CS.follow_level < 1:
-         self.CS.follow_level = 3
+       self.CS.follow_level += 1
+       if self.CS.follow_level > 3:
+         self.CS.follow_level = 1
 
     ret.cruiseGap = self.CS.follow_level
     events = self.create_common_events(ret, pcm_enable=False)
@@ -301,6 +296,8 @@ class CarInterface(CarInterfaceBase):
     for b in ret.buttonEvents:
       # do enable on both accel(or resume) and decel buttons
       if b.type == ButtonType.accelCruise and c.hudControl.setSpeed > 0 and c.hudControl.setSpeed < 70 and not b.pressed:
+        events.add(EventName.buttonEnable)
+      if b.type == ButtonType.resumeCruise and c.hudControl.setSpeed > 0 and c.hudControl.setSpeed < 70 and not b.pressed:
         events.add(EventName.buttonEnable)
       if b.type == ButtonType.decelCruise and not b.pressed:
         events.add(EventName.buttonEnable)

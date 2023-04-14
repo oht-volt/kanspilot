@@ -1,3 +1,4 @@
+from random import randint
 from common.log import Loger
 from cereal import car, log
 from common.conversions import Conversions as CV
@@ -5,8 +6,9 @@ from common.numpy_fast import interp, clip
 from common.realtime import DT_CTRL
 import math
 from opendbc.can.packer import CANPacker
-from selfdrive.car import apply_driver_steer_torque_limits, create_gas_interceptor_command
+from selfdrive.car import apply_driver_steer_torque_limits
 from selfdrive.car.gm import gmcan
+from selfdrive.car import create_gas_interceptor_command
 from selfdrive.car.gm.values import DBC, AccState, CanBus, CarControllerParams, CruiseButtons, CC_ONLY_CAR
 from selfdrive.controls.lib.drive_helpers import apply_deadzone
 from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
@@ -23,24 +25,6 @@ TransmissionType = car.CarParams.TransmissionType
 
 # Camera cancels up to 0.1s after brake is pressed, ECM allows 0.5s
 CAMERA_CANCEL_DELAY_FRAMES = 10
-# Enforce a minimum interval between steering messages to avoid a fault
-MIN_STEER_MSG_INTERVAL_MS = 15
-
-
-def actuator_hystereses(final_pedal, pedal_steady):
-  # hyst params... TODO: move these to VehicleParams
-  pedal_hyst_gap = 0.01    # don't change pedal command for small oscillations within this value
-
-  # for small pedal oscillations within pedal_hyst_gap, don't change the pedal command
-  if math.isclose(final_pedal, 0.0):
-    pedal_steady = 0.
-  elif final_pedal > pedal_steady + pedal_hyst_gap:
-    pedal_steady = final_pedal - pedal_hyst_gap
-  elif final_pedal < pedal_steady - pedal_hyst_gap:
-    pedal_steady = final_pedal + pedal_hyst_gap
-  final_pedal = pedal_steady
-
-  return final_pedal, pedal_steady
 
 
 class CarController:
@@ -60,7 +44,6 @@ class CarController:
     self.lka_steering_cmd_counter = 0
     self.sent_lka_steering_cmd = False
     self.lka_icon_status_last = (False, False)
-    self.steer_rate_limited = False
 
     self.params = CarControllerParams(self.CP)
 
@@ -109,10 +92,9 @@ class CarController:
       if init_lka_counter:
         self.lka_steering_cmd_counter = CS.cam_lka_steering_cmd_counter + 1
       lkas_enabled = (CC.latActive or CS.pause_long_on_gas_press) and CS.lkMode and CS.out.vEgo > self.params.MIN_STEER_SPEED
-      if CC.latActive:
+      if lkas_enabled: 
         new_steer = int(round(actuators.steer * self.params.STEER_MAX))
         apply_steer = apply_driver_steer_torque_limits(new_steer, self.apply_steer_last, CS.out.steeringTorque, self.params)
-        self.steer_rate_limited = new_steer != apply_steer
       else:
         apply_steer = 0
 
@@ -134,7 +116,7 @@ class CarController:
 
         idx = (self.frame // 4) % 4
 
-        if CS.cruiseMain and not CC.longActive and CS.autoHold and CS.autoHoldActive and \
+        if CS.out.cruiseState.available and not CC.longActive and CS.autoHold and CS.autoHoldActive and \
              not CS.out.gasPressed and CS.out.gearShifter in ['drive','low'] and \
              CS.out.vEgo < 0.01 and not CS.regenPaddlePressed and CS.autoholdBrakeStart:
           # Auto Hold State
@@ -175,12 +157,7 @@ class CarController:
         can_sends.append(gmcan.create_acc_dashboard_command(self.packer_pt, CanBus.POWERTRAIN, CC.enabled and CS.out.cruiseState.enabled, \
                    hud_v_cruise * CV.MS_TO_KPH, hud_control.leadVisible, send_fcw, follow_level))
 
-      if CC.longActive:
-        can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.RES_ACCEL))
 
-      elif CC.longActive:
-        can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.DECEL_SET))
-			        
       # Radar needs to know current speed and yaw rate (50hz),
       # and that ADAS is alive (10hz)
       if not self.CP.radarOffCan:
@@ -211,7 +188,7 @@ class CarController:
           self.last_button_frame = self.frame
           can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.CANCEL))
 
-    if self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in CC_ONLY_CAR:
+    if self.CP.networkLocation == NetworkLocation.fwdCamera:
       # Silence "Take Steering" alert sent by camera, forward PSCMStatus with HandsOffSWlDetectionStatus=1
       if self.frame % 10 == 0:
         can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.CAMERA, CS.pscm_status))

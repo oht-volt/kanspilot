@@ -30,13 +30,12 @@ class CarState(CarStateBase):
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
 
     self.loopback_lka_steering_cmd_updated = False
-    self.pt_lka_steering_cmd_counter = 0
     self.cam_lka_steering_cmd_counter = 0
+    self.buttons_counter = 0
 
     self.a_ego_filtered_rc = 1.0
     self.a_ego_filtered = FirstOrderFilter(0.0, self.a_ego_filtered_rc, DT_CTRL)
 
-    self.gas_pressed = False
     self.cruiseState_enabled = False
     self.cruise_buttons = False
     self.prev_cruise_buttons = False
@@ -70,7 +69,6 @@ class CarState(CarStateBase):
     # lead_distance
     self.lead_distance = 0
     self.sm = messaging.SubMaster(['radarState'])
-    self.buttons_counter = 0
 
 
     self.cluster_speed = 0
@@ -95,7 +93,6 @@ class CarState(CarStateBase):
     # Variables used for avoiding LKAS faults
     self.loopback_lka_steering_cmd_updated = len(loopback_cp.vl_all["ASCMLKASteeringCmd"]["RollingCounter"]) > 0 #GM: EPS fault workaround (#22404)
     if self.CP.networkLocation == NetworkLocation.fwdCamera:
-      self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
       self.cam_lka_steering_cmd_counter = cam_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
 
     self.is_metric = Params().get_bool("IsMetric")
@@ -225,10 +222,8 @@ class CarState(CarStateBase):
 
 
     ret.cruiseState.enabled = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] != AccState.OFF
-    ret.cruiseState.standstill = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.STANDSTILL
-    if (self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in CC_ONLY_CAR) and\
-    self.cruiseState_enabled = ret.cruiseState.enabled
-         ret.cruiseState.enabled:
+    ret.cruiseState.standstill = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] != AccState.STANDSTILL
+    if self.CP.networkLocation == NetworkLocation.fwdCamera and ret.cruiseState.enabled:
       ret.cruiseState.speed = cam_cp.vl["ASCMActiveCruiseControlStatus"]["ACCSpeedSetpoint"] * CV.MPH_TO_MS
       ret.stockAeb = cam_cp.vl["AEBCmd"]["AEBCmdActive"] != 0
       # openpilot controls nonAdaptive when not pcmCruise
@@ -236,6 +231,8 @@ class CarState(CarStateBase):
         ret.cruiseState.nonAdaptive = cam_cp.vl["ASCMActiveCruiseControlStatus"]["ACCCruiseState"] not in (2, 3)
     else:
       ret.cruiseState.speed = 0
+
+    self.cruiseState_enabled = ret.cruiseState.enabled
 
     # AutoHold
     self.cruiseMain = ret.cruiseState.available
