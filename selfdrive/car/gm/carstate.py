@@ -10,9 +10,6 @@ from selfdrive.car.gm.values import DBC, CAR, AccState, CanBus, STEER_THRESHOLD,
 from common.params import Params
 import cereal.messaging as messaging
 
-from selfdrive.kegman_kans_conf import kegman_kans_conf
-kegman_kans = kegman_kans_conf()
-
 NetworkLocation = car.CarParams.NetworkLocation
 STANDSTILL_THRESHOLD = 10 * 0.0311 * CV.KPH_TO_MS
 CLUSTER_SAMPLE_RATE = 20  # frames
@@ -25,6 +22,9 @@ class CarState(CarStateBase):
     self.leftBlinker = False
     self.rightBlinker = False
     self.shifter_values = can_define.dv["ECMPRDNL2"]["PRNDL2"]
+    self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
+    self.cluster_min_speed = CV.KPH_TO_MS / 2.
+
     self.loopback_lka_steering_cmd_updated = False
     self.pt_lka_steering_cmd_counter = 0
     self.camera_lka_steering_cmd_counter = 0
@@ -219,6 +219,10 @@ class CarState(CarStateBase):
     else:
       ret.cruiseState.speed = 0
 
+    # openpilot controls nonAdaptive when not pcmCruise
+    if self.CP.pcmCruise:
+      ret.cruiseState.nonAdaptive = pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCCruiseState"] not in (2, 3)
+
     #Cruise Gap
     ret.cruiseGap = self.follow_level
 
@@ -228,10 +232,7 @@ class CarState(CarStateBase):
     ret.brakeLights = chassis_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
 
     # bellow Lines are for Autohold
-    if kegman_kans.conf['AutoHold'] == "1":
-      self.autoHold = True
-    else:
-      self.autoHold = False
+    self.autoHold = True
     # autohold on ui icon
     if self.CP.enableAutoHold:
       ret.autoHoldActivated = self.autoHoldActivated

@@ -229,7 +229,7 @@ class CarInterfaceBase(ABC):
     if cs_out.espDisabled:
       events.add(EventName.espDisabled)
     if cs_out.gasPressed:
-      events.add(EventName.gasPressed)
+      events.add(EventName.gasPressedOverride)
     if cs_out.stockFcw:
       events.add(EventName.stockFcw)
     if cs_out.stockAeb:
@@ -243,6 +243,8 @@ class CarInterfaceBase(ABC):
       pass
     if cs_out.parkingBrake:
       events.add(EventName.parkBrake)
+    if cs_out.steeringPressed:
+      events.add(EventName.steerOverride)
 
     # Handle permanent and temporary steering faults
     self.steering_unpressed = 0 if cs_out.steeringPressed else self.steering_unpressed + 1
@@ -269,7 +271,7 @@ class CarInterfaceBase(ABC):
       if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.enabled:
-        #events.add(EventName.pcmDisable)  #ajouatom: MAD��� ������ �̰͸� �ڸ�Ʈ�ϸ� ��.
+        #events.add(EventName.pcmDisable)  #ajouatom: MAD모드 구현시 이것만 코멘트하면 됨.
         pass
 
     return events
@@ -301,7 +303,8 @@ class CarStateBase(ABC):
     self.right_blinker_cnt = 0
     self.left_blinker_prev = False
     self.right_blinker_prev = False
-
+    self.cluster_speed_hyst_gap = 0.0
+    self.cluster_min_speed = 0.0  # min speed before dropping to 0
     self.pause_long_on_gas_press = False
 
     # Q = np.matrix([[10.0, 0.0], [0.0, 100.0]])

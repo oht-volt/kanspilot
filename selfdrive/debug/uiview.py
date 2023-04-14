@@ -27,17 +27,17 @@ if __name__ == "__main__":
   msgs['pandaStates'].pandaStates[0].ignitionLine = True
   msgs['pandaStates'].pandaStates[0].pandaType = log.PandaState.PandaType.uno
   
-  speed = 0.
+  #speed = 0.
   try:
     while True:
       time.sleep(1 / 100)  # continually send, rate doesn't matter
       
-      msgs['carState'] = messaging.new_message('carState')
-      msgs['carState'].carState.cluSpeedMs = speed
+      #msgs['carState'] = messaging.new_message('carState')
+      #msgs['carState'].carState.cluSpeedMs = speed
       
-      speed += 0.02
-      if speed > 40.:
-        speed = 0.
+      #speed += 0.02
+      #if speed > 40.:
+      #  speed = 0.
       
       for s in msgs:
         pm.send(s, msgs[s])

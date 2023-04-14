@@ -272,7 +272,7 @@ class Controls:
       pass
 	# TODO : check this line. jc01rho.
     if CS.gasPressed:
-      self.events.add(EventName.pedalPressedPreEnable if self.disengage_on_gas else
+      self.events.add(EventName.preEnableStandstill if self.disengage_on_gas else
                       EventName.gasPressedOverride)
 
     self.events.add_from_msg(CS.events)
@@ -602,9 +602,9 @@ class Controls:
             self.soft_disable_timer = int(0.5 / DT_CTRL)
             self.current_alert_types.append(ET.SOFT_DISABLE)
 
-          elif self.events.any(ET.OVERRIDE):
+          elif self.events.any(ET.OVERRIDE_LATERAL) or self.events.any(ET.OVERRIDE_LONGITUDINAL):
             self.state = State.overriding
-            self.current_alert_types.append(ET.OVERRIDE)
+            self.current_alert_types += [ET.OVERRIDE_LATERAL, ET.OVERRIDE_LONGITUDINAL]
 
         # SOFT DISABLING
         elif self.state == State.softDisabling:
@@ -634,10 +634,10 @@ class Controls:
             self.state = State.softDisabling
             self.soft_disable_timer = int(SOFT_DISABLE_TIME / DT_CTRL)
             self.current_alert_types.append(ET.SOFT_DISABLE)
-          elif not self.events.any(ET.OVERRIDE):
+          elif not (self.events.any(ET.OVERRIDE_LATERAL) or self.events.any(ET.OVERRIDE_LONGITUDINAL)):
             self.state = State.enabled
           else:
-            self.current_alert_types.append(ET.OVERRIDE)
+            self.current_alert_types += [ET.OVERRIDE_LATERAL, ET.OVERRIDE_LONGITUDINAL]
 
     # DISABLED
     elif self.state == State.disabled:
@@ -648,7 +648,7 @@ class Controls:
         else:
           if self.events.any(ET.PRE_ENABLE):
             self.state = State.preEnabled
-          elif self.events.any(ET.OVERRIDE):
+          elif self.events.any(ET.OVERRIDE_LATERAL) or self.events.any(ET.OVERRIDE_LONGITUDINAL):
             self.state = State.overriding
           else:
             self.state = State.enabled
@@ -746,7 +746,7 @@ class Controls:
     # Check which actuators can be enabled
     CC.latActive = self.active and not CS.steerFaultTemporary and not CS.steerFaultPermanent and \
                      CS.vEgo > self.CP.minSteerSpeed and not CS.standstill
-    CC.longActive = self.active and not self.events.any(ET.OVERRIDE)
+    CC.longActive = self.active and not self.events.any(ET.OVERRIDE_LONGITUDINAL)
 
     actuators = CC.actuators
     actuators.longControlState = self.LoC.long_control_state
@@ -1054,9 +1054,15 @@ class Controls:
 
   def controlsd_thread(self):
     while True:
+      initialized_prev = self.initialized
       self.step()
       self.rk.monitor_time()
       self.prof.display()
+
+      # ajouatom: CI.init()할때  lag가 disable_ecu(), enable_radar_tracks()로 인해 발생함... 초기화가 필요함. 
+      if self.initialized and not initialized_prev:
+        self.rk.reset_time()
+
 
 def main(sm=None, pm=None, logcan=None):
   controls = Controls(sm, pm, logcan)

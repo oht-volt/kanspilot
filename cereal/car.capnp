@@ -17,7 +17,8 @@ struct CarEvent @0x9b1657f34caf3ad3 {
   immediateDisable @6 :Bool;
   preEnable @7 :Bool;
   permanent @8 :Bool; # alerts presented regardless of openpilot state
-  override @9 :Bool;
+  overrideLongitudinal @9 :Bool;
+  overrideLateral @10 :Bool;
 
   enum EventName @0xbaa8c5d505f727de {
     canError @0;
@@ -33,9 +34,9 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     buttonCancel @11;
     buttonEnable @12;
     pedalPressed @13;  # exits active state
-    pedalPressedPreEnable @73; # added during pre-enable state for either pedal
+    preEnableStandstill @73; # added during pre-enable state for either pedal
     gasPressedOverride @112;  # added when user is pressing gas with no disengage on gas
-    gasPressed @113;
+    steerOverride @113;
     cruiseDisabled @14;
     speedTooLow @17;
     outOfSpace @18;
@@ -180,6 +181,7 @@ struct CarState {
   # brake pedal, 0.0-1.0
   brake @5 :Float32;      # this is user pedal only
   brakePressed @6 :Bool;  # this is user pedal only
+  regenBraking @51 :Bool; # this is user pedal only
   parkingBrake @43 :Bool;
   brakeHoldActive @42 :Bool;
 
@@ -196,6 +198,7 @@ struct CarState {
   stockAeb @30 :Bool;
   stockFcw @31 :Bool;
   espDisabled @32 :Bool;
+  accFaulted @52 :Bool;
 
   # cruise state
   cruiseState @10 :CruiseState;
@@ -366,7 +369,11 @@ struct CarControl {
     brake @1: Float32;
     # range from -1.0 - 1.0
     steer @2: Float32;
+    # value sent over can to the car
+    steerOutputCan @8: Float32;
     steeringAngleDeg @3: Float32;
+
+    curvature @7: Float32;
 
     speed @6: Float32; # m/s
     accel @4: Float32; # m/s^2
@@ -463,6 +470,7 @@ struct CarParams {
   enableBsm @56 :Bool;       # blind spot monitoring
   flags @65 :UInt32;         # flags for car specific quirks
   # Autohold
+  pcmCruiseSpeed @70 :Bool;  # is openpilot's state tied to the PCM's cruise speed?
   enableAutoHold @62 :Bool;
 
   minEnableSpeed @7 :Float32;
@@ -500,7 +508,6 @@ struct CarParams {
     indi @27 :LateralINDITuning;
     lqr @40 :LateralLQRTuning;
     torque @69 :LateralTorqueTuning;
-    hybrid @70 :LateralHybridTuning;
   }
 
   steerLimitAlert @28 :Bool;

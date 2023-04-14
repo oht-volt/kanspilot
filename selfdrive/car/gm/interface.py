@@ -114,29 +114,7 @@ class CarInterface(CarInterfaceBase):
 
     # lateral
     lateral_control = Params().get("LateralControl", encoding='utf-8')
-    if lateral_control == 'INDI':
-      ret.lateralTuning.init('indi')
-      ret.lateralTuning.indi.innerLoopGainBP = [0.]
-      ret.lateralTuning.indi.innerLoopGainV = [3.3]
-      ret.lateralTuning.indi.outerLoopGainBP = [0.]
-      ret.lateralTuning.indi.outerLoopGainV = [2.8]
-      ret.lateralTuning.indi.timeConstantBP = [0.]
-      ret.lateralTuning.indi.timeConstantV = [1.4]
-      ret.lateralTuning.indi.actuatorEffectivenessBP = [0.]
-      ret.lateralTuning.indi.actuatorEffectivenessV = [1.8]
-    elif lateral_control == 'LQR':
-      ret.lateralTuning.init('lqr')
-
-      ret.lateralTuning.lqr.scale = 1600.
-      ret.lateralTuning.lqr.ki = 0.01
-      ret.lateralTuning.lqr.dcGain = 0.0025
-
-      ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
-      ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
-      ret.lateralTuning.lqr.c = [1., 0.]
-      ret.lateralTuning.lqr.k = [-110., 451.]
-      ret.lateralTuning.lqr.l = [0.33, 0.318]
-    elif lateral_control == 'PID':
+    if lateral_control == 'PID':
       ret.lateralTuning.init('pid')
       if candidate == CAR.VOLT:
         ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
@@ -214,14 +192,7 @@ class CarInterface(CarInterfaceBase):
     ret.vEgoStopping = max(ntune_scc_get('vEgoStopping'), 0.6) #0.5
     ret.vEgoStarting = max(ntune_scc_get('vEgoStarting'), 0.3) #0.5 # needs to be >= vEgoStopping to avoid state transition oscillation
     ret.startAccel = 2.0
-
-    if params.get_bool("UseNpilotManager"):
-      ret.steerActuatorDelay = max(ntune_common_get('steerActuatorDelay'), 0.22)
-      ret.steerLimitTimer = max(ntune_common_get('steerLimitTimer'), 3.0)
-    else:
-      ret.steerActuatorDelay = float(Decimal(params.get("SteerActuatorDelayAdj", encoding="utf8")) * Decimal('0.01'))
-      ret.steerLimitTimer = float(Decimal(params.get("SteerLimitTimerAdj", encoding="utf8")) * Decimal('0.01'))
-
+    ret.steerLimitTimer = 0.6
     ret.radarTimeStep = 1/15  # GM radar runs at 15Hz instead of standard 20Hz
 
     return ret
@@ -242,8 +213,6 @@ class CarInterface(CarInterfaceBase):
     cruiseEnabled = self.CS.pcm_acc_status != AccState.OFF
     ret.cruiseState.enabled = cruiseEnabled
 
-    ret.cruiseGap = self.CS.follow_level
-
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid # GM: EPS fault workaround (#22404)
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
@@ -263,9 +232,7 @@ class CarInterface(CarInterfaceBase):
       if but == CruiseButtons.RES_ACCEL:
         if not (cruiseEnabled and ret.standstill):
           be.type = ButtonType.accelCruise  # Suppress resume button if we're resuming from stop so we don't adjust speed.
-      #elif but == CruiseButtons.RESUME:
-      #  if ret.autoResume and ret.cruiseState.enabled and ret.standstill:
-      #    be.type = ButtonType.resumeCruise
+
       elif but == CruiseButtons.SET_DECEL:
         if not cruiseEnabled and not self.CS.lkMode:
           self.lkMode = True
@@ -286,6 +253,7 @@ class CarInterface(CarInterfaceBase):
        if self.CS.follow_level > 3:
          self.CS.follow_level = 1
 
+    ret.cruiseGap = self.CS.follow_level
     events = self.create_common_events(ret, pcm_enable=False)
 
     if ret.vEgo < self.CP.minEnableSpeed and self.CS.pcm_acc_status != AccState.ACTIVE:
@@ -296,9 +264,6 @@ class CarInterface(CarInterfaceBase):
     if self.CS.autoHoldActivated:
       events.add(car.CarEvent.EventName.autoHoldActivated)
 
-    #opkr
-    if self.CC.e2e_standstill:
-      events.add(EventName.chimeAtResume)  
     # handle button presses
     for b in ret.buttonEvents:
       # do enable on both accel(or resume) and decel buttons
@@ -311,6 +276,10 @@ class CarInterface(CarInterfaceBase):
       # do disable on button down
       if b.type == ButtonType.cancel and b.pressed:
         events.add(EventName.buttonCancel)
+
+    #opkr
+    if self.CC.e2e_standstill:
+      events.add(EventName.chimeAtResume)  
 
     ret.events = events.to_msg()
 

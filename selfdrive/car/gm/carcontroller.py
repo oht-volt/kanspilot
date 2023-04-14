@@ -1,6 +1,6 @@
 from random import randint
 from common.log import Loger
-from cereal import car, log, messaging
+from cereal import car, log
 from common.conversions import Conversions as CV
 from common.realtime import DT_CTRL
 from common.numpy_fast import clip, interp
@@ -124,33 +124,7 @@ class CarController:
         CC.enabled = enabled
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
 
-    #opkr
-    if self.e2e_standstill_enable:
-      try:
-        self.sm.update(0)
 
-        if self.e2e_standstill:
-          self.e2e_standstill_timer += 1
-          if self.e2e_standstill_timer > 500:
-            self.e2e_standstill = False
-            self.e2e_standstill_timer = 0
-        elif CS.v_Ego > 0:
-          self.e2e_standstill = False
-          self.e2e_standstill_stat = False
-          self.e2e_standstill_timer = 0
-        elif self.e2e_standstill_stat and self.sm['longitudinalPlan'].trafficState != 1 and CS.v_Ego == 0:
-          self.e2e_standstill = True
-          self.e2e_standstill_stat = False
-          self.e2e_standstill_timer = 0
-        elif self.sm['longitudinalPlan'].trafficState == 1 and self.sm['longitudinalPlan'].stopLine[12] < 10 and CS.v_Ego == 0:
-          self.e2e_standstill_timer += 1
-          if self.e2e_standstill_timer > 300:
-            self.e2e_standstill_timer = 101
-            self.e2e_standstill_stat = True
-        else:
-          self.e2e_standstill_timer = 0
-      except:
-        pass
 
     # Send dashboard UI commands (ACC status), 25hz
     if (self.frame % 4) == 0:
@@ -203,3 +177,31 @@ class CarController:
 
     self.frame += 1
     return new_actuators, can_sends
+
+    #opkr
+    if self.e2e_standstill_enable:
+      try:
+        self.sm.update(0)
+
+        if self.e2e_standstill:
+          self.e2e_standstill_timer += 1
+          if self.e2e_standstill_timer > 500:
+            self.e2e_standstill = False
+            self.e2e_standstill_timer = 0
+        elif CS.v_Ego > 0:
+          self.e2e_standstill = False
+          self.e2e_standstill_stat = False
+          self.e2e_standstill_timer = 0
+        elif self.e2e_standstill_stat and self.sm['longitudinalPlan'].trafficState != 1 and CS.v_Ego == 0:
+          self.e2e_standstill = True
+          self.e2e_standstill_stat = False
+          self.e2e_standstill_timer = 0
+        elif self.sm['longitudinalPlan'].trafficState == 1 and self.sm['longitudinalPlan'].stopLine[12] < 10 and CS.v_Ego == 0:
+          self.e2e_standstill_timer += 1
+          if self.e2e_standstill_timer > 300:
+            self.e2e_standstill_timer = 101
+            self.e2e_standstill_stat = True
+        else:
+          self.e2e_standstill_timer = 0
+      except:
+        pass
