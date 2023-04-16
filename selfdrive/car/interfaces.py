@@ -2,25 +2,23 @@ import yaml
 import os
 import time
 from abc import abstractmethod, ABC
-from typing import Any, Dict, Optional, Tuple, List, Callable
+from typing import Any, Dict, Optional, Tuple, List
+from common.numpy_fast import interp
 
 from cereal import car
 from common.basedir import BASEDIR
-from common.conversions import Conversions as CV
 from common.kalman.simple_kalman import KF1D
-from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
 from common.params import Params
-from selfdrive.car import apply_hysteresis, gen_empty_fingerprint
+from selfdrive.car import gen_empty_fingerprint
+from common.conversions import Conversions as CV
 from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX, apply_deadzone
 from selfdrive.controls.lib.events import Events
 from selfdrive.controls.lib.vehicle_model import VehicleModel
 from selfdrive.ntune import ntune_option_get, ntune_option_enabled
 
-ButtonType = car.CarState.ButtonEvent.Type
 GearShifter = car.CarState.GearShifter
 EventName = car.CarEvent.EventName
-TorqueFromLateralAccelCallbackType = Callable[[float, car.CarParams.LateralTorqueTuning, float, float, bool], float]
 
 MAX_CTRL_SPEED = (V_CRUISE_MAX + 4) * CV.KPH_TO_MS
 ACCEL_MAX = 2.0
@@ -41,7 +39,6 @@ class CarInterfaceBase(ABC):
     self.frame = 0
     self.steering_unpressed = 0
     self.low_speed_alert = False
-    self.no_steer_warning = False
     self.silent_steer_warning = True
     self.v_ego_cluster_seen = False
     self.disengage_on_gas = not Params().get_bool("DisableDisengageOnGas")
@@ -99,7 +96,7 @@ class CarInterfaceBase(ABC):
       friction = 0.0
     return (lateral_accel_value / torque_params['latAccelFactor']) + friction
 
-  def torque_from_lateral_accel(self) -> TorqueFromLateralAccelCallbackType:
+  def torque_from_lateral_accel(self):
     return self.torque_from_lateral_accel_linear
 
   @staticmethod
@@ -140,7 +137,6 @@ class CarInterfaceBase(ABC):
     ret.wheelSpeedFactor = 1.0
     ret.maxLateralAccel = 1.8
     ret.pcmCruise = True     # openpilot's state is tied to the PCM's cruise state on most cars
-    ret.pcmCruiseSpeed = True  # openpilot's state is tied to the PCM's cruise speed
     ret.minEnableSpeed = -1. # enable is done by stock ACC, so ignore this
     ret.steerRatioRear = 0.  # no rear steering, at least on the listed cars aboveA
     ret.openpilotLongitudinalControl = True
@@ -216,8 +212,7 @@ class CarInterfaceBase(ABC):
   def apply(self, c: car.CarControl) -> Tuple[car.CarControl.Actuators, List[bytes]]:
     pass
 
-  def create_common_events(self, cs_out, extra_gears=None, pcm_enable=True, allow_enable=True,
-                           enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
+  def create_common_events(self, cs_out, extra_gears=None, gas_resume_speed=-1, pcm_enable=True):
     events = Events()
 
     if cs_out.doorOpen:
@@ -233,6 +228,8 @@ class CarInterfaceBase(ABC):
       events.add(EventName.wrongCarMode)
     if cs_out.espDisabled:
       events.add(EventName.espDisabled)
+    if cs_out.gasPressed:
+      events.add(EventName.gasPressedOverride)
     if cs_out.stockFcw:
       events.add(EventName.stockFcw)
     if cs_out.stockAeb:
@@ -246,36 +243,19 @@ class CarInterfaceBase(ABC):
       pass
     if cs_out.parkingBrake:
       events.add(EventName.parkBrake)
-    if cs_out.accFaulted:
-      events.add(EventName.accFaulted)
     if cs_out.steeringPressed:
       events.add(EventName.steerOverride)
-
-    # Handle button presses
-    for b in cs_out.buttonEvents:
-      # Enable OP long on falling edge of enable buttons (defaults to accelCruise and decelCruise, overridable per-port)
-      if not self.CP.pcmCruise and (b.type in enable_buttons and not b.pressed):
-        events.add(EventName.buttonEnable)
-      # Disable on rising and falling edge of cancel for both stock and OP long
-      if b.type == ButtonType.cancel:
-        events.add(EventName.buttonCancel)
 
     # Handle permanent and temporary steering faults
     self.steering_unpressed = 0 if cs_out.steeringPressed else self.steering_unpressed + 1
     if cs_out.steerFaultTemporary:
-      if cs_out.steeringPressed and (not self.CS.out.steerFaultTemporary or self.no_steer_warning):
-        self.no_steer_warning = True
+      # if the user overrode recently, show a less harsh alert
+      if self.silent_steer_warning or cs_out.standstill or self.steering_unpressed < int(1.5 / DT_CTRL):
+        self.silent_steer_warning = True
+        events.add(EventName.steerTempUnavailableSilent)
       else:
-        self.no_steer_warning = False
-
-        # if the user overrode recently, show a less harsh alert
-        if self.silent_steer_warning or cs_out.standstill or self.steering_unpressed < int(1.5 / DT_CTRL):
-          self.silent_steer_warning = True
-          events.add(EventName.steerTempUnavailableSilent)
-        else:
-          events.add(EventName.steerTempUnavailable)
+        events.add(EventName.steerTempUnavailable)
     else:
-      self.no_steer_warning = False
       self.silent_steer_warning = False
     if cs_out.steerFaultPermanent:
       events.add(EventName.steerUnavailable)
@@ -287,9 +267,8 @@ class CarInterfaceBase(ABC):
       pass
 
     # we engage when pcm is active (rising edge)
-    # enabling can optionally be blocked by the car interface
     if pcm_enable:
-      if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled and allow_enable:
+      if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled:
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.enabled:
         #events.add(EventName.pcmDisable)  #ajouatom: MAD모드 구현시 이것만 코멘트하면 됨.

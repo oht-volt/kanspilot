@@ -3,27 +3,26 @@ from typing import List
 from cereal import car, log
 from math import fabs, erf, atan
 from panda import Panda
-from common.realtime import sec_since_boot
-
+from common.numpy_fast import interp
 from common.conversions import Conversions as CV
-from selfdrive.car import STD_CARGO_KG, create_button_event, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint, get_safety_config
+from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
 from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, CruiseButtons, EV_CAR, CAMERA_ACC_CAR, \
                                     AccState, FINGERPRINTS, CarControllerParams, CanBus
-from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType
+from selfdrive.car.interfaces import CarInterfaceBase
 from common.params import Params
 from decimal import Decimal
 from selfdrive.ntune import ntune_common_get, ntune_torque_get, ntune_scc_get
+from selfdrive.car.isotp_parallel_query import IsoTpParallelQuery
 from common.log import Loger
+from selfdrive.car.disable_ecu import enable_radar_tracks, disable_ecu
 
-ButtonType = car.CarState.ButtonEvent.Type
-EventName = car.CarEvent.EventName
 GearShifter = car.CarState.GearShifter
+EventName = car.CarEvent.EventName
+ButtonType = car.CarState.ButtonEvent.Type
 TransmissionType = car.CarParams.TransmissionType
 NetworkLocation = car.CarParams.NetworkLocation
 
-BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.SET_DECEL: ButtonType.decelCruise,
-                CruiseButtons.MAIN: ButtonType.altButton3, CruiseButtons.CANCEL: ButtonType.cancel}
 
 # meant for traditional ff fits
 def get_steer_feedforward_sigmoid1(angle, speed, ANGLE_COEF, ANGLE_COEF2, ANGLE_OFFSET, SPEED_OFFSET, SIGMOID_COEF_RIGHT, SIGMOID_COEF_LEFT, SPEED_COEF):
@@ -84,8 +83,6 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "gm"
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
     ret.autoResumeSng = ret.minEnableSpeed == -1
-    # ret.pcmCruise = False  # stock cruise control is kept off
-    # ret.enableGasInterceptor = 0x201 in fingerprint[0]
 
     if candidate in EV_CAR:
       ret.transmissionType = TransmissionType.direct

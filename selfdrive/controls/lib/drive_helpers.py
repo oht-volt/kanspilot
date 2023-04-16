@@ -13,8 +13,6 @@ V_CRUISE_MAX = 145
 V_CRUISE_MIN = 5
 V_CRUISE_ENABLE_MIN = 5
 V_CRUISE_DELTA_KM = 5
-#V_CRUISE_INITIAL = 255  # kph
-
 V_CRUISE_DELTA_MI = 5 * CV.MPH_TO_KPH
 
 LAT_MPC_N = 16
@@ -35,7 +33,6 @@ CRUISE_INTERVAL_SIGN = {
   ButtonType.accelCruise: +1,
   ButtonType.decelCruise: -1,
 }
-
 
 
 class MPC_COST_LAT:

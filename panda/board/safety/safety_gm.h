@@ -13,7 +13,7 @@ const int GM_MAX_RT_DELTA = 128;          // max delta torque allowed for real t
 const uint32_t GM_RT_INTERVAL = 250000;    // 250ms between real time checks
 const int GM_MAX_RATE_UP = 20;
 const int GM_MAX_RATE_DOWN = 32;
-const int GM_DRIVER_TORQUE_ALLOWANCE = 50;
+const int GM_DRIVER_TORQUE_ALLOWANCE = 75;
 const int GM_DRIVER_TORQUE_FACTOR = 4;
 const int GM_MAX_GAS = 3072;
 const int GM_MAX_REGEN = 1404;
@@ -92,11 +92,12 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     }
 
     // exit controls on regen paddle
+    //TODO: Evaluate impact of this change. Previous method could have caused controls mismatch...
     if (addr == 189) {
-      bool regen = GET_BYTE(to_push, 0) & 0x20U;
-      if (regen) {
-        controls_allowed = 0;
-      }
+      brake_pressed = GET_BYTE(to_push, 0) & 0x20U;
+      // if (regen) {
+      //   controls_allowed = 0;
+      // }
     }
 
     // Check if ASCM or LKA camera are online
