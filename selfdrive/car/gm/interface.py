@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from typing import List
 from cereal import car, log
-from math import fabs, erf
+from math import fabs, erf, atan
 
 from common.numpy_fast import interp
 from common.conversions import Conversions as CV
