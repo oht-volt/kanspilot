@@ -270,7 +270,6 @@ class Controls:
          (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)):
       #self.events.add(EventName.pedalPressed)
       pass
-	# TODO : check this line. jc01rho.
     if CS.gasPressed:
       self.events.add(EventName.preEnableStandstill if self.disengage_on_gas else
                       EventName.gasPressedOverride)
@@ -984,12 +983,10 @@ class Controls:
       controlsState.lateralControlState.angleState = lac_log
     elif lat_tuning == 'pid':
       controlsState.lateralControlState.pidState = lac_log
-    elif lat_tuning == 'lqr':
-      controlsState.lateralControlState.lqrState = lac_log
-    elif lat_tuning == 'indi':
-      controlsState.lateralControlState.indiState = lac_log
     elif lat_tuning == 'torque':
       controlsState.lateralControlState.torqueState = lac_log
+    elif lat_tuning == 'indi':
+      controlsState.lateralControlState.indiState = lac_log
 
     self.pm.send('controlsState', dat)
 
