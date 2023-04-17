@@ -465,5 +465,5 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   # scc smoother - hyundai only
-  def apply(self, c):
-    return self.CC.update(c, self.CS)
+  def apply(self, c, controls):
+    return self.CC.update(c, self.CS, controls)

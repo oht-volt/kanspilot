@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 from typing import List
 from cereal import car, log
-from math import fabs, erf, atan
-from panda import Panda
+from math import fabs, erf
+
 from common.numpy_fast import interp
 from common.conversions import Conversions as CV
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint, get_safety_config
-from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
-from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, CruiseButtons, EV_CAR, CAMERA_ACC_CAR, \
-                                    AccState, FINGERPRINTS, CarControllerParams, CanBus
+from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, CruiseButtons, \
+                                    AccState, FINGERPRINTS, CarControllerParams
 from selfdrive.car.interfaces import CarInterfaceBase
 from common.params import Params
 from decimal import Decimal
-from selfdrive.ntune import ntune_common_get, ntune_torque_get, ntune_scc_get
+from selfdrive.ntune import ntune_common_get, ntune_lqr_get, ntune_torque_get, ntune_scc_get
 from selfdrive.car.isotp_parallel_query import IsoTpParallelQuery
 from common.log import Loger
 from selfdrive.car.disable_ecu import enable_radar_tracks, disable_ecu
@@ -20,8 +19,6 @@ from selfdrive.car.disable_ecu import enable_radar_tracks, disable_ecu
 GearShifter = car.CarState.GearShifter
 EventName = car.CarEvent.EventName
 ButtonType = car.CarState.ButtonEvent.Type
-TransmissionType = car.CarParams.TransmissionType
-NetworkLocation = car.CarParams.NetworkLocation
 
 
 # meant for traditional ff fits
@@ -48,7 +45,7 @@ class CarInterface(CarInterfaceBase):
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
-    _params = CarControllerParams(CP)
+    _params = CarControllerParams()
     return _params.ACCEL_MIN, _params.ACCEL_MAX
 
   # Determined by iteratively plotting and minimizing error for f(angle, speed) = steer.
@@ -70,7 +67,7 @@ class CarInterface(CarInterfaceBase):
     return 0.04689655 * sigmoid * (v_ego + 10.028217)
 
   def get_steer_feedforward_function(self):
-    if self.CP.carFingerprint in (CAR.VOLT, CAR.VOLT2018, CAR.VOLT_CC):
+    if self.CP.carFingerprint == CAR.VOLT:
       return self.get_steer_feedforward_volt
     elif self.CP.carFingerprint == CAR.ACADIA:
       return self.get_steer_feedforward_acadia
@@ -83,34 +80,12 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "gm"
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
     ret.autoResumeSng = ret.minEnableSpeed == -1
-
-    if candidate in EV_CAR:
-      ret.transmissionType = TransmissionType.direct
-    else:
-      ret.transmissionType = TransmissionType.automatic
-
-    if candidate in CAMERA_ACC_CAR:
-      ret.networkLocation = NetworkLocation.fwdCamera
-      ret.radarOffCan = True  # no radar
-      ret.pcmCruise = True
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM
-      ret.minEnableSpeed = 5 * CV.KPH_TO_MS
-      ret.minSteerSpeed = 1 * CV.KPH_TO_MS
-
-    else:  # ASCM, OBD-II harness
-      ret.openpilotLongitudinalControl = True
-      ret.networkLocation = NetworkLocation.gateway
-      ret.radarOffCan = RADAR_HEADER_MSG not in fingerprint[CanBus.OBSTACLE]
-      ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
-      # supports stop and go, but initial engage must (conservatively) be above 18mph
-      ret.minEnableSpeed = -1 * CV.MPH_TO_MS
-      ret.minSteerSpeed = 1 * CV.MPH_TO_MS
+    ret.pcmCruise = False  # stock cruise control is kept off
 
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
     # These cars likely still work fine. Once a user confirms each car works and a test route is
-    # added to selfdrive/car/tests/routes.py, we can remove it from this list.
-    ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL, CAR.EQUINOX} or \
-                      (ret.networkLocation == NetworkLocation.gateway and ret.radarOffCan)
+    # added to selfdrive/test/test_routes, we can remove it from this list.
+    ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL}
 
     # Presence of a camera on the object bus is ok.
     # Have to go to read_only if ASCM is online (ACC-enabled cars),
@@ -141,7 +116,7 @@ class CarInterface(CarInterfaceBase):
     lateral_control = Params().get("LateralControl", encoding='utf-8')
     if lateral_control == 'PID':
       ret.lateralTuning.init('pid')
-      if candidate in (CAR.VOLT, CAR.VOLT2018, CAR.VOLT_CC):
+      if candidate == CAR.VOLT:
         ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
         ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0175], [0.185]]
         ret.lateralTuning.pid.kf = 1. # get_steer_feedforward_volt()
@@ -347,12 +322,14 @@ class CarInterface(CarInterfaceBase):
 
     return self.CS.out
 
-  def apply(self, c):
+  def apply(self, c, controls):
     # For Openpilot, "enabled" includes pre-enable.
     # In GM, PCM faults out if ACC command overlaps user gas.
-    pause_long_on_gas_press = c.enabled and self.CS.out.gasPressed and not self.CS.out.brake > 0. and not self.disengage_on_gas
+    pause_long_on_gas_press = c.enabled and self.CS.gasPressed and not self.CS.out.brake > 0. and not self.disengage_on_gas
     self.CS.pause_long_on_gas_press = pause_long_on_gas_press
     enabled = c.enabled or self.CS.pause_long_on_gas_press
+
+    ret = self.CC.update(c, self.CS, enabled, controls)
 
     # Release Auto Hold and creep smoothly when regenpaddle pressed
     if (self.CS.regenPaddlePressed or (self.CS.brakePressVal > 9.0 and self.CS.prev_brakePressVal < self.CS.brakePressVal)) and self.CS.autoHold:
@@ -364,4 +341,4 @@ class CarInterface(CarInterfaceBase):
         self.CS.autoHoldActive = True
       elif self.CS.out.vEgo < 0.01 and self.CS.out.brakePressed:
         self.CS.autoHoldActive = True
-    return self.CC.update(c, self.CS, enabled)
+    return ret
