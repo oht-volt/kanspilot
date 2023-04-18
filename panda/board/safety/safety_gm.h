@@ -76,15 +76,13 @@ static int gm_rx_hook(CANPacket_t *to_push) {
       bool res = (button == GM_BTN_UNPRESS) && (cruise_button_prev == GM_BTN_RESUME);
       if (set || res) {
         controls_allowed = 1;
-    }
+      }
 
-    cruise_button_prev = button;
+      cruise_button_prev = button;
     }
 
     if (addr == 201) {
-      // Brake pedal's potentiometer returns near-zero reading
-      // even when pedal is not pressed
-      // brake_pressed = GET_BYTE(to_push, 1) >= 10U;
+      //brake_pressed = GET_BIT(to_push, 40U) != 0U;
     }
 
     if (addr == 452) {
@@ -94,19 +92,17 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     // exit controls on regen paddle
     //TODO: Evaluate impact of this change. Previous method could have caused controls mismatch...
     if (addr == 189) {
-      brake_pressed = GET_BYTE(to_push, 0) & 0x20U;
-      // if (regen) {
-      //   controls_allowed = 0;
-      // }
+      //brake_pressed = GET_BYTE(to_push, 0) & 0x20U;
+      //if (regen) {
+      //  controls_allowed = 0;
+      //}
     }
 
     // Check if ASCM or LKA camera are online
     // on powertrain bus.
     // 384 = ASCMLKASteeringCmd
     // 715 = ASCMGasRegenCmd
-    //generic_rx_checks(((addr == 384) || (addr == 715)));
-    generic_rx_checks(addr == 384);
-    //TODO: relay malfunction firing when 715 is stock
+    generic_rx_checks(((addr == 384) || (addr == 715)));
   }
   return valid;
 }
@@ -134,15 +130,6 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
     pedal_pressed = pedal_pressed || gas_pressed_prev;
   }
   bool current_controls_allowed = controls_allowed && !pedal_pressed;
-
-  // GAS: safety check (interceptor)
-  if (addr == 512) {
-    if (!current_controls_allowed) {
-      if (GET_BYTE(to_send, 0) || GET_BYTE(to_send, 1)) {
-        tx = 0;
-      }
-    }
-  }
 
   // BRAKE: safety check
   if (addr == 789) {
@@ -179,14 +166,14 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
       desired_torque_last = desired_torque;
 
       // *** torque real time rate limit check ***
-      //violation |= rt_rate_limit_check(desired_torque, rt_torque_last, GM_MAX_RT_DELTA);
+      violation |= rt_rate_limit_check(desired_torque, rt_torque_last, GM_MAX_RT_DELTA);
 
       // every RT_INTERVAL set the new limits
-      //uint32_t ts_elapsed = get_ts_elapsed(ts, ts_last);
-      //if (ts_elapsed > GM_RT_INTERVAL) {
-      //  rt_torque_last = desired_torque;
-      //  ts_last = ts;
-      //}
+      uint32_t ts_elapsed = get_ts_elapsed(ts, ts_last);
+      if (ts_elapsed > GM_RT_INTERVAL) {
+        rt_torque_last = desired_torque;
+        ts_last = ts;
+      }
     }
 
     // no torque if controls is not allowed

@@ -1,3 +1,4 @@
+import copy
 from cereal import car
 from common.filter_simple import FirstOrderFilter
 from common.numpy_fast import mean, interp
@@ -34,6 +35,7 @@ class CarState(CarStateBase):
 
     self.gas_pressed = False
     self.cruiseState_enabled = False
+    self.prev_cruiseState_enabled = False
     self.cruise_buttons = False
     self.prev_cruise_buttons = False
     self.vEgo = 0
@@ -51,10 +53,7 @@ class CarState(CarStateBase):
     self.autoHoldActivated = False
     self.regenPaddlePressed = False
     self.cruiseMain = False
-    #brake autohold
-    self.autoholdBrakeStart = False
-    self.brakePressVal = 0
-    self.prev_brakePressVal = 0
+
     #Engine Rpm
     self.engineRPM = 0
 
@@ -82,8 +81,12 @@ class CarState(CarStateBase):
 
     ret = car.CarState.new_message()
     self.prev_cruise_buttons = self.cruise_buttons
+    self.prev_cruiseState_enabled = self.cruiseState_enabled
     self.cruise_buttons = pt_cp.vl["ASCMSteeringButton"]["ACCButtons"]
     self.buttons_counter = pt_cp.vl["ASCMSteeringButton"]["RollingCounter"]
+    self.pscm_status = copy.copy(pt_cp.vl["PSCMStatus"])
+    moving_forward = pt_cp.vl["EBCMWheelSpdRear"]["MovingForward"] != 0
+    self.moving_backward = (pt_cp.vl["EBCMWheelSpdRear"]["MovingBackward"] != 0) and not moving_forward
     self.prev_left_blinker = self.leftBlinker
     self.prev_right_blinker = self.rightBlinker
 
@@ -149,21 +152,16 @@ class CarState(CarStateBase):
     ret.standstill = ret.wheelSpeeds.rl <= STANDSTILL_THRESHOLD and ret.wheelSpeeds.rr <= STANDSTILL_THRESHOLD
 
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(pt_cp.vl["ECMPRDNL2"]["PRNDL2"], None))
-    ret.brake = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"] / 0xd0
+
     if self.CP.networkLocation == NetworkLocation.fwdCamera:
       ret.brakePressed = pt_cp.vl["ECMEngineStatus"]["BrakePressed"] != 0
     else:
+      ret.brake = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"] / 0xd0
       # Some Volt 2016-17 have loose brake pedal push rod retainers which causes the ECM to believe
       # that the brake is being intermittently pressed without user interaction.
       # To avoid a cruise fault we need to use a conservative brake position threshold
       # https://static.nhtsa.gov/odi/tsbs/2017/MC-10137629-9999.pdf
       ret.brakePressed = ret.brake >= 8
-
-
-    # brake autohold
-    self.prev_brakePressVal = self.brakePressVal
-    self.brakePressVal = pt_cp.vl["ECMAcceleratorPos"]["BrakePedalPos"]
-
     if ret.brake < 10/0xd0:
       ret.brake = 0.
 
@@ -200,14 +198,14 @@ class CarState(CarStateBase):
     self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
 
     # Regen braking is braking
-    if self.car_fingerprint == CAR.VOLT:
+    if self.car_fingerprint == CAR.VOLT2018:
       self.regenPaddlePressed = bool(pt_cp.vl["EBCMRegenPaddle"]["RegenPaddle"])
       ret.brakePressed = ret.brakePressed or self.regenPaddlePressed
 
     # cruise state
     self.gas_pressed = ret.gasPressed
     ret.cruiseState.enabled = self.pcm_acc_status != AccState.OFF
-    ret.cruiseState.standstill = self.pcm_acc_status != AccState.STANDSTILL
+    ret.cruiseState.standstill = self.pcm_acc_status == AccState.STANDSTILL
     ret.cruiseState.enabledAcc = ret.cruiseState.enabled
     self.cruiseState_enabled = ret.cruiseState.enabled
 
@@ -277,10 +275,16 @@ class CarState(CarStateBase):
       ("FRWheelSpd", "EBCMWheelSpdFront"),
       ("RLWheelSpd", "EBCMWheelSpdRear"),
       ("RRWheelSpd", "EBCMWheelSpdRear"),
+      ("MovingBackward", "EBCMWheelSpdRear"),
+      ("MovingForward", "EBCMWheelSpdRear"),
       ("PRNDL2", "ECMPRDNL2"),
       ("LKADriverAppldTrq", "PSCMStatus"),
       ("LKATorqueDelivered", "PSCMStatus"),
       ("LKATorqueDeliveredStatus", "PSCMStatus"),
+      ("HandsOffSWlDetectionStatus", "PSCMStatus"),
+      ("HandsOffSWDetectionMode", "PSCMStatus"),
+      ("LKATotalTorqueDelivered", "PSCMStatus"),
+      ("PSCMStatusChecksum", "PSCMStatus"),
       ("RollingCounter", "PSCMStatus"),
       ("TractionControlOn", "ESPStatus"),
       ("ParkBrake", "VehicleIgnitionAlt"),
@@ -299,7 +303,7 @@ class CarState(CarStateBase):
 
     checks = []
 
-    if CP.carFingerprint == CAR.VOLT:
+    if CP.carFingerprint == CAR.VOLT2018:
       signals.append(("RegenPaddle", "EBCMRegenPaddle"))
       checks.append(("EBCMRegenPaddle", 50))
 

@@ -174,7 +174,6 @@ bool safety_setter_thread(std::vector<Panda *> pandas) {
 
     LOGW("panda %d: setting safety model: %d, param: %d, alternative experience: %d", i, (int)safety_model, safety_param, alternative_experience);
     panda->set_alternative_experience(alternative_experience);
-    panda->set_alternative_experience(p.getBool("DisableDisengageOnGas") ? 1 : 0);  // see safety_declarations.h for allowed values
     panda->set_safety_model(safety_model, safety_param);
   }
 

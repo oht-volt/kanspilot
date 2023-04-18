@@ -17,6 +17,14 @@ def create_buttons(packer, bus, idx, button):
   values["SteeringButtonChecksum"] = checksum
   return packer.make_can_msg("ASCMSteeringButton", bus, values)
 
+
+def create_pscm_status(packer, bus, pscm_status):
+  checksum_mod = int(1 - pscm_status["HandsOffSWlDetectionStatus"]) << 5
+  pscm_status["HandsOffSWlDetectionStatus"] = 1
+  pscm_status["PSCMStatusChecksum"] += checksum_mod
+  return packer.make_can_msg("PSCMStatus", bus, pscm_status)
+
+
 def create_steering_control(packer, bus, apply_steer, idx, lkas_active):
 
   values = {
@@ -51,8 +59,13 @@ def create_gas_regen_command(packer, bus, throttle, idx, acc_engaged, at_full_st
 
   return packer.make_can_msg("ASCMGasRegenCmd", bus, values)
 
-def create_friction_brake_command(packer, bus, apply_brake, idx, near_stop, at_full_stop):
+def create_friction_brake_command(packer, bus, apply_brake, idx, acc_engaged, near_stop, at_full_stop, CP):
   mode = 0x1
+
+  # TODO: Understand this better. Volts and ICE Camera ACC cars are 0x1 when enabled with no brake
+  if acc_engaged and CP.carFingerprint in (CAR.BOLT_EUV,):
+    mode = 0x9
+
   if apply_brake > 0:
     mode = 0xa
     if at_full_stop:

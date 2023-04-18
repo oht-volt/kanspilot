@@ -2,8 +2,10 @@ from random import randint
 from common.log import Loger
 from cereal import car, log
 from common.conversions import Conversions as CV
-from common.realtime import DT_CTRL
+from common.filter_simple import FirstOrderFilter
 from common.numpy_fast import clip, interp
+from common.realtime import DT_CTRL
+import math
 from opendbc.can.packer import CANPacker
 from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.gm import gmcan
@@ -12,13 +14,18 @@ from selfdrive.car.gm.values import DBC, AccState, CanBus, CarControllerParams, 
 import cereal.messaging as messaging
 from common.params import Params
 from selfdrive.ntune import ntune_scc_get, ntune_scc_enabled
+from selfdrive.controls.lib.drive_helpers import apply_deadzone
+from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 
 LongitudinalPlanSource = log.LongitudinalPlan.LongitudinalPlanSource
 VisualAlert = car.CarControl.HUDControl.VisualAlert
+NetworkLocation = car.CarParams.NetworkLocation
+LongCtrlState = car.CarControl.Actuators.LongControlState
 
 class CarController:
 
   def __init__(self, dbc_name, CP, VM):
+    self.CP = CP
     self.start_time = 0.
     self.apply_steer_last = 0
     self.apply_gas = 0
@@ -28,9 +35,9 @@ class CarController:
     self.lka_steering_cmd_counter_last = -1 # GM: EPS fault workaround(#22404)
     self.lka_icon_status_last = (False, False)
     self.steer_rate_limited = False
+    self.params = CarControllerParams(CP)
 
     # DisableDisengageOnGas
-    self.params = CarControllerParams()
     self.disengage_on_gas = not Params().get_bool("DisableDisengageOnGas")
 
     # stop at Stopsignal
@@ -44,12 +51,13 @@ class CarController:
     self.e2e_standstill_stat = False
     self.e2e_standstill_timer = 0
     self.packer = CANPacker(dbc_name)
-    self.packer_pt = CANPacker(DBC[CP.carFingerprint]['pt'])
-    self.packer_obj = CANPacker(DBC[CP.carFingerprint]['radar'])
-    self.packer_ch = CANPacker(DBC[CP.carFingerprint]['chassis'])
+    self.packer_pt = CANPacker(DBC[self.CP.carFingerprint]['pt'])
+    self.packer_obj = CANPacker(DBC[self.CP.carFingerprint]['radar'])
+    self.packer_ch = CANPacker(DBC[self.CP.carFingerprint]['chassis'])
 
   def update(self, CC, CS, enabled, controls):
     actuators = CC.actuators
+    accel = actuators.accel
     hud_control = CC.hudControl
     hud_alert = hud_control.visualAlert
     hud_v_cruise = hud_control.setSpeed
@@ -64,7 +72,7 @@ class CarController:
     # next Panda loopback confirmation in the current CS frame.
     if CS.lka_steering_cmd_counter != self.lka_steering_cmd_counter_last:
       self.lka_steering_cmd_counter_last = CS.lka_steering_cmd_counter
-    elif (self.frame % self.params.STEER_STEP) == 0:
+    elif (self.frame % self.params.ACTIVE_STEER_STEP) == 0:
       lkas_enabled = (CC.latActive or CS.pause_long_on_gas_press) and CS.lkMode and CS.out.vEgo > self.params.MIN_STEER_SPEED
       if lkas_enabled:
         new_steer = int(round(actuators.steer * self.params.STEER_MAX))
@@ -83,48 +91,53 @@ class CarController:
 
     # Gas/regen and brakes - all at 25Hz
     if (self.frame % 4) == 0:
-      if not CC.longActive or CS.pause_long_on_gas_press:
+      if not CC.longActive:
         # Stock ECU sends max regen when not enabled
-        self.apply_gas = self.params.MAX_ACC_REGEN
+        self.apply_gas = self.params.INACTIVE_REGEN
         self.apply_brake = 0
       else:
-        self.apply_gas = int(round(interp(actuators.accel, self.params.GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
-        self.apply_brake = int(round(interp(actuators.accel, self.params.BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
+        self.apply_gas = int(round(interp(accel, self.params.GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
+        self.apply_brake = int(round(interp(accel, self.params.BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
 
       idx = (self.frame // 4) % 4
 
-      # Auto Hold State
-      if CS.cruiseMain and not CC.longActive and CS.autoHold and CS.autoHoldActive and \
+      if CS.out.cruiseState.available and not CC.longActive and CS.autoHold and CS.autoHoldActive and \
              not CS.out.gasPressed and CS.out.gearShifter in ['drive','low'] and \
-             CS.out.vEgo < 0.01 and not CS.regenPaddlePressed and CS.autoholdBrakeStart:
-
+             CS.out.vEgo < 0.02 and not CS.regenPaddlePressed :
+        # Auto Hold State
         car_stopping = self.apply_gas < self.params.ZERO_GAS
-        standstill = CS.pcm_acc_status == AccState.STANDSTILL
-
-        at_full_stop = standstill and car_stopping
+        at_full_stop = CS.out.standstill and car_stopping
+        friction_brake_bus = CanBus.CHASSIS
+        # GM Camera exceptions
+        # TODO: can we always check the longControlState?
+        if self.CP.networkLocation == NetworkLocation.fwdCamera:
+          friction_brake_bus = CanBus.POWERTRAIN
         near_stop = (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE) and car_stopping
-        can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, CanBus.CHASSIS, self.apply_brake, idx, near_stop, at_full_stop))
+        can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake, idx, CC.enabled, near_stop, at_full_stop, self.CP))
         CS.autoHoldActivated = True
 
       else:
-        if CS.pause_long_on_gas_press:
+        if CS.out.gasPressed or CS.pause_long_on_gas_press:
           at_full_stop = False
           near_stop = False
           car_stopping = False
-          standstill = False
         else:
-          car_stopping = self.apply_gas < self.params.ZERO_GAS
-          standstill = CS.pcm_acc_status == AccState.STANDSTILL
-          at_full_stop = CC.longActive and standstill and car_stopping
-          near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE) and car_stopping
+          at_full_stop = CC.longActive and CS.out.standstill
+          near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE)
+        friction_brake_bus = CanBus.CHASSIS
+        # GM Camera exceptions
+        # TODO: can we always check the longControlState?
+        if self.CP.networkLocation == NetworkLocation.fwdCamera:
+          at_full_stop = at_full_stop and actuators.longControlState == LongCtrlState.stopping
+          friction_brake_bus = CanBus.POWERTRAIN
 
-        can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, CanBus.CHASSIS, self.apply_brake, idx, near_stop, at_full_stop))
+        # GasRegenCmdActive needs to be 1 to avoid cruise faults. It describes the ACC state, not actuation
+
+        can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake, idx, CC.enabled, near_stop, at_full_stop, self.CP))
         CS.autoHoldActivated = False
 
         CC.enabled = enabled
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
-
-
 
     # Send dashboard UI commands (ACC status), 25hz
     if (self.frame % 4) == 0:
@@ -133,30 +146,30 @@ class CarController:
       can_sends.append(gmcan.create_acc_dashboard_command(self.packer_pt, CanBus.POWERTRAIN, CC.enabled, \
                      hud_v_cruise * CV.MS_TO_KPH, hud_control.leadVisible, send_fcw, follow_level))
 
-      if CC.longActive:
-        can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.RES_ACCEL))
 
-      elif CC.longActive:
-        can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.CAMERA, CS.buttons_counter, CruiseButtons.DECEL_SET))
-			        
     # Radar needs to know current speed and yaw rate (50hz),
     # and that ADAS is alive (10hz)
-    time_and_headlights_step = 10
-    tt = self.frame * DT_CTRL
+    if not self.CP.radarOffCan:
+      tt = self.frame * DT_CTRL
+      time_and_headlights_step = 10
+      if self.frame % time_and_headlights_step == 0:
+        idx = (self.frame // time_and_headlights_step) % 4
+        can_sends.append(gmcan.create_adas_time_status(CanBus.OBSTACLE, int((tt - self.start_time) * 60), idx))
+        can_sends.append(gmcan.create_adas_headlights_status(self.packer_obj, CanBus.OBSTACLE))
 
-    if self.frame % time_and_headlights_step == 0:
-      idx = (self.frame // time_and_headlights_step) % 4
-      can_sends.append(gmcan.create_adas_time_status(CanBus.OBSTACLE, int((tt - self.start_time) * 60), idx))
-      can_sends.append(gmcan.create_adas_headlights_status(self.packer_obj, CanBus.OBSTACLE))
+      speed_and_accelerometer_step = 2
+      if self.frame % speed_and_accelerometer_step == 0:
+        idx = (self.frame // speed_and_accelerometer_step) % 4
+        can_sends.append(gmcan.create_adas_steering_status(CanBus.OBSTACLE, idx))
+        can_sends.append(gmcan.create_adas_accelerometer_speed_status(CanBus.OBSTACLE, CS.out.vEgo, idx))
 
-    speed_and_accelerometer_step = 2
-    if self.frame % speed_and_accelerometer_step == 0:
-      idx = (self.frame // speed_and_accelerometer_step) % 4
-      can_sends.append(gmcan.create_adas_steering_status(CanBus.OBSTACLE, idx))
-      can_sends.append(gmcan.create_adas_accelerometer_speed_status(CanBus.OBSTACLE, CS.out.vEgo, idx))
-
-    if self.frame % self.params.ADAS_KEEPALIVE_STEP == 0:
+    if self.CP.networkLocation == NetworkLocation.gateway and self.frame % self.params.ADAS_KEEPALIVE_STEP == 0:
       can_sends += gmcan.create_adas_keepalive(CanBus.POWERTRAIN)
+
+    if self.CP.networkLocation == NetworkLocation.fwdCamera:
+      # Silence "Take Steering" alert sent by camera, forward PSCMStatus with HandsOffSWlDetectionStatus=1
+      if self.frame % 10 == 0:
+        can_sends.append(gmcan.create_pscm_status(self.packer_pt, CanBus.CAMERA, CS.pscm_status))
 
     # Show green icon when LKA torque is applied, and
     # alarming orange icon when approaching torque limit.
@@ -165,12 +178,15 @@ class CarController:
     lka_active = CS.lkas_status == 1
     lka_critical = lka_active and abs(actuators.steer) > 0.9
     lka_icon_status = (lka_active, lka_critical)
-    if self.frame % self.params.CAMERA_KEEPALIVE_STEP == 0 or lka_icon_status != self.lka_icon_status_last:
+
+    # SW_GMLAN not yet on cam harness, no HUD alerts
+    if self.CP.networkLocation != NetworkLocation.fwdCamera and (self.frame % self.params.CAMERA_KEEPALIVE_STEP == 0 or lka_icon_status != self.lka_icon_status_last):
       steer_alert = hud_alert in (VisualAlert.steerRequired, VisualAlert.ldw)
       can_sends.append(gmcan.create_lka_icon_command(CanBus.SW_GMLAN, lka_active, lka_critical, steer_alert))
       self.lka_icon_status_last = lka_icon_status
 
     new_actuators = actuators.copy()
+    new_actuators.accel = accel
     new_actuators.steer = self.apply_steer_last / self.params.STEER_MAX
     new_actuators.gas = self.apply_gas
     new_actuators.brake = self.apply_brake
