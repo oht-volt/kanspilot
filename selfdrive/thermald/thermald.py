@@ -76,29 +76,26 @@ def read_thermal(thermal_config):
 
 
 def setup_eon_fan():
-  global LEON
 
   os.system("echo 2 > /sys/module/dwc3_msm/parameters/otg_switch")
 
 
 last_eon_fan_val = None
 def set_eon_fan(val):
-  global LEON, last_eon_fan_val
+  global last_eon_fan_val
 
   if last_eon_fan_val is None or last_eon_fan_val != val:
     bus = SMBus(7, force=True)
-    if LEON:
-      try:
-        i = [0x1, 0x3 | 0, 0x3 | 0x08, 0x3 | 0x10][val]
-        bus.write_i2c_block_data(0x3d, 0, [i])
-      except IOError:
-        # tusb320
-        if val == 0:
-          bus.write_i2c_block_data(0x67, 0xa, [0])
-        else:
-          bus.write_i2c_block_data(0x67, 0xa, [0x20])
-          bus.write_i2c_block_data(0x67, 0x8, [(val - 1) << 6])
-
+    try:
+      i = [0x1, 0x3 | 0, 0x3 | 0x08, 0x3 | 0x10][val]
+      bus.write_i2c_block_data(0x3d, 0, [i])
+    except IOError:
+      # tusb320
+      if val == 0:
+        bus.write_i2c_block_data(0x67, 0xa, [0])
+      else:
+        bus.write_i2c_block_data(0x67, 0xa, [0x20])
+        bus.write_i2c_block_data(0x67, 0x8, [(val - 1) << 6])
     bus.close()
     last_eon_fan_val = val
 
