@@ -82,8 +82,7 @@ class LongControl():
     self.pid = PIDController((CP.longitudinalTuning.kpBP, CP.longitudinalTuning.kpV),
                             (CP.longitudinalTuning.kiBP, CP.longitudinalTuning.kiV),
                             (CP.longitudinalTuning.kdBP, CP.longitudinalTuning.kdV),
-                            derivative_period=self._op_params.get('TUNE_LONG_kd_period_s', force_update=True),
-                            integral_period=self._op_params.get('TUNE_LONG_ki_period_s', force_update=True),
+                            derivative_period=0.1,
                             k_11 = 0.2, k_12 = 0.4, k_13 = 0.4, k_period=0.1,
                             rate=RATE,
                             sat_limit=0.8)
@@ -123,8 +122,6 @@ class LongControl():
     self.pid._k_p = [bp, self._op_params.get('TUNE_LONG_kp')]
     self.pid._k_i = [bp, self._op_params.get('TUNE_LONG_ki')]
     self.pid._k_d = [bp, self._op_params.get('TUNE_LONG_kd')]
-    self.pid.update_i_period(self._op_params.get('TUNE_LONG_ki_period_s'))
-    self.pid.update_d_period(self._op_params.get('TUNE_LONG_kd_period_s'))
     self.deadzone_bp, self.deadzone_v = bp, self._op_params.get('TUNE_LONG_deadzone_ms2')
 
   def reset(self, v_pid):

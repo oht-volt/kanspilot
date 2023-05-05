@@ -36,6 +36,12 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
 
+  toggles.append(new ParamControl("DisableUpdates",
+                                  "자동업데이트 방지",
+                                  "When this is enabled, openpilot will not check for or install updates.",
+                                  "../assets/offroad/icon_openpilot.png",
+                                  this));
+
   toggles.append(new ParamControl("MetricResetSwitch",
                                   "화면 정보표시(tap me; reset)",
                                   "차량이 켜져 있을 때 현재 속도를 눌러 편집 모드를 잠금해제한 다음 더 눌러 오른쪽에 표시된 메트릭 수를 순환하십시오. 표시되는 정보를 변경하려면 각 메트릭을 누릅니다. 이 토글을 사용하여 다음 번 차량 시동 시 주행 거리, EV 소비 및 효율 트립 및 5mi/8km 메트릭을 0으로 재설정합니다.",
@@ -68,7 +74,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
 
   toggles.append(new ParamControl("OPParamsLiveTuneEnabled",
-                                  "SSH를 통한 사용자자 맞춤조정",
+                                  "SSH를 통한 사용자 맞춤조정",
                                   "SSH를 통해 장치에 연결하고 '/data/openpilot/' 디렉토리에서 './opparams.py'를 실행하면 많은 기능을 원하는 대로 미세 조정할 수 있습니다. 조정 가능한 대부분의 파라미터는 라이브 튜닝이 가능하며, 이 토글이 활성화된 경우, 주행 중에 수정할 수 있으며  즉시 적용됩니다. 이 토글이 활성화되지 않은 경우, 차량 또는 OpenPilot 재시작이 필요한 \"시작\" 매개 변수가 된다. 이 토글의 변경 사항은 다음에 자동차를 시동할 때 적용되며 'opparam'을 다시 시작해야 합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
@@ -82,6 +88,12 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
   toggles.append(new ParamControl("OPParamsLongitudinalOverride",
                                   "롱컨 사용자맞춤",
                                   "This enables the longitudinal tune specified in opParams.",
+                                  "../assets/offroad/icon_calibration.png",
+                                  this));
+
+  toggles.append(new ParamControl("OPParamsReset",
+                                  "OPParams 디폴트 설정 ",
+                                  "활성화된 경우 다음 번에 OPParams를 실행할 때, 오픈 파일럿을 시작하거나 ./opparams.py 을 실행하여 모든 파라미터가 기본값으로 재설정됩니다. 그러면 이 토글이 비활성화됩니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
   
@@ -152,7 +164,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("NudgelessLaneChange",
-                                  "핸들넛지 없이 자동 차선변경(1초후) ⚠️",
+                                  "넛지없이 자동 차선변경(1초후) ⚠️",
                                   "Perform lane change without requiring nudge from driver",
                                   "../assets/offroad/icon_hands_on_wheel.png",
                                   this));
@@ -268,6 +280,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
 
+  toggles.append(new ParamControl("EnableTorqueNNFF",
+                                  "\"torque\" 뉴럴 피드포워드",
+                                  "(차량재시동으로 적용) 3부분에서 합성된 피드포워드(모두 여전히 차량 데이터에서 파생된) 대신 실험적 신경망 피드포워드를 사용합니다.",
+                                  "../assets/offroad/icon_openpilot.png",
+                                  this));
 
   toggles.append(new ParamControl("IsLdwEnabled",
                                   "차선이탈 경고",

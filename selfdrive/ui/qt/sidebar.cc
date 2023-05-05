@@ -45,6 +45,8 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void Sidebar::updateState(const UIState &s) {
+  if (!isVisible()) return;
+
   auto &sm = *(s.sm);
 
   auto deviceState = sm["deviceState"].getDeviceState();
@@ -93,9 +95,9 @@ void Sidebar::updateState(const UIState &s) {
   ItemStatus pandaStatus = {"VEHICLE\nONLINE", good_color};
   if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
     pandaStatus = {"NO\nPANDA", danger_color};
-  } else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
+  } /*else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
     pandaStatus = {"GPS\nSEARCHING", warning_color};
-  }
+  }*/
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
   m_battery_img = deviceState.getBatteryStatus() == "Charging" ? 1 : 0;
   m_batteryPercent = deviceState.getBatteryPercent();

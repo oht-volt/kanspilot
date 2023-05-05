@@ -604,7 +604,7 @@ static void ui_draw_vision_lane_lines(UIState *s) {
       if (scene.car_state.getLkaEnabled()){
         if (scene.color_path){
           track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h*.4,
-            interp_alert_color(fabs(scene.lateralCorrection), 150), 
+            interp_alert_color(fabs(scene.lateralCorrection), 90), 
             interp_alert_color(fabs(scene.lateralCorrection), 0));
         }
         else{
@@ -615,7 +615,7 @@ static void ui_draw_vision_lane_lines(UIState *s) {
       }
       else{
         track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                          COLOR_WHITE_ALPHA(130), COLOR_WHITE_ALPHA(0));
+                                          COLOR_WHITE_ALPHA(100), COLOR_WHITE_ALPHA(0));
       }
     } 
     else { // differentiate laneless mode color (Grace blue)
@@ -626,27 +626,33 @@ static void ui_draw_vision_lane_lines(UIState *s) {
           g = 255.f * COLOR_GRACE_BLUE.g + r;
           g = CLIP(g, 255.f * COLOR_GRACE_BLUE.g, 255.f * COLOR_GRACE_BLUE.b);
           track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                      nvgRGBA(r, g, 255.f * COLOR_GRACE_BLUE.b, 160), 
+                                      nvgRGBA(r, g, 255.f * COLOR_GRACE_BLUE.b, 100), 
                                       nvgRGBA(r, g, 255.f * COLOR_GRACE_BLUE.b, 0));
         }
         else{
           track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                    COLOR_GRACE_BLUE_ALPHA(160), 
+                                    COLOR_GRACE_BLUE_ALPHA(100), 
                                     COLOR_GRACE_BLUE_ALPHA(0));
         }
       }
       else{
         track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                          COLOR_WHITE_ALPHA(130), COLOR_WHITE_ALPHA(0));
+                                          COLOR_WHITE_ALPHA(80), COLOR_WHITE_ALPHA(0));
       }
     }
   } else {
     // Draw white vision track
     track_bg = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
-                                          COLOR_WHITE_ALPHA(130), COLOR_WHITE_ALPHA(0));
+                                          COLOR_WHITE_ALPHA(80), COLOR_WHITE_ALPHA(0));
   }
   // paint path
-  ui_draw_line(s, scene.track_vertices, nullptr, &track_bg);
+  auto track_bg_big = nvgLinearGradient(s->vg, s->fb_w, s->fb_h, s->fb_w, s->fb_h * .4,
+                                  COLOR_WHITE_ALPHA(70), COLOR_WHITE_ALPHA(40));
+  ui_draw_line(s, scene.track_vertices, nullptr, &track_bg_big);
+
+  if (scene.controls_state.getLatActive() && scene.car_state.getLkaEnabled()){
+    ui_draw_line(s, scene.track_inside_vertices, nullptr, &track_bg);
+  }
 
   // now oncoming/ongoing lanes
 
@@ -1420,7 +1426,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::BEARING:
             {
-              snprintf(name, sizeof(name), "나침반방향");
+              snprintf(name, sizeof(name), "나침반");
               if (scene.bearingAccuracy != 180.00) {
                 snprintf(unit, sizeof(unit), "%.0d%s", (int)scene.bearingDeg, "°");
                 if (((scene.bearingDeg >= 337.5) && (scene.bearingDeg <= 360)) || ((scene.bearingDeg >= 0) && (scene.bearingDeg <= 22.5))) {
@@ -2193,7 +2199,7 @@ static void ui_draw_measures(UIState *s){
             b = (b >= 0 ? (b <= 255 ? b : 255) : 0);
             val_color = nvgRGBA(255, g, b, 200);
             // steering is in degrees
-            if (scene.angleSteers < 10.){
+            if (scene.angleSteers < 10. && scene.angleSteers > -10.){
               snprintf(val, sizeof(val), "%.1f%s", scene.angleSteers, deg);
             }
             else{
@@ -2216,19 +2222,10 @@ static void ui_draw_measures(UIState *s){
             val_color = nvgRGBA(255, g, b, 200);
             if (scene.controls_state.getEnabled()) {
               // steering is in degrees
-              if (scene.angleSteers < 10. && scene.angleSteersDes < 10.){
-                snprintf(val, sizeof(val), "%.1f%s", scene.angleSteersDes, deg);
-              }
-              else{
-                snprintf(val, sizeof(val), "%.0f%s", scene.angleSteersDes, deg);
-              }
+              snprintf(val, sizeof(val), "%.0f%s:%.0f%s", scene.angleSteers, deg, scene.angleSteersDes, deg);
+              val_font_size += 12;
             }else{
-              if (scene.angleSteers < 10.){
-                snprintf(val, sizeof(val), "%.1f%s", scene.angleSteers, deg);
-              }
-              else{
-                snprintf(val, sizeof(val), "%.0f%s", scene.angleSteers, deg);
-              }
+              snprintf(val, sizeof(val), "%.0f%s", scene.angleSteers, deg);
             }
             }
             break;
@@ -2237,7 +2234,7 @@ static void ui_draw_measures(UIState *s){
             {
             snprintf(name, sizeof(name), "STR. ERR.");
             float angleSteers = scene.angleSteersErr > 0. ? scene.angleSteersErr : -scene.angleSteersErr;
-            if (scene.controls_state.getEnabled()) {
+            if (scene.controls_state.getLatActive()) {
               g = 255;
               b = 255;
               p = 0.2 * angleSteers;
@@ -2247,7 +2244,7 @@ static void ui_draw_measures(UIState *s){
               b = (b >= 0 ? (b <= 255 ? b : 255) : 0);
               val_color = nvgRGBA(255, g, b, 200);
               // steering is in degrees
-              if (angleSteers < 10.){
+              if (angleSteers < 10. && angleSteers > -10.){
                 snprintf(val, sizeof(val), "%.1f%s", scene.angleSteersErr, deg);
               }
               else{
@@ -2844,7 +2841,7 @@ static void ui_draw_measures(UIState *s){
 
           case UIMeasure::LANE_DIST_FROM_CENTER: 
             {
-              snprintf(name, sizeof(name), "차선내 차위치");
+              snprintf(name, sizeof(name), "차로내 차위치");
               if (s->is_metric){
                 snprintf(unit, sizeof(unit), "m");
                 snprintf(val, sizeof(val), "%.1f", scene.lateralPlan.laneCenter);
@@ -3192,7 +3189,7 @@ static void ui_draw_measures(UIState *s){
         if (i >= scene.measure_max_rows){
           x = slot_x + slots_r + unit_font_size / 2;
         }
-        int slot_y = scene.measure_slots_rect.y + (i % scene.measure_num_rows) * slot_y_rng;
+        int slot_y = scene.measure_slots_rect.y + (i % scene.measure_max_rows) * slot_y_rng;
         int slot_y_mid = slot_y + slot_y_rng / 2;
         int y = slot_y_mid + slot_y_rng / 2 - 8 - label_font_size;
         if (strlen(name) == 0){
@@ -3238,6 +3235,7 @@ static void ui_draw_measures(UIState *s){
       }
       catch(...){}
     }
+    scene.measure_cur_num_slots = measure_cur_num_slots;
   }
 }
 

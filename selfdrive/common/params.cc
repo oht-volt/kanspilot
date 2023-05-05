@@ -143,6 +143,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"DisableRadar", PERSISTENT}, // WARNING: THIS DISABLES AEB
     {"EndToEndToggle", PERSISTENT},
     {"EnableTorqueControl", PERSISTENT},
+    {"EnableTorqueNNFF", PERSISTENT},
     {"CompletedTrainingVersion", PERSISTENT},
     {"ColorPath", PERSISTENT},
     {"AlternateColors", PERSISTENT},
@@ -150,6 +151,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"DisableUpdates", PERSISTENT},
     {"DisableDisengageOnGas", PERSISTENT},
     {"MADSEnabled", PERSISTENT},
+    {"MADSAutosteerEnabled", PERSISTENT},
     {"DisableOnroadUploads", PERSISTENT},
     {"LongRangeLeadsEnabled", PERSISTENT},
     {"LowOverheadMode", PERSISTENT},
@@ -208,6 +210,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"OPParamsLongitudinalOverride", PERSISTENT},
     {"OPParamsLateralOverride", PERSISTENT},
     {"OPParamsRebootInNSeconds", CLEAR_ON_MANAGER_START},
+    {"OPParamsReset", PERSISTENT},
     {"WeatherAlternateFrequency", PERSISTENT},
     {"MeasureConfigNum", PERSISTENT},
     {"MeasureSlot00", PERSISTENT},

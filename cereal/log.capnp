@@ -727,6 +727,10 @@ struct ControlsState @0x97ff69c53601abf1 {
     currentLateralJerk @18 :Float32;
     lookaheadCurvature @19 :Float32;
     lookaheadCurvatureRate @20 :Float32;
+    f2 @21 :Float32;
+    maxFutureLatAccel @22 :Float32;
+    errorScaleFactor @23 :Float32;
+    nnffInputVector @24 :List(Float32);
    }
 
   struct LateralLQRState {
@@ -1056,6 +1060,7 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
   lProb @5 :Float32;
   rProb @7 :Float32;
   dPathPoints @20 :List(Float32);
+  dPathPointsFull @50 :List(Float32);
   dProb @21 :Float32;
   dPathWLinesX @29 :List(Float32);
   dPathWLinesY @30 :List(Float32);

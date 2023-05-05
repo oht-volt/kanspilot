@@ -20,9 +20,13 @@ if [ ! -f "./installer/boot_finish" ]; then
 
   chmod 644 /system/etc/fonts.xml
   chmod 644 /system/fonts/NanumGothic*
+  cp -f ./installer/bootanimation.zip /system/media/
   sed -i 's/self._AWARENESS_TIME = 35/self._AWARENESS_TIME = 10800/' ./selfdrive/monitoring/driver_monitor.py
   sed -i 's/self._DISTRACTED_TIME = 11/self._DISTRACTED_TIME = 7200/' ./selfdrive/monitoring/driver_monitor.py
   sed -i 's/self.face_detected = False/self.face_detected = True/' ./selfdrive/monitoring/driver_monitor.py
+  chmod 700 ./unix.sh
+  chmod 744 /system/media/bootanimation.zip
+  chmod 700 ./scripts/*.sh
   touch ./installer/boot_finish
 
 elif [ "$(getprop persist.sys.locale)" != "ko-KR" ]; then

@@ -1,6 +1,10 @@
+import ast
+import re
 import os
 import time
 import shutil
+import numpy as np
+import json
 from typing import Dict
 
 from cereal import car
@@ -10,6 +14,7 @@ from common.realtime import DT_CTRL
 from common.params import Params
 from selfdrive.car import gen_empty_fingerprint
 from selfdrive.config import Conversions as CV
+from selfdrive.swaglog import cloudlog
 from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 from selfdrive.controls.lib.events import Events
 from selfdrive.controls.lib.vehicle_model import VehicleModel
@@ -23,6 +28,118 @@ MAX_CTRL_SPEED = (V_CRUISE_MAX + 4) * CV.KPH_TO_MS  # 135 + 4 = 86 mph
 ACCEL_MAX = 2.0
 ACCEL_MIN = -3.5
 
+class FluxModel:
+  # dict used to rename activation functions whose names aren't valid python identifiers
+  activation_function_names = {'σ': 'sigmoid'}
+  def __init__(self, params_file, zero_bias=False):
+    with open(params_file, "r") as f:
+      params = json.load(f)
+
+    self.input_size = params["input_size"]
+    self.output_size = params["output_size"]
+    self.input_mean = np.array(params["input_mean"], dtype=np.float32).T
+    self.input_std = np.array(params["input_std"], dtype=np.float32).T
+    test_dict = params["test_dict_zero_bias"] if zero_bias else params["test_dict"]
+    self.layers = []
+
+    for layer_params in params["layers"]:
+      W = np.array(layer_params[next(key for key in layer_params.keys() if key.endswith('_W'))], dtype=np.float32).T
+      b = np.array(layer_params[next(key for key in layer_params.keys() if key.endswith('_b'))], dtype=np.float32).T
+      if zero_bias:
+        b = np.zeros_like(b)
+      activation = layer_params["activation"]
+      for k, v in self.activation_function_names.items():
+        activation = activation.replace(k, v)
+      self.layers.append((W, b, activation))
+    
+    self.test(test_dict)
+    if not self.test_passed:
+      raise ValueError(f"NN FF model failed test: {params_file}")
+
+    cloudlog.info(f"NN FF model loaded")
+    cloudlog.info(self.summary(do_print=False))
+  # Begin activation functions.
+  # These are called by name using the keys in the model json file
+  def sigmoid(self, x):
+    return 1 / (1 + np.exp(-x))
+    
+  def tanh(self, x):
+    return np.tanh(x)
+
+  def sigmoid_fast(self, x):
+    return 0.5 * (x / (1 + np.abs(x)) + 1)
+    # return x / (1 + np.abs(x))
+
+  def identity(self, x):
+    return x
+  # End activation functions
+
+  def forward(self, x):
+    for W, b, activation in self.layers:
+      if hasattr(self, activation):
+        x = getattr(self, activation)(x.dot(W) + b)
+      else:
+        raise ValueError(f"Unknown activation: {activation}")
+    return x
+
+  def evaluate(self, input_array):
+    input_array = np.array(input_array, dtype=np.float32)#.reshape(1, -1)
+
+    if input_array.shape[0] != self.input_size:
+      raise ValueError(f"Input array last dimension {input_array.shape[-1]} does not match the expected length {self.input_size}")
+    # Rescale the input array using the input_mean and input_std
+    input_array = (input_array - self.input_mean) / self.input_std
+
+    output_array = self.forward(input_array)
+
+    return float(output_array[0, 0])
+  
+  def test(self, test_data: dict) -> str:
+    num_passed = 0
+    num_failed = 0
+    allowed_chars = r'^[-\d.,\[\] ]+$'
+
+    for input_str, expected_output in test_data.items():
+      if not re.match(allowed_chars, input_str):
+        raise ValueError(f"Invalid characters in NN FF model testing input string: {input_str}")
+
+      input_list = ast.literal_eval(input_str)
+      model_output = self.evaluate(input_list)
+
+      if abs(model_output - expected_output) <= 1e-6:
+        num_passed += 1
+      else:
+        num_failed += 1
+        raise ValueError(f"NN FF model failed test at value {input_list}: expected {expected_output}, got {model_output}")
+
+    summary_str = (
+      f"Test results: PASSED ({num_passed} inputs tested) "
+    )
+    
+    self.test_passed = num_failed == 0
+    self.test_str = summary_str
+
+  def summary(self, do_print=True):
+    summary_lines = [
+      "FluxModel Summary:",
+      f"Input size: {self.input_size}",
+      f"Output size: {self.output_size}",
+      f"Number of layers: {len(self.layers)}",
+      self.test_str,
+      "Layer details:"
+    ]
+
+    for i, (W, b, activation) in enumerate(self.layers):
+      summary_lines.append(
+          f"  Layer {i + 1}: W: {W.shape}, b: {b.shape}, f: {activation}"
+      )
+    
+    summary_str = "\n".join(summary_lines)
+
+    if do_print:
+      print(summary_str)
+
+    return summary_str
 
 # generic car and radar interfaces
 
@@ -37,6 +154,8 @@ class CarInterfaceBase():
     self.low_speed_alert = False
     self.driver_interacted = False
     self.screen_tapped = False
+    
+    self.ff_nn_model = None
 
     self.MADS_enabled = Params().get_bool("MADSEnabled")
     self.MADS_alert_mode = 0
@@ -55,6 +174,9 @@ class CarInterfaceBase():
     self.CC = None
     if CarController is not None:
       self.CC = CarController(self.cp.dbc_name, CP, self.VM)
+  
+  def get_ff_nn(self, v_ego, lateral_accel, lateral_jerk, roll):
+    return self.ff_nn_model.evaluate([v_ego, lateral_accel, lateral_jerk, -roll])
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed, CI = None):
@@ -83,7 +205,15 @@ class CarInterfaceBase():
     return desired_lateral_accel
   
   @staticmethod
-  def get_steer_feedforward_function_torque_lat_jerk_default(desired_lateral_jerk, v_ego, desired_lateral_acceleration, friction, friction_threshold):
+  def get_steer_feedforward_torque_nn_default(v_ego, desired_lateral_accel, desired_lateral_jerk, lateral_accel_g):
+    return desired_lateral_accel
+  
+  @staticmethod
+  def get_steer_feedforward_function_torque_roll_default(g_lat_accel, v_ego):
+    return g_lat_accel
+  
+  @staticmethod
+  def get_steer_feedforward_function_torque_lat_jerk_default(desired_lateral_jerk, v_ego, desired_lateral_acceleration, friction, friction_threshold, g_lat_accel):
     if friction < 0.0:
       f = 0.0
     else:
@@ -101,8 +231,16 @@ class CarInterfaceBase():
     return CarInterfaceBase.get_steer_feedforward_torque_default
   
   @staticmethod
+  def initialize_feedforward_function_torque_nn():
+    return CarInterfaceBase.get_steer_feedforward_torque_nn_default
+  
+  @staticmethod
   def get_steer_feedforward_function_torque_lat_jerk():
     return CarInterfaceBase.get_steer_feedforward_function_torque_lat_jerk_default
+  
+  @staticmethod
+  def get_steer_feedforward_function_torque_roll():
+    return CarInterfaceBase.get_steer_feedforward_function_torque_roll_default
 
   # returns a set of default params to avoid repetition in car specific params
   @staticmethod
