@@ -298,34 +298,19 @@ static void draw_lead(UIState *s, float d_rel, float v_rel, const vertex_data &v
 
       nvgTextAlign(s->vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
       // first abs speed
-      if (s->is_metric){
-        snprintf(unit, sizeof(unit), "km/h"); 
-        float v = (s->scene.lead_v * 3.6);
-        if (v < 100.){
-          snprintf(val, sizeof(val), "%.1f", v);
-        }
-        else{
-          snprintf(val, sizeof(val), "%.0f", v);
-        }
+      snprintf(unit, sizeof(unit), "km/h"); 
+      float v = (s->scene.lead_v * 3.6);
+      if (v < 100.){
+        snprintf(val, sizeof(val), "%.1f", v);
       }
       else{
-        snprintf(unit, sizeof(unit), "mph"); 
-        float v = (s->scene.lead_v * 2.2374144);
-        if (v < 100.){
-          snprintf(val, sizeof(val), "%.1f", v);
-        }
-        else{
-          snprintf(val, sizeof(val), "%.0f", v);
-        }
+        snprintf(val, sizeof(val), "%.0f", v);
       }
       nvgText(s->vg,lead_x+x_offset,lead_y-(y_offset*1.3),val,NULL);
 
       // then relative speed
-      if (s->is_metric) {
-          snprintf(val, sizeof(val), "%s%.1f", s->scene.lead_v_rel >= 0. ? "+" : "", (s->scene.lead_v_rel * 3.6));
-      } else {
-          snprintf(val, sizeof(val), "%s%.1f", s->scene.lead_v_rel >= 0. ? "+" : "", (s->scene.lead_v_rel * 2.2374144));
-      }
+      snprintf(val, sizeof(val), "%s%.1f", s->scene.lead_v_rel >= 0. ? "+" : "", (s->scene.lead_v_rel * 3.6));
+
       nvgText(s->vg,lead_x+x_offset,lead_y+(y_offset*1.4),val,NULL);
 
       nvgFontSize(s->vg, 70);
