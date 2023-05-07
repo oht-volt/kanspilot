@@ -198,7 +198,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   COOLANT_TEMPC,
   COOLANT_TEMPF,
   KINETIC_ENERGY,
-  ACCELERATION,
+  ACCELERATION,//10
   TIME_TO_STOP_CUR,
   TIME_TO_STOP_MIN,
   DIST_TO_STOP_CUR,
@@ -208,7 +208,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   DRAG_POWER,
   DRAG_POWER_HP,
   DRAG_LOSSES,
-  ACCEL_FORCE,
+  ACCEL_FORCE,//20
   ACCEL_POWER,
   ACCEL_POWER_HP,
   EV_FORCE,
@@ -218,7 +218,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   REGEN_POWER,
   REGEN_POWER_HP,
   BRAKE_FORCE,
-  BRAKE_POWER,
+  BRAKE_POWER,//30
   BRAKE_POWER_HP,
   DRIVE_POWER,
   DRIVE_POWER_HP,
@@ -229,7 +229,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   BEARING,
   PERCENT_GRADE,
   PERCENT_GRADE_DEVICE,
-  ROLL,
+  ROLL,//40
   ROLL_DEVICE,
   LANE_WIDTH,
   LANE_DIST_FROM_CENTER,
@@ -239,7 +239,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   DISTANCE_ENGAGED_SESSION,
   DISTANCE_ENGAGED_TOTAL,
   DISTANCE_ENGAGED_PERCENT_SESSION,
-  DISTANCE_ENGAGED_PERCENT_TOTAL,
+  DISTANCE_ENGAGED_PERCENT_TOTAL,//50
   TIME_CAR_RUNNING_SESSION,
   TIME_CAR_RUNNING_TOTAL,
   TIME_OPENPILOT_ENGAGED_SESSION,
@@ -249,7 +249,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   TIME_ENGAGED_PERCENT_TOTAL,
   DISENGAGEMENT_COUNT_SESSION,
   DISENGAGEMENT_COUNT_TOTAL,
-  INTERACTION_COUNT_SESSION,
+  INTERACTION_COUNT_SESSION,//60
   INTERACTION_COUNT_TOTAL,
   INTERVENTION_COUNT_SESSION,
   INTERVENTION_COUNT_TOTAL,
@@ -259,7 +259,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   INTERVENTION_DISTANCE,
   DISTRACTION_DISTANCE,
   DISTANCE_PER_DISENGAGEMENT_SESSION,
-  DISTANCE_PER_DISENGAGEMENT_TOTAL,
+  DISTANCE_PER_DISENGAGEMENT_TOTAL,//70
   DISTANCE_PER_INTERACTION_SESSION,
   DISTANCE_PER_INTERACTION_TOTAL,
   DISTANCE_PER_INTERVENTION_SESSION,
@@ -269,7 +269,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   TIME_PER_DISENGAGEMENT_SESSION,
   TIME_PER_DISENGAGEMENT_TOTAL,
   TIME_PER_INTERACTION_SESSION,
-  TIME_PER_INTERACTION_TOTAL,
+  TIME_PER_INTERACTION_TOTAL,//80
   TIME_PER_INTERVENTION_SESSION,
   TIME_PER_INTERVENTION_TOTAL,
   TIME_PER_DISTRACTION_SESSION,
@@ -280,7 +280,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   // Lead/traffic info
   FOLLOW_LEVEL,
   LEAD_TTC,
-  LEAD_DISTANCE_LENGTH,
+  LEAD_DISTANCE_LENGTH,//90
   LEAD_DISTANCE_TIME,
   LEAD_DESIRED_DISTANCE_LENGTH,
   LEAD_DESIRED_DISTANCE_TIME,
@@ -290,7 +290,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   LANE_POSITION,
   LANE_OFFSET,
   TRAFFIC_COUNT_TOTAL,
-  TRAFFIC_COUNT_ONCOMING,
+  TRAFFIC_COUNT_ONCOMING,//100
   TRAFFIC_COUNT_ONGOING,
   TRAFFIC_COUNT_STOPPED,
   TRAFFIC_COUNT_ADJACENT_ONGOING,
@@ -301,7 +301,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   HVB_WATTAGE,
   HVB_WATTVOLT,
   EV_EFF_NOW,
-  EV_EFF_RECENT,
+  EV_EFF_RECENT,//110
   EV_EFF_TRIP,
   EV_CONSUM_NOW,
   EV_CONSUM_RECENT,
@@ -312,7 +312,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   CPU_TEMP_AND_PERCENTF,
   CPU_TEMP_AND_PERCENTC,
   CPU_TEMPF,
-  CPU_TEMPC,
+  CPU_TEMPC,//120
   CPU_PERCENT,
   MEMORY_TEMPF,
   MEMORY_TEMPC,
@@ -322,7 +322,7 @@ typedef enum UIMeasure { //rearrange here to adjust order when cycling measures
   FANSPEED_RPM,
   MEMORY_USAGE_PERCENT,
   FREESPACE_STORAGE,
-  DEVICE_BATTERY,
+  DEVICE_BATTERY,//130
   GPS_ACCURACY,
   // vision turn speed controller
   VISION_CURLATACCEL,
