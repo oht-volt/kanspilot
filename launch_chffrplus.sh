@@ -106,6 +106,13 @@ source "$BASEDIR/launch_env.sh"
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 function two_init {
+  mount -o remount,rw /system
+  neos=`cat /VERSION`
+  if [ -f /ONEPLUS ] && [ $neos != 20 ] ; then
+    mount -o remount,rw /system
+    echo -n 20 > /VERSION
+    mount -o remount,r /system
+  fi
 
   # set IO scheduler
   setprop sys.io.scheduler noop
