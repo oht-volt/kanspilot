@@ -73,18 +73,18 @@ void Sidebar::updateState(const UIState &s) {
       tempC = t;
     }
   }
-  char val[16];
+  char val[1024];
   ItemStatus tempStatus;
   auto ts = deviceState.getThermalStatus();
   if (ts == cereal::DeviceState::ThermalStatus::GREEN) {
-    snprintf(val, sizeof(val), "%.0f°\nGOOD", tempC);
+    snprintf(val, sizeof(val), "%.0f%s\nGOOD", tempC, "°C");
     tempStatus = {val, good_color};
   } else if (ts == cereal::DeviceState::ThermalStatus::YELLOW) {
-    snprintf(val, sizeof(val), "%.0f°\nOK", tempC);
+    snprintf(val, sizeof(val), "%.0f%s\nOK", tempC, "°C");
     tempStatus = {val, warning_color};
   }
   else{
-    snprintf(val, sizeof(val), "%.0f°\nHIGH", tempC);
+    snprintf(val, sizeof(val), "%.0f%s\nHIGH", tempC, "°C");
     tempStatus = {val, danger_color};
   }
   setProperty("tempStatus", QVariant::fromValue(tempStatus));
