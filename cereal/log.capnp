@@ -320,6 +320,7 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   memoryTempC @28 :Float32;
   ambientTempC @30 :Float32;
   thermalStatus @14 :ThermalStatus;
+  wifiIpAddress @35 :Text;
 
   enum ThermalStatus {
     green @0;
@@ -365,9 +366,9 @@ struct DeviceState @0xa4d8b5af2aa492eb {
   batDEPRECATED @6 :UInt32;
   pa0DEPRECATED @21 :UInt16;
   cpuUsagePercentDEPRECATED @20 :Int8;
-  batteryStatusDEPRECATED @9 :Text;
+  batteryStatus @9 :Text;
   batteryVoltageDEPRECATED @16 :Int32;
-  batteryTempCDEPRECATED @29 :Float32;
+  batteryTempC @29 :Float32;
 }
 
 struct PandaState @0xa7649e2575e4591e {
@@ -619,6 +620,8 @@ struct ControlsState @0x97ff69c53601abf1 {
   percentEngagedDistanceSession @89 :Float32;
   percentEngagedDistanceTotal @90 :Float32;
 
+  lacCorrectionFactor @101 :Float32;
+
 
   lateralControlState :union {
     indiState @52 :LateralINDIState;
@@ -727,6 +730,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     f2 @21 :Float32;
     maxFutureLatAccel @22 :Float32;
     errorScaleFactor @23 :Float32;
+    nnffInputVector @24 :List(Float32);
    }
 
   struct LateralLQRState {
@@ -1677,6 +1681,22 @@ struct UploaderState {
   lastFilename @6 :Text;
 }
 
+#Road speed Limiter
+struct RoadLimitSpeed {
+    active @0 :Int16;
+    roadLimitSpeed @1 :Int16;
+    isHighway @2 :Bool;
+    camType @3 :Int16;
+    camLimitSpeedLeftDist @4 :Int16;
+    camLimitSpeed @5 :Int16;
+    sectionLimitSpeed @6 :Int16;
+    sectionLeftDist @7 :Int16;
+    sectionAvgSpeed @8 :Int16;
+    sectionLeftTime @9 :Int16;
+    sectionAdjustSpeed @10 :Bool;
+    camSpeedFactor @11 :Float32;
+}
+
 struct Event {
   logMonoTime @0 :UInt64;  # nanoseconds
   valid @67 :Bool = true;
@@ -1735,6 +1755,8 @@ struct Event {
     deviceState @6 :DeviceState;
     logMessage @18 :Text;
 
+    # neokii
+    roadLimitSpeed @82 :RoadLimitSpeed;
 
     # *********** debug ***********
     testJoystick @52 :Joystick;

@@ -25,6 +25,7 @@
 #include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"
 #include "selfdrive/common/visionimg.h"
+#include "selfdrive/common/touch.h"
 
 #define COLOR_BLACK nvgRGBA(0, 0, 0, 255)
 #define COLOR_BLACK_ALPHA(x) nvgRGBA(0, 0, 0, x)
@@ -466,6 +467,7 @@ typedef struct UIScene {
   float angleSteers, angleSteersDes, angleSteersErr;
   float lateralCorrection;
   int engineRPM;
+  bool recording;
   bool steerOverride;
   int thermalStatus;
   int percentGradeRollingIter = 0, percentGradeNumSamples = 10;
@@ -611,8 +613,13 @@ typedef struct UIState {
   
   bool is_metric;
 
+  //road speed limiter
+  Rect video_rect, viz_rect;
+
   float car_space_transform[6];
   bool wide_camera;
+
+  TouchState touch;
 } UIState;
 
 

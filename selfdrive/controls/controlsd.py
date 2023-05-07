@@ -36,6 +36,8 @@ from selfdrive.locationd.calibrationd import Calibration
 from selfdrive.modeld.constants import T_IDXS
 from selfdrive.hardware import HARDWARE, TICI, EON
 from selfdrive.manager.process_config import managed_processes
+from selfdrive.road_speed_limiter import road_speed_limiter_get_max_speed, road_speed_limiter_get_active, \
+  get_road_speed_limiter
 
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
 LANE_DEPARTURE_THRESHOLD = 0.1
@@ -255,6 +257,13 @@ class Controls:
     self.op_params_override_lateral = self._params.get_bool('OPParamsLateralOverride')
     self.op_params_override_long = self._params.get_bool('OPParamsLongitudinalOverride')
 
+    self.v_cruise_kph_limit = 0
+    self.road_limit_speed = 0
+    self.left_dist = 0
+
+    self.slowing_down = False
+    self.slowing_down_sound_alert = False
+
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
 
@@ -276,6 +285,10 @@ class Controls:
     # controlsd is driven by can recv, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
     self.prof = Profiler(False)  # off by default
+
+  def reset(self):
+    self.slowing_down = False
+    self.slowing_down_sound_alert = False
 
   def update_events(self, CS):
     """Compute carEvents from carState"""
@@ -545,6 +558,11 @@ class Controls:
       and self.CP.openpilotLongitudinalControl and CS.vEgo < 0.3:
       self.events.add(EventName.noTarget)
 
+    # events for roadSpeedLimiter
+    if self.slowing_down_sound_alert:
+      self.slowing_down_sound_alert = False
+      self.events.add(EventName.slowingDownSpeedSound)
+
   def data_sample(self):
     """Receive data from sockets and update carState"""
 
@@ -675,6 +693,23 @@ class Controls:
       self.v_cruise_kph = 0
       
     self.CI.CS.v_cruise_kph = self.v_cruise_kph
+
+    # limit_speed, self.road_limit_speed, self.road_limit_left_dist, first_started, limit_log = road_speed_limiter_get_max_speed(CS, self.v_cruise_kph)
+    road_speed_limiter = get_road_speed_limiter()
+    apply_limit_speed, self.road_limit_speed, self.left_dist, first_started, limit_log = \
+       road_speed_limiter.get_max_speed(CS, self.v_cruise_kph)
+
+    if apply_limit_speed >= 20:
+      self.v_cruise_kph_limit = min(apply_limit_speed, self.v_cruise_kph)
+
+      if CS.vEgo * CV.MS_TO_KPH > apply_limit_speed:
+      #  self.events.add(EventName.slowingDownSpeedSound)
+        if not self.slowing_down:
+          self.slowing_down_sound_alert = True
+          self.slowing_down = True
+    else:
+      self.reset()
+      self.v_cruise_kph_limit = self.v_cruise_kph
 
     # decrease the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
@@ -869,6 +904,9 @@ class Controls:
 
     CC.cruiseControl.override = True
     CC.cruiseControl.cancel = not self.CP.pcmCruise or (not self.enabled and CS.cruiseState.enabled)
+    CC.sccSmoother.roadLimitSpeedActive = road_speed_limiter_get_active()
+    CC.sccSmoother.roadLimitSpeed = self.road_limit_speed
+    CC.sccSmoother.roadLimitSpeedLeftDist = self.left_dist
     if self.joystick_mode and self.sm.rcv_frame['testJoystick'] > 0 and self.sm['testJoystick'].buttons[0]:
       CC.cruiseControl.cancel = True
 
@@ -881,7 +919,7 @@ class Controls:
     CC.cruiseControl.accelOverride = float(self.CI.calc_accel_override(CS.aEgo, self.a_target,
                                                                        CS.vEgo, self.v_target))
     
-    CC.hudControl.setSpeed = float(self.v_cruise_kph) * CV.KPH_TO_MS
+    CC.hudControl.setSpeed = float(self.v_cruise_kph_limit) * CV.KPH_TO_MS
     CC.hudControl.speedVisible = self.enabled
     CC.hudControl.lanesVisible = self.enabled
     CC.hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
@@ -959,7 +997,7 @@ class Controls:
     controlsState.engageable = not self.events.any(ET.NO_ENTRY)
     controlsState.longControlState = self.LoC.long_control_state
     controlsState.vPid = float(self.LoC.v_pid)
-    controlsState.vCruise = float(self.v_cruise_kph)
+    controlsState.vCruise = float(self.v_cruise_kph_limit)
     controlsState.aTarget = float(self.LoC.a_target)
     controlsState.upAccelCmd = float(self.LoC.pid.p)
     controlsState.uiAccelCmd = float(self.LoC.pid.i)

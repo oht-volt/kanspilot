@@ -1,5 +1,102 @@
 #!/usr/bin/bash
 
+if [ ! -f "./installer/boot_finish" ]; then
+  echo "Installing fonts..."
+  mount -o remount,rw /system
+  cp -f ./installer/fonts/NanumGothic* /system/fonts/
+  cp -f ./installer/fonts/opensans_* ./selfdrive/assets/fonts/
+  cp -f ./installer/fonts/fonts.xml /system/etc/fonts.xml
+  cp -f ./installer/MeasureConfigNum /data/params/d/
+  cp -f ./installer/MeasureSlot00 /data/params/d/
+  cp -f ./installer/MeasureSlot01 /data/params/d/
+  cp -f ./installer/MeasureSlot02 /data/params/d/
+  cp -f ./installer/MeasureSlot03 /data/params/d/
+  cp -f ./installer/MeasureSlot04 /data/params/d/
+  cp -f ./installer/MeasureSlot05 /data/params/d/
+  cp -f ./installer/MeasureSlot06 /data/params/d/
+  cp -f ./installer/MeasureSlot07 /data/params/d/
+  cp -f ./installer/MeasureSlot08 /data/params/d/
+  cp -f ./installer/MeasureSlot09 /data/params/d/
+
+  sed -i -e 's/\r$//' ./*.sh
+  sed -i -e 's/\r$//' ./selfdrive/*.py
+  sed -i -e 's/\r$//' ./selfdrive/manager/*.py
+  sed -i -e 's/\r$//' ./selfdrive/car/*.py
+  sed -i -e 's/\r$//' ./selfdrive/ui/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/ui/*.h
+  sed -i -e 's/\r$//' ./selfdrive/controls/*.py
+  sed -i -e 's/\r$//' ./selfdrive/controls/lib/*.py
+  sed -i -e 's/\r$//' ./selfdrive/debug/*.py
+  sed -i -e 's/\r$//' ./selfdrive/locationd/models/*.py
+  sed -i -e 's/\r$//' ./selfdrive/manager/build.py
+  sed -i -e 's/\r$//' ./selfdrive/manager/custom_dep.py
+  sed -i -e 's/\r$//' ./selfdrive/manager/manager.py
+  sed -i -e 's/\r$//' ./cereal/*.py
+  sed -i -e 's/\r$//' ./cereal/*.capnp
+  sed -i -e 's/\r$//' ./selfdrive/car/gm/*.py
+  sed -i -e 's/\r$//' ./selfdrive/ui/qt/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/ui/qt/*.h
+  sed -i -e 's/\r$//' ./selfdrive/ui/qt/offroad/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/ui/qt/widgets/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/ui/qt/offroad/*.h
+  sed -i -e 's/\r$//' ./selfdrive/ui/qt/widgets/*.h
+  sed -i -e 's/\r$//' ./selfdrive/controls/lib/lead_mpc_lib/*.py
+  sed -i -e 's/\r$//' ./selfdrive/controls/lib/lead_mpc_lib/lib_mpc_export/*.h
+  sed -i -e 's/\r$//' ./selfdrive/controls/lib/lead_mpc_lib/*.c
+  sed -i -e 's/\r$//' ./selfdrive/controls/lib/lead_mpc_lib/lib_mpc_export/*.c
+  sed -i -e 's/\r$//' ./selfdrive/boardd/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/boardd/*.pyx
+  sed -i -e 's/\r$//' ./selfdrive/boardd/*.h
+  sed -i -e 's/\r$//' ./selfdrive/boardd/*.py
+  sed -i -e 's/\r$//' ./selfdrive/camerad/cameras/*.h
+  sed -i -e 's/\r$//' ./selfdrive/camerad/cameras/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/camerad/snapshot/*.py
+  sed -i -e 's/\r$//' ./selfdrive/camerad/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/thermald/*.py
+  sed -i -e 's/\r$//' ./selfdrive/athena/*.py
+  sed -i -e 's/\r$//' ./selfdrive/sensord/*.cc
+  sed -i -e 's/\r$//' ./selfdrive/sensord/SConscript
+  sed -i -e 's/\r$//' ./selfdrive/sensord/gpsd
+  sed -i -e 's/\r$//' ./installer/updater/*.json
+  sed -i -e 's/\r$//' ./scripts/*.sh
+  sed -i -e 's/\r$//' ./common/*.py
+  sed -i -e 's/\r$//' ./common/*.pyx
+  sed -i -e 's/\r$//' ./common/*.pxd
+  sed -i -e 's/\r$//' ./scripts/oneplus_update_neos.sh
+  sed -i -e 's/\r$//' ./launch_env.sh
+  sed -i -e 's/\r$//' ./launch_openpilot.sh
+  sed -i -e 's/\r$//' ./Jenkinsfile
+  sed -i -e 's/\r$//' ./SConstruct
+  sed -i -e 's/\r$//' ./selfdrive/hardware/eon/apk.py
+
+  chmod 644 /system/etc/fonts.xml
+  chmod 644 /system/fonts/NanumGothic*
+  cp -f ./installer/bootanimation.zip /system/media/
+  sed -i 's/self._AWARENESS_TIME = 35/self._AWARENESS_TIME = 10800/' ./selfdrive/monitoring/driver_monitor.py
+  sed -i 's/self._DISTRACTED_TIME = 11/self._DISTRACTED_TIME = 7200/' ./selfdrive/monitoring/driver_monitor.py
+  sed -i 's/self.face_detected = False/self.face_detected = True/' ./selfdrive/monitoring/driver_monitor.py
+  chmod 700 ./unix.sh
+  chmod 744 /system/media/bootanimation.zip
+  chmod 700 ./scripts/*.sh
+  chmod 700 ./selfdrive/hardware/eon/scripts/neos.py
+  chmod 700 ./selfdrive/hardware/eon/updater
+  chmod 700 ./selfdrive/hardware/eon/apk.py
+  touch ./installer/boot_finish
+
+elif [ "$(getprop persist.sys.locale)" != "ko-KR" ]; then
+
+  setprop persist.sys.locale ko-KR
+  setprop persist.sys.language ko
+  setprop persist.sys.country KR
+  setprop persist.sys.timezone Asia/Seoul
+
+  sleep 2
+  reboot
+else
+  chmod 644 /data/openpilot/installer/boot_finish
+  mount -o remount,r /system
+fi
+
 if [ -z "$BASEDIR" ]; then
   BASEDIR="/data/openpilot"
 fi
@@ -195,6 +292,12 @@ function launch {
 
   # write tmux scrollback to a file
   tmux capture-pane -pq -S-1000 > /tmp/launch_log
+
+  dongleid=`cat /data/params/d/DongleId`
+
+  if [[ $dongleid == *"Unregistered"* ]]; then
+    echo -en "000000" > /data/params/d/DongleId
+  fi
 
   # start manager
   cd selfdrive/manager

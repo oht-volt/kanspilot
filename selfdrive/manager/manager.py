@@ -5,6 +5,7 @@ import signal
 import subprocess
 import sys
 import traceback
+from multiprocessing import Process
 
 import cereal.messaging as messaging
 import selfdrive.crash as crash
@@ -12,15 +13,16 @@ from common.basedir import BASEDIR
 from common.params import Params, ParamKeyType
 from common.text_window import TextWindow
 from selfdrive.boardd.set_time import set_time
-from selfdrive.hardware import HARDWARE, PC
+from selfdrive.hardware import HARDWARE, PC, EON
 from selfdrive.manager.helpers import unblock_stdout
-from selfdrive.manager.process import ensure_running
+from selfdrive.manager.process import ensure_running, launcher
 from selfdrive.manager.process_config import managed_processes
 from selfdrive.athena.registration import register, UNREGISTERED_DONGLE_ID
 from selfdrive.swaglog import cloudlog, add_file_handler
 from selfdrive.version import dirty, get_git_commit, version, origin, branch, commit, \
                               terms_version, training_version, comma_remote, \
                               get_git_branch, get_git_remote
+from selfdrive.hardware.eon.apk import system
 
 sys.path.append(os.path.join(BASEDIR, "pyextra"))
 
@@ -39,7 +41,7 @@ def manager_init():
     ("HandsOnWheelMonitoring", "0"),
     ("OpenpilotEnabledToggle", "1"),
     ("CommunityFeaturesToggle", "1"),
-    ("ShowDebugUI", "0"),
+    ("ShowDebugUI", "1"),
     ("PrintCurrentSpeed", "1"),
     ("WeatherAlternateFrequency", "4"),
     ("AutoBrightness", "1"),
@@ -49,23 +51,23 @@ def manager_init():
     ("OPParamsLongitudinalOverride", "0"),
     ("OPParamsReset", "0"),
     ("IgnoreMissingNVME", "0"),
-    ("SpeedLimitControl", "1"),
+    ("SpeedLimitControl", "0"),
     ("EUSpeedLimitStyle", "0"),
-    ("SpeedLimitPercOffset", "1"),
-    ("TurnSpeedControl", "1"),
+    ("SpeedLimitPercOffset", "0"),
+    ("TurnSpeedControl", "0"),
     ("TurnVisionControl", "1"),
     ("GMAutoHold", "1"),
-    ("CruiseSpeedOffset", "1"),
-    ("ColorPath", "1"),
+    ("CruiseSpeedOffset", "0"),
+    ("ColorPath", "0"),
     ("AlternateColors", "1"),
     ("ReverseSpeedAdjust", "1"),
-    ("CustomSounds", "1"),
-    ("SilentEngageDisengage", "1"),
+    ("CustomSounds", "0"),
+    ("SilentEngageDisengage", "0"),
     ("MADSEnabled", "1"),
     ("MADSAutosteerEnabled", "1"),
     ("DisableDisengageOnGas", "1"),
     ("ScreenDimMode", "2"),
-    ("AccelModeButton", "1"),
+    ("AccelModeButton", "0"),
     ("AccelMode", "0"),
     ("EVDriveTrainEfficiency", "1"),
     ("MetricResetSwitch", "0"),
@@ -86,9 +88,9 @@ def manager_init():
     ("LanePositionEnabled", "1"),
     ("AutoAutoLanePosition", "1"),
     ("LongRangeLeadsEnabled", "1"),
-    ("AutoLanePositionActive", "0"),
-    ("GrayPandaSupport", "0"),
-    ("LanePosition", "0"),
+    ("AutoLanePositionActive", "1"),
+    ("GrayPandaSupport", "1"),
+    ("LanePosition", "1"),
     ("NudgelessLaneChange", "0"),
     ("WeatherSafetyEnabled", "1"),
     ("Coasting", "0"),
@@ -107,10 +109,10 @@ def manager_init():
     ("BrakeIndicator", "1"),
     ("PowerMeterMode", "0"),
     ("PowerMeterMetric", "1"),
-    ("PrintLeadInfo", "0"),
+    ("PrintLeadInfo", "1"),
     ("PrintAdjacentLeadSpeeds", "1"),
     ("PrintAdjacentLeadSpeedsAtLead", "1"),
-    ("ExtendedRadar", "1"),
+    ("ExtendedRadar", "0"),
     ("AdjacentPaths", "1"),
     ("DisableOnroadUploads", "0"),
     ("LowOverheadMode", "0"),
@@ -200,6 +202,13 @@ def manager_cleanup():
 
 
 def manager_thread():
+
+  Process(name="road_speed_limiter", target=launcher, args=("selfdrive.road_speed_limiter",)).start()
+
+  if EON:
+    system("am startservice com.neokii.optool/.MainService")
+    Process(name="autoshutdownd", target=launcher, args=("selfdrive.autoshutdownd", "autoshutdownd")).start()
+  cloudlog.bind(daemon="manager")
   cloudlog.info("manager start")
   cloudlog.info({"environ": os.environ})
 
