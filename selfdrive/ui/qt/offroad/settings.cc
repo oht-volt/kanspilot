@@ -280,7 +280,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
 
-  toggles.append(new ParamControl("EnableTorqueNNFF",
+  toggles.append(new ParamControl("EnableNNFF",
                                   "\"torque\"뉴럴 피드포워드",
                                   "(차량재시동으로 적용) 3부분에서 합성된 피드포워드(모두 여전히 차량 데이터에서 파생된) 대신 실험적 신경망 피드포워드를 사용합니다.",
                                   "../assets/offroad/icon_openpilot.png",

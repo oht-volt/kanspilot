@@ -37,8 +37,8 @@ LIMIT_MAX_MAP_DATA_AGE = 10.  # s Maximum time to hold to map data, then conside
 
 
 class MPC_COST_LAT:
-  PATH = 1.1
-  HEADING = 1.1
+  PATH = 1.0
+  HEADING = 1.0
   STEER_RATE = 0.8
 
 
@@ -157,7 +157,7 @@ def initialize_v_cruise(v_ego, buttonEvents, v_cruise_last):
 
   return int(round(clip(v_ego * CV.MS_TO_KPH, V_CRUISE_ENABLE_MIN, V_CRUISE_MAX)))
 
-def get_lag_adjusted_curvature(CP, v_ego, psis, curvatures, curvature_rates, extra_delay=0.0):
+def get_lag_adjusted_curvature(CP, v_ego, psis, curvatures, curvature_rates):
   if len(psis) != CONTROL_N:
     psis = [0.0]*CONTROL_N
     curvatures = [0.0]*CONTROL_N
@@ -165,7 +165,7 @@ def get_lag_adjusted_curvature(CP, v_ego, psis, curvatures, curvature_rates, ext
   v_ego = max(MIN_SPEED, v_ego)
 
   # TODO this needs more thought, use .2s extra for now to estimate other delays
-  delay = CP.steerActuatorDelay + .2 + extra_delay
+  delay = CP.steerActuatorDelay + .2
 
   # MPC can plan to turn the wheel and turn back before t_delay. This means
   # in high delay cases some corrections never even get commanded. So just use
