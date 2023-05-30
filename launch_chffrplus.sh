@@ -81,7 +81,6 @@ if [ ! -f "./installer/boot_finish" ]; then
   chmod 700 ./selfdrive/hardware/eon/scripts/neos.py
   chmod 700 ./selfdrive/hardware/eon/updater
   chmod 700 ./selfdrive/hardware/eon/apk.py
-  touch ./installer/boot_finish
 
 elif [ "$(getprop persist.sys.locale)" != "ko-KR" ]; then
 
@@ -96,6 +95,7 @@ else
   chmod 644 ./installer/boot_finish
   mount -o remount,r /system
 fi
+  touch ./installer/boot_finish
 
 if [ -z "$BASEDIR" ]; then
   BASEDIR="/data/openpilot"
@@ -117,9 +117,9 @@ function two_init {
     fi
   fi
   neos=`cat /VERSION`
-  if [ -f /ONEPLUS ] && [ $neos != 20 ] ; then
+  if [ -f /ONEPLUS ] && [ $neos != 18.1 ] ; then
     mount -o remount,rw /system
-    echo -n 20 > /VERSION
+    echo -n 18.1 > /VERSION
     mount -o remount,r /system
   fi
 
