@@ -1,5 +1,22 @@
 from selfdrive.car import make_can_msg
 
+
+def create_buttons(packer, bus, idx, button):
+  values = {
+    "ACCButtons": button,
+    "RollingCounter": idx,
+    "ACCAlwaysOne": 1,
+    "DistanceButton": 0,
+  }
+
+  checksum = 240 + int(values["ACCAlwaysOne"] * 0xf)
+  checksum += values["RollingCounter"] * (0x4ef if values["ACCAlwaysOne"] != 0 else 0x3f0)
+  checksum -= int(values["ACCButtons"] - 1) << 4  # not correct if value is 0
+  checksum -= 2 * values["DistanceButton"]
+
+  values["SteeringButtonChecksum"] = checksum
+  return packer.make_can_msg("ASCMSteeringButton", bus, values)
+
 def create_steering_control(packer, bus, apply_steer, idx, lkas_active):
 
   values = {
@@ -38,7 +55,8 @@ def create_friction_brake_command(packer, bus, apply_brake, idx, near_stop, at_f
   mode = 0x1
   if apply_brake > 0:
     mode = 0xa
-  
+    if at_full_stop:
+      mode = 0xd
   if near_stop:
     mode = 0xb
 

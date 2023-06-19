@@ -14,6 +14,7 @@ from selfdrive.car.gm.values import DBC, CAR, AccState, CanBus, \
 from selfdrive.controls.lib.drive_helpers import set_v_cruise_offset, ClusterSpeed
 from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 from selfdrive.swaglog import cloudlog
+import cereal.messaging as messaging
 
 DRAG_FROM_MASS_BP = [1607., 3493.] # [kg; volt to suburban]
 DRAG_Cd_FROM_MASS_V = [0.28, 0.35] # [drag coeffient for volt and suburban from https://www.tesla.com/sites/default/files/blog_attachments/the-slipperiest-car-on-the-road.pdf and https://www.automobile-catalog.com/car/2022/2970545/chevrolet_suburban_6_2l_v8_4wd.html]
@@ -116,6 +117,16 @@ class CarState(CarStateBase):
     self.cruiseMain = False
     self.standstill_time_since_t = 0.0
     self.engineRPM = 0
+
+    # lead_distance
+    self.lead_distance = 0
+    self.sm = messaging.SubMaster(['radarState'])
+    self.buttons_counter = 0
+
+    #standstill checker
+    self.prev_standstill_status = False
+    self.standstill_status = False
+
     self.lastAutoHoldTime = 0.0
     self.time_in_drive_autohold = 0.0
     self.time_in_drive_one_pedal = 0.0
@@ -209,6 +220,7 @@ class CarState(CarStateBase):
     self.reboot_in_N_seconds = -1
     
     self.lka_steering_cmd_counter = 0
+    self.pt_lka_steering_cmd_counter = 0
     
   
   def update_op_params(self, t = sec_since_boot()):
@@ -247,13 +259,22 @@ class CarState(CarStateBase):
 
     
   def update(self, pt_cp, loopback_cp, chassis_cp):
+    # lead_distance
+    self.sm.update(0)
+    if self.sm.updated['radarState']:
+      self.lead_distance = 0
+      lead = self.sm['radarState'].leadOne
+      if lead is not None:
+        self.lead_distance = lead.dRel
+
     ret = car.CarState.new_message()
-    
+
     t = sec_since_boot()
     self.t = t
     
     self.prev_cruise_buttons = self.cruise_buttons
     self.cruise_buttons = pt_cp.vl["ASCMSteeringButton"]["ACCButtons"]
+    self.buttons_counter = pt_cp.vl["ASCMSteeringButton"]["RollingCounter"]
     self.prev_lka_button = self.lka_button
     self.lka_button = pt_cp.vl["ASCMSteeringButton"]["LKAButton"]
     self.prev_distance_button = self.distance_button
@@ -349,6 +370,7 @@ class CarState(CarStateBase):
     ret.steeringTorqueEps = pt_cp.vl["PSCMStatus"]["LKATorqueDelivered"]
     ret.steeringPressed = abs(self.steering_pressed_filter.update(ret.steeringTorque)) > STEER_THRESHOLD
     self.lka_steering_cmd_counter = loopback_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
+    self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
     
     ret.lateralAcceleration = pt_cp.vl["EBCMVehicleDynamic"]["LateralAcceleration"]
     ret.yawRate = pt_cp.vl["EBCMVehicleDynamic"]["YawRate"]
@@ -574,6 +596,11 @@ class CarState(CarStateBase):
     ret.cruiseState.enabled = cruise_enabled
     ret.cruiseState.standstill = False
     ret.cruiseMain = self.cruiseMain
+
+    # standstill checker
+    self.prev_standstill_status = self.standstill_status
+    self.standstill_status = self.pcm_acc_status ==  AccState.STANDSTILL
+    print("standstill={}".format(self.standstill_status))
     
     ret.onePedalModeActive = self.one_pedal_mode_active and not self.long_active and self.time_in_drive_one_pedal >= self.MADS_long_min_time_in_drive and not self.park_assist_active
     if self.long_active:
@@ -629,8 +656,10 @@ class CarState(CarStateBase):
       ("Brake_Pressed", "ECMEngineStatus", 0),
       ("CruiseState", "AcceleratorPedal2", 0),
       ("ACCButtons", "ASCMSteeringButton", CruiseButtons.UNPRESS),
+      ("RollingCounter", "ASCMSteeringButton", 0),
       ("DriveModeButton", "ASCMSteeringButton", 0),
       ("LKAButton", "ASCMSteeringButton", 0),
+      ("RollingCounter", "ASCMLKASteeringCmd", 0),
       ("SteeringWheelAngle", "PSCMSteeringAngle", 0),
       ("SteeringWheelRate", "PSCMSteeringAngle", 0),
       ("FLWheelSpd", "EBCMWheelSpdFront", 0),
@@ -669,6 +698,7 @@ class CarState(CarStateBase):
       ("PSCMSteeringAngle", 100),
       ("ECMEngineCoolantTemp", 1),
       ("EBCMVehicleDynamic", 100),
+      ("ASCMLKASteeringCmd", 0),
     ]
 
     if CP.carFingerprint in [CAR.VOLT, CAR.VOLT18]:

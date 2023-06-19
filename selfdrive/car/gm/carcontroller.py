@@ -6,7 +6,7 @@ from common.realtime import sec_since_boot
 from selfdrive.config import Conversions as CV
 from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.gm import gmcan
-from selfdrive.car.gm.values import DBC, AccState, CanBus, CarControllerParams
+from selfdrive.car.gm.values import DBC, AccState, CanBus, CarControllerParams, CruiseButtons
 from selfdrive.car.gm.carstate import GAS_PRESSED_THRESHOLD, GEAR_SHIFTER2
 from selfdrive.controls.lib.longitudinal_planner import BRAKE_SOURCES, COAST_SOURCES
 from selfdrive.controls.lib.pid import PIDController
@@ -49,6 +49,9 @@ class CarController():
   def __init__(self, dbc_name, CP, VM):
     self.start_time = 0.
     self.apply_steer_last = 0
+
+    self.last_lead_distance = 0
+
     self.lka_steering_cmd_counter_last = -1
     self.lka_icon_status_last = (False, False)
     self.steer_rate_limited = False
@@ -349,13 +352,26 @@ class CarController():
         # Auto-resume from full stop by resetting ACC control
         acc_enabled = enabled
         
-        if standstill and not car_stopping:
-          if CS.do_sng:
-            acc_enabled = False
+        if standstill and not car_stopping: # 정지(standstill)상태이고, car_stopping이 아니면(액셀이 ZERO_GAS보다 크다)
+          if CS.is_ev: #원래 Tw코드는 do_sng(CAR.VOLT만 해당) is_ev는 CAR.VOLT, CAR.VOLT18
+            acc_enabled = False #True #원래 Tw코드는 False
             CS.resume_button_pressed = True
           elif CS.out.vEgo < 1.5:
             CS.resume_required = True
-      
+
+        if self.last_lead_distance == 0:
+          self.last_lead_distance = CS.lead_distance
+        if (CS.lead_distance - self.last_lead_distance) > 0.2  and (CS.out.vEgo == 0):
+          acc_enabled = True
+          actuators.accel = 1.0
+          #at_full_stop = (enabled or (CS.out.onePedalModeActive or CS.MADS_lead_braking_enabled)) and standstill and car_stopping
+          if standstill and actuators.accel > 0.0:
+            #CS.cruise_buttons = CruiseButtons.RES_ACCEL
+            CS.resume_button_pressed = True
+            can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.POWERTRAIN, CS.buttons_counter, CruiseButtons.RES_ACCEL))
+            print("Button_is={}".format(CS.cruise_buttons))
+            can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, actuators.accel, idx, acc_enabled, at_full_stop))
+
         can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, acc_enabled, at_full_stop))
 
 
