@@ -94,7 +94,10 @@ class CarState(CarStateBase):
     
     self.parked_timer = 0
     self.parked_timer_min_time = 120
-    
+
+    self.cruise_buttons = 0
+    self.prev_cruise_buttons = 0    				  
+					  
     self.sessionInitTime = sec_since_boot()
     self.prev_distance_button = 0
     self.prev_lka_button = 0
@@ -259,6 +262,7 @@ class CarState(CarStateBase):
 
     
   def update(self, pt_cp, loopback_cp, chassis_cp):
+    ret = car.CarState.new_message()
     # lead_distance
     self.sm.update(0)
     if self.sm.updated['radarState']:
@@ -267,13 +271,12 @@ class CarState(CarStateBase):
       if lead is not None:
         self.lead_distance = lead.dRel
 
-    ret = car.CarState.new_message()
-
     t = sec_since_boot()
     self.t = t
     
     self.prev_cruise_buttons = self.cruise_buttons
     self.cruise_buttons = pt_cp.vl["ASCMSteeringButton"]["ACCButtons"]
+    ret.cruiseButtons = self.cruise_buttons
     self.buttons_counter = pt_cp.vl["ASCMSteeringButton"]["RollingCounter"]
     self.prev_lka_button = self.lka_button
     self.lka_button = pt_cp.vl["ASCMSteeringButton"]["LKAButton"]
@@ -368,7 +371,7 @@ class CarState(CarStateBase):
     ret.steeringRateDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelRate"]
     ret.steeringTorque = pt_cp.vl["PSCMStatus"]["LKADriverAppldTrq"]
     ret.steeringTorqueEps = pt_cp.vl["PSCMStatus"]["LKATorqueDelivered"]
-    ret.steeringPressed = abs(self.steering_pressed_filter.update(ret.steeringTorque)) > STEER_THRESHOLD
+    ret.steeringPressed = True #abs(self.steering_pressed_filter.update(ret.steeringTorque)) > STEER_THRESHOLD
     self.lka_steering_cmd_counter = loopback_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
     self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
     
@@ -600,7 +603,6 @@ class CarState(CarStateBase):
     # standstill checker
     self.prev_standstill_status = self.standstill_status
     self.standstill_status = self.pcm_acc_status ==  AccState.STANDSTILL
-    print("standstill={}".format(self.standstill_status))
     
     ret.onePedalModeActive = self.one_pedal_mode_active and not self.long_active and self.time_in_drive_one_pedal >= self.MADS_long_min_time_in_drive and not self.park_assist_active
     if self.long_active:

@@ -525,7 +525,7 @@ class opParams:
       
       'TUNE_LAT_do_override': Param(False, bool, 'If true, the other params here will override the hardcoded lateral tune settings for any gm car. Changes to this opParam will also apply to the "Custom lateral override" toggle in OpenPilot settings.', param_param='OPParamsLateralOverride', fake_live=True, param_param_read_on_startup=True),
       
-      'TUNE_LAT_min_steer_speed_mph': Param(6.7, float, 'Lateral (steering) cannot engage below this speed.', min_val=0.0, max_val=60.0, unit='mph', fake_live=True),
+      'TUNE_LAT_min_steer_speed_mph': Param(-1, float, 'Lateral (steering) cannot engage below this speed.', min_val=0.0, max_val=60.0, unit='mph', fake_live=True),
       
       'TUNE_LAT_mpc_path_cost': Param(1.1, float, 'This value represents the weight given to the path tracking error, i.e., the deviation of the vehicle from the desired path. Increasing this value will prioritize staying close to the desired path, while decreasing it may result in larger deviations from the path.', min_val=0.0, max_val=1000.0, live=True),
       
