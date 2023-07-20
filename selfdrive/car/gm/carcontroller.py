@@ -14,8 +14,7 @@ from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 from opendbc.can.packer import CANPacker
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
-LongCtrlState = car.CarControl.Actuators.LongControlState
-Actuators = car.CarControl.Actuators
+
 
 # only use pitch-compensated acceleration at 10m/s+
 ACCEL_PITCH_FACTOR_BP = [5., 10.] # [m/s]
@@ -53,8 +52,6 @@ class CarController():
     self.apply_steer_last = 0
 
 
-    #auto resume
-    self.last_longControlState = LongCtrlState.off
     self.last_lead_distance = 0
 
     self.lka_steering_cmd_counter_last = -1
@@ -358,31 +355,14 @@ class CarController():
         acc_enabled = enabled
         
         if standstill and not car_stopping:
-          if CS.is_ev: #원래 Tw코드는 do_sng(CAR.VOLT만 해당) is_ev는 CAR.VOLT, CAR.VOLT18
-            acc_enabled = True #원래 Tw코드는 False
+          if CS.do_sng:
+            acc_enabled = False
             CS.resume_button_pressed = True
           elif CS.out.vEgo < 1.5:
             CS.resume_required = True
-        if CS.out.standstill and not CS.out.gasPressed:
-          print("Dist={:.1f}".format(CS.lead_distance))
-          if CS.lead_distance > 6.5 and (CS.out.vEgo < 0.3):
-            cruiseBtn = CruiseButtons.RES_ACCEL
-            apply_gas = self.params.ZERO_GAS + 254
-            Actuators.longControlState = LongCtrlState.starting
-            print("pid_1={}".format(Actuators.longControlState))
-            self.auto_resume(CS)
-            if self.auto_resume(CS):
-              Actuators.longControlState = LongCtrlState.pid
-              for _ in range(10):
-                can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.POWERTRAIN, CS.buttons_counter, cruiseBtn))
-              can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, apply_gas, idx, acc_enabled, at_full_stop))
-              print("pid_2={}".format(Actuators.longControlState))
-              print("Still={}".format(CS.out.standstill))
-              print("Btns={}".format(CS.cruise_buttons))
-              print("Res_gas={:.1f}".format(self.apply_gas))
-        else:
-          can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, acc_enabled, at_full_stop))
-          print("Opa_gas={:.1f}".format(self.apply_gas))
+      
+        can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, acc_enabled, at_full_stop))
+
     CS.brake_cmd = self.apply_brake_out
 
     # Send dashboard UI commands (ACC status), 25hz
@@ -426,10 +406,3 @@ class CarController():
       self.lka_icon_status_last = lka_icon_status
 
     return can_sends
-
-  def auto_resume(self, CS):
-    if Actuators.longControlState != self.last_longControlState and Actuators.longControlState == LongCtrlState.starting:
-      print("Resume..")
-      return True   
-    self.last_longControlState = Actuators.longControlState
-    return False
