@@ -28,7 +28,9 @@
 // ********************* Serial debugging *********************
 
 bool check_started(void) {
-  return current_board->check_ignition() || ignition_can;
+  bool started = current_board->check_ignition() || ignition_can;
+  ignition_seen |= started;
+  return started;
 }
 
 void debug_ring_callback(uart_ring *ring) {
@@ -69,13 +71,13 @@ void debug_ring_callback(uart_ring *ring) {
 // ****************************** safety mode ******************************
 
 // this is the only way to leave silent mode
-void set_safety_mode(uint16_t mode, int16_t param) {
+void set_safety_mode(uint16_t mode, uint16_t param) {
   uint16_t mode_copy = mode;
   int err = set_safety_hooks(mode_copy, param);
   if (err == -1) {
     puts("Error: safety set mode failed. Falling back to SILENT\n");
     mode_copy = SAFETY_SILENT;
-    err = set_safety_hooks(mode_copy, 0);
+    err = set_safety_hooks(mode_copy, 0U);
     if (err == -1) {
       puts("Error: Failed setting SILENT mode. Hanging\n");
       while (true) {
@@ -87,25 +89,25 @@ void set_safety_mode(uint16_t mode, int16_t param) {
 
   switch (mode_copy) {
     case SAFETY_SILENT:
-      set_intercept_relay(true);
+      set_intercept_relay(false);
       if (current_board->has_obd) {
         current_board->set_can_mode(CAN_MODE_NORMAL);
       }
       can_silent = ALL_CAN_SILENT;
       break;
     case SAFETY_NOOUTPUT:
-      set_intercept_relay(true);
+      set_intercept_relay(false);
       if (current_board->has_obd) {
         current_board->set_can_mode(CAN_MODE_NORMAL);
       }
       can_silent = ALL_CAN_LIVE;
       break;
     case SAFETY_ELM327:
-      set_intercept_relay(true);
+      set_intercept_relay(false);
       heartbeat_counter = 0U;
       heartbeat_lost = false;
       if (current_board->has_obd) {
-        if (param == 0) {
+        if (param == 0U) {
           current_board->set_can_mode(CAN_MODE_OBD_CAN2);
         } else {
           current_board->set_can_mode(CAN_MODE_NORMAL);
@@ -129,6 +131,7 @@ void set_safety_mode(uint16_t mode, int16_t param) {
 bool is_car_safety_mode(uint16_t mode) {
   return (mode != SAFETY_SILENT) &&
          (mode != SAFETY_NOOUTPUT) &&
+         (mode != SAFETY_ALLOUTPUT) &&
          (mode != SAFETY_ELM327);
 }
 
@@ -217,7 +220,8 @@ void tick_handler(void) {
         if (heartbeat_counter >= (check_started() ? HEARTBEAT_IGNITION_CNT_ON : HEARTBEAT_IGNITION_CNT_OFF)) {
           puts("device hasn't sent a heartbeat for 0x");
           puth(heartbeat_counter);
-          puts(" seconds. Safety is set to NOOUTPUT mode.\n");
+          puts(" seconds. Safety is set to SILENT mode.\n");
+
           if (controls_allowed_countdown > 0U) {
             siren_countdown = 5U;
             controls_allowed_countdown = 0U;
@@ -228,13 +232,12 @@ void tick_handler(void) {
             heartbeat_lost = true;
           }
 
-          if (current_safety_mode != SAFETY_NOOUTPUT) {
-            set_safety_mode(SAFETY_NOOUTPUT, 0U);
+          if (current_safety_mode != SAFETY_SILENT) {
+            set_safety_mode(SAFETY_SILENT, 0U);
           }
-
-          //if (power_save_status != POWER_SAVE_STATUS_ENABLED) {
-          //  set_power_save_state(POWER_SAVE_STATUS_ENABLED);
-          //}
+          if (power_save_status != POWER_SAVE_STATUS_ENABLED) {
+            set_power_save_state(POWER_SAVE_STATUS_ENABLED);
+          }
 
           // Also disable IR when the heartbeat goes missing
           current_board->set_ir_power(0U);
@@ -367,7 +370,7 @@ int main(void) {
   microsecond_timer_init();
 
   // init to SILENT and can silent
-  set_safety_mode(SAFETY_NOOUTPUT, 0);
+  set_safety_mode(SAFETY_SILENT, 0U);
 
   // enable CAN TXs
   current_board->enable_can_transceivers(true);
@@ -419,7 +422,7 @@ int main(void) {
         }
       #endif
     } else {
-      if (deepsleep_requested && !usb_enumerated && !check_started()) {
+      if (deepsleep_requested && !usb_enumerated && !check_started() && ignition_seen && (heartbeat_counter > 20U)) {
         usb_soft_disconnect(true);
         current_board->set_fan_power(0U);
         current_board->set_usb_power_mode(USB_POWER_CLIENT);

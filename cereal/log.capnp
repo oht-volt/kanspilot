@@ -610,6 +610,9 @@ struct ControlsState @0x97ff69c53601abf1 {
   cumLagMs @15 :Float32;
   canErrorCounter @57 :UInt32;
 
+  # Ui display
+  steerRatio @76 :Float32;
+
   lateralControlState :union {
     indiState @52 :LateralINDIState;
     pidState @53 :LateralPIDState;
@@ -623,6 +626,9 @@ struct ControlsState @0x97ff69c53601abf1 {
 
   debugText1 @66 : Text;
   debugText2 @67 : Text;
+  debugText3 @81 : Text;
+  debugText4 @82 : Text;
+  debugText5 @83 : Text;
   longActiveUser @68: Int32;
   vCruiseOut @69: Float32;
   cruiseButtonCounter @70: Int32;
@@ -632,6 +638,10 @@ struct ControlsState @0x97ff69c53601abf1 {
   longActiveUserReady @74 : Int32;
   curveSpeed @75 : Float32;
 
+  latAccelFactor @77 :Float32;
+  latAccelOffset @78 :Float32;
+  friction @79 :Float32;
+  totalBucketPoints @80 :Float32;
 
   enum OpenpilotState @0xdbe58b96d2d1ac61 {
     disabled @0;

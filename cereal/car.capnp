@@ -129,6 +129,8 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     stopStop @127; #ajouatom
     audioLaneChange @128; #ajouatom
     audioTurn @129; #ajouatom
+    #Autohold Activate
+    autoHoldActivated @130;
     radarCanErrorDEPRECATED @15;
     communityFeatureDisallowedDEPRECATED @62;
     radarCommIssueDEPRECATED @67;
@@ -239,6 +241,15 @@ struct CarState {
   speedLimit @54 : Int32;
   speedLimitDistance @55 : Float32;
 
+  # kans
+  cluSpeedMs @56 :Float32;
+  cruiseButtons @57 :Int32;
+  diffDistance @58 :Float32;
+
+  # Autohold for GM
+  autoHoldActivated @59 :Bool;
+  cruiseMain  @60 :Bool;
+
   struct Tpms {
     fl @0 :Float32;
     fr @1 :Float32;
@@ -263,6 +274,7 @@ struct CarState {
     standstill @4 :Bool;
     nonAdaptive @5 :Bool;
     pcmMode @7 :Bool;
+    resumeButton @8: Bool;
   }
 
   enum GearShifter {
@@ -432,6 +444,9 @@ struct CarControl {
       seatbeltUnbuckled @5;
       speedTooHigh @6;
       ldw @7;
+
+      # Autohold Event
+      autoHoldActivated @8;
     }
 
     enum AudibleAlert {
@@ -463,7 +478,7 @@ struct CarControl {
       speedDown @20;
       stopStop @21;
       audioTurn @22;
-      
+      reverseGear @23;
     }
   }
 
@@ -486,9 +501,14 @@ struct CarParams {
 
   enableGasInterceptor @2 :Bool;
   pcmCruise @3 :Bool;        # is openpilot's state tied to the PCM's cruise state?
+  enableCamera @75 :Bool;    # supprot white panda
   enableDsu @5 :Bool;        # driving support unit
   enableBsm @56 :Bool;       # blind spot monitoring
   flags @64 :UInt32;         # flags for car specific quirks
+
+  # Autohold
+  enableAutoHold @76 :Bool;
+
   experimentalLongitudinalAvailable @71 :Bool;
 
   minEnableSpeed @7 :Float32;
@@ -577,6 +597,7 @@ struct CarParams {
     useSteeringAngle @0 :Bool;
     kp @1 :Float32;
     ki @2 :Float32;
+    kd @8 :Float32;
     friction @3 :Float32;
     kf @4 :Float32;
     steeringAngleDeadzoneDeg @5 :Float32;

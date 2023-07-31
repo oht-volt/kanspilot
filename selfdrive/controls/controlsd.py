@@ -2,6 +2,8 @@
 import os
 import math
 from typing import SupportsFloat
+import random
+from decimal import Decimal
 
 from cereal import car, log
 from common.numpy_fast import clip, interp
@@ -29,6 +31,8 @@ from selfdrive.controls.lib.vehicle_model import VehicleModel
 from selfdrive.locationd.calibrationd import Calibration
 from selfdrive.hardware import HARDWARE, TICI, EON
 from selfdrive.manager.process_config import managed_processes
+from selfdrive.road_speed_limiter import road_speed_limiter_get_max_speed, road_speed_limiter_get_active, \
+  get_road_speed_limiter
 from selfdrive.controls.lib.cruise_helper import CruiseHelper
 
 GearShifter = car.CarState.GearShifter
@@ -113,7 +117,7 @@ class Controls:
 
     # set alternative experiences from parameters
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
-    self.CP.alternativeExperience = 0
+    self.CP.alternativeExperience = 1
     if not self.disengage_on_accelerator:
       self.CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.DISABLE_DISENGAGE_ON_GAS
 
@@ -192,12 +196,19 @@ class Controls:
     self.desired_curvature = 0.0
     self.desired_curvature_rate = 0.0
     self.experimental_mode = False
+
+    self.v_cruise_kph_limit = 0
+    self.slowing_down = False
+    self.slowing_down_sound_alert = False
     self.v_cruise_helper = VCruiseHelper(self.CP)
 
     #ajouatom
     self.cruise_helper = CruiseHelper()
     self.debugText1 = ""
     self.debugText2 = ""
+    self.debugText3 = ""
+    self.debugText4 = ""
+    #self.debugText5 = ""
     self.pcmLongSpeed = 100.0
     self.cruiseButtonCounter = 0
     self.enableAutoEngage = int(Params().get("EnableAutoEngage")) if self.CP.openpilotLongitudinalControl else 0
@@ -207,6 +218,16 @@ class Controls:
 
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
+
+    #live torque by Telly
+    self.torque_latAccelFactor = 0.
+    self.torque_latAccelOffset = 0.
+    self.torque_friction = 0.
+    self.totalBucketPoints = 0.
+    self.second = 0.0
+    self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
+    self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
+    self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
 
     self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0)
 
@@ -227,6 +248,10 @@ class Controls:
     # controlsd is driven by can recv, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
     self.prof = Profiler(False)  # off by default
+
+  def reset(self):
+    self.slowing_down = False
+    self.slowing_down_sound_alert = False
 
   def set_initial_state(self):
     if REPLAY:
@@ -364,6 +389,13 @@ class Controls:
     # All events here should at least have NO_ENTRY and SOFT_DISABLE.
     num_events = len(self.events)
 
+    #opkr
+    self.second += DT_CTRL
+    if self.second > 1.0:
+      self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
+      self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
+      self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
+      self.second = 0.0
     #not_running = {p.name for p in self.sm['managerState'].processes if not p.running and p.shouldBeRunning}
     #if self.sm.rcv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
     #  self.events.add(EventName.processNotRunning)
@@ -467,6 +499,11 @@ class Controls:
       if self.sm.rcv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
         self.events.add(EventName.processNotRunning)
 
+    # events for roadSpeedLimiter
+    if self.slowing_down_sound_alert:
+      self.events.add(EventName.speedDown)
+      self.slowing_down_sound_alert = False
+
   def data_sample(self):
     """Receive data from sockets and update carState"""
 
@@ -527,6 +564,31 @@ class Controls:
     else:
       self.v_cruise_helper.v_cruise_kph = self.cruise_helper.cruiseSpeedMin #30#V_CRUISE_INITIAL
       self.v_cruise_helper.v_cruise_cluster_kph = self.cruise_helper.cruiseSpeedMin #30#V_CRUISE_INITIAL
+
+    cluster_speed = CS.vEgoCluster * CV.MS_TO_KPH
+    road_speed_limiter = get_road_speed_limiter()
+    apply_limit_speed, road_limit_speed, left_dist, first_started, max_speed_log = \
+      road_speed_limiter.get_max_speed(cluster_speed, True, self.autoNaviSpeedCtrlStart, self.autoNaviSpeedCtrlEnd, self.autoNaviSpeedBumpDist)
+
+    if apply_limit_speed >= 20:
+      self.v_cruise_kph_limit = min(apply_limit_speed, self.v_cruise_helper.v_cruise_kph)
+
+      if CS.vEgo * CV.MS_TO_KPH > apply_limit_speed:
+
+        if not self.slowing_down:
+          self.slowing_down_sound_alert = True
+          self.slowing_down = True
+
+    else:
+      self.reset()
+      self.v_cruise_kph_limit = self.v_cruise_helper.v_cruise_kph
+
+    # 2 lines for Slow on Curve
+    #if self.slow_on_curves and self.curve_speed_ms >= MIN_CURVE_SPEED:
+    #  curv_speed_ms = self.cal_curve_speed(self.sm, CS.vEgo, self.sm.frame)
+    #  self.v_cruise_kph_limit = min(self.v_cruise_kph_limit, curv_speed_ms * CV.MS_TO_KPH)
+    #else:
+    #  pass
 
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
@@ -744,8 +806,8 @@ class Controls:
           left_deviation = steering_value > 0 and dpath_points[0] < -0.20
           right_deviation = steering_value < 0 and dpath_points[0] > 0.20
 
-          if left_deviation or right_deviation:
-            self.events.add(EventName.steerSaturated)
+          #if left_deviation or right_deviation:
+          #  self.events.add(EventName.steerSaturated)
 
     # Ensure no NaNs/Infs
     for p in ACTUATOR_FIELDS:
@@ -903,10 +965,20 @@ class Controls:
     controlsState.vCruiseOut = self.cruise_helper.v_cruise_kph_apply #min(self.pcmLongSpeed, self.cruise_helper.v_cruise_kph_apply)
 
     #ajouatom
-    controlsState.debugText1 = self.debugText1
+    cluster_speed = CS.vEgoCluster * CV.MS_TO_KPH
+    road_speed_limiter = get_road_speed_limiter()
+    max_speed_log = road_speed_limiter.get_max_speed(cluster_speed, True, self.autoNaviSpeedCtrlStart, self.autoNaviSpeedCtrlEnd, self.autoNaviSpeedBumpDist)
+    controlsState.debugText1 = 'Debug1={}'.format(max_speed_log)
     #self.debugText2 = self.LoC.debugLoCText
     self.debugText2 = self.LaC.latDebugText
     controlsState.debugText2 = self.debugText2
+    self.debugText3 = self.LaC.torqDebugText
+    controlsState.debugText3 = self.debugText3
+    self.debugText4 = self.LoC.debugLoCText1
+    controlsState.debugText4 = self.debugText4
+    #self.debugText5 = self.LoC.debugLoCText2
+    #controlsState.debugText5 = self.debugText5
+
     controlsState.longActiveUser = self.cruise_helper.longActiveUser
     controlsState.longActiveUserReady = self.cruise_helper.longActiveUserReady
     controlsState.cruiseButtonCounter = self.cruiseButtonCounter
@@ -922,6 +994,8 @@ class Controls:
     #C2#controlsState.cumLagMs = -self.rk.remaining * 1000.
 
     #print("cumLagMsg={:5.2f}".format(-self.rk.remaining * 1000.))
+    # display SR/SRC/SAD on Ui
+    controlsState.steerRatio = self.VM.sR
     #self.debugText1 = 'cumLagMs={:5.1f}'.format(-self.rk.remaining * 1000.)
     #controlsState.debugText1 = self.debugText1
 
@@ -929,6 +1003,12 @@ class Controls:
     controlsState.forceDecel = bool(force_decel)
     #C2#controlsState.canErrorCounter = self.can_rcv_timeout_counter
     controlsState.experimentalMode = self.experimental_mode
+
+    # live torque by Telly
+    controlsState.latAccelFactor = self.torque_latAccelFactor
+    controlsState.latAccelOffset = self.torque_latAccelOffset
+    controlsState.friction = self.torque_friction
+    controlsState.totalBucketPoints = self.totalBucketPoints
 
     #C2#lat_tuning = self.CP.lateralTuning.which()
     #C2#if self.joystick_mode:

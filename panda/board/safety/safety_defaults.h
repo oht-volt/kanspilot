@@ -10,12 +10,11 @@ int default_rx_hook(CANPacket_t *to_push) {
 
 // *** no output safety mode ***
 
-static const addr_checks* nooutput_init(int16_t param) {
+static const addr_checks* nooutput_init(uint16_t param) {
   UNUSED(param);
-  controls_allowed = false;
-  relay_malfunction_reset();
   return &default_rx_checks;
 }
+
 
 static int nooutput_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
   UNUSED(to_send);
@@ -31,19 +30,9 @@ static int nooutput_tx_lin_hook(int lin_num, uint8_t *data, int len) {
 }
 
 static int default_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+  UNUSED(bus_num);
   UNUSED(to_fwd);
-  int bus_fwd = -1;
-
-  if (true) {
-      if (bus_num == 0) {
-          bus_fwd = 2;
-      }
-      if (bus_num == 2) {
-          bus_fwd = 0;
-      }
-  }
-
-  return bus_fwd;
+  return -1;
 }
 
 const safety_hooks nooutput_hooks = {
@@ -60,11 +49,9 @@ const safety_hooks nooutput_hooks = {
 const uint16_t ALLOUTPUT_PARAM_PASSTHROUGH = 1;
 bool alloutput_passthrough = false;
 
-static const addr_checks* alloutput_init(int16_t param) {
-  UNUSED(param);
-  alloutput_passthrough = GET_FLAG(param, ALLOUTPUT_PARAM_PASSTHROUGH);
+static const addr_checks* alloutput_init(uint16_t param) {
   controls_allowed = true;
-  relay_malfunction_reset();
+  alloutput_passthrough = GET_FLAG(param, ALLOUTPUT_PARAM_PASSTHROUGH);
   return &default_rx_checks;
 }
 
@@ -85,7 +72,7 @@ static int alloutput_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
   UNUSED(to_fwd);
   int bus_fwd = -1;
 
-  if (true || alloutput_passthrough) {
+  if (alloutput_passthrough) {
     if (bus_num == 0) {
       bus_fwd = 2;
     }

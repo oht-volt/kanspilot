@@ -1,5 +1,31 @@
 #!/usr/bin/bash
 
+if [ ! -f "./installer/boot_finish" ]; then
+  echo "Installing fonts..."
+  mount -o rw,remount /system
+  cp -f ./installer/fonts/NanumGothic* /system/fonts/
+  cp -f ./installer/fonts/opensans_* ./selfdrive/assets/fonts/
+  cp -f ./installer/fonts/fonts.xml /system/etc/fonts.xml
+  chmod 644 /system/etc/fonts.xml
+  chmod 644 /system/fonts/NanumGothic*
+  cp -f ./installer/bootanimation.zip /system/media/
+  chmod 744 /system/media/bootanimation.zip
+  touch ./installer/boot_finish
+
+elif [ "$(getprop persist.sys.locale)" != "ko-KR" ]; then
+
+  setprop persist.sys.locale ko-KR
+  setprop persist.sys.language ko
+  setprop persist.sys.country KR
+  setprop persist.sys.timezone Asia/Seoul
+
+  sleep 2
+  reboot
+else
+  chmod 644 ./installer/boot_finish
+  mount -o ro,remount /system
+fi
+
 if [ -z "$BASEDIR" ]; then
   BASEDIR="/data/openpilot"
 fi

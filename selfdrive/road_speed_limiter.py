@@ -14,7 +14,7 @@ from common.numpy_fast import clip
 from common.realtime import sec_since_boot
 from common.conversions import Conversions as CV
 
-CAMERA_SPEED_FACTOR = 1.05
+CAMERA_SPEED_FACTOR = 0.99
 
 
 class Port:
@@ -549,7 +549,7 @@ class RoadSpeedLimiter:
       return self.roadLimitSpeed.active % 100
     return 0
 
-  def get_max_speed(self, CS, cluster_speed, is_metric, autoNaviSpeedCtrlStart=22, autoNaviSpeedCtrlEnd=6, autoNaviSpeedBumpDist=10):
+  def get_max_speed(self, cluster_speed, is_metric, autoNaviSpeedCtrlStart=22, autoNaviSpeedCtrlEnd=6, autoNaviSpeedBumpDist=10):
 
     log = ""
     self.recv()
@@ -574,27 +574,13 @@ class RoadSpeedLimiter:
 
         self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
 
-      hda_limit_active = False
-      if CS.speedLimit>0 and CS.speedLimitDistance>0:
-        #log = "hda_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
-        hda_limit_active = True
-
-      if cam_limit_speed <= 0:
-        if CS.speedLimit>0 and CS.speedLimitDistance>0:
-          cam_limit_speed_left_dist = CS.speedLimitDistance
-          cam_limit_speed = CS.speedLimit
-          self.session_limit = True if cam_limit_speed_left_dist > 3000 else False
-          log = "HDA_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
-          self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
-          hda_limit_active = True
-
       section_limit_speed = self.roadLimitSpeed.sectionLimitSpeed
       section_left_dist = self.roadLimitSpeed.sectionLeftDist
       section_avg_speed = self.roadLimitSpeed.sectionAvgSpeed
       section_left_time = self.roadLimitSpeed.sectionLeftTime
       section_adjust_speed = self.roadLimitSpeed.sectionAdjustSpeed
 
-      camSpeedFactor = clip(self.roadLimitSpeed.camSpeedFactor, 1.0, 1.1)
+      camSpeedFactor = clip(self.roadLimitSpeed.camSpeedFactor, 0.98, 1.0)
 
       if False and is_highway is not None:
         if is_highway:
