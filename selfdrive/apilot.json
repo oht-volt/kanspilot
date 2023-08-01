@@ -456,11 +456,31 @@
       "group": "조향일반",
       "name": "AutoTurnControl",
       "title": "NOO Helper(0)",
-      "descr": "0:사용안함,1:TMAP/Mappy Helper, 2:시험",
+      "descr": "0:사용안함,1:Navi Helper, 2:자동차로변경, 3:자동속도제어",
       "min": 0,
-      "max": 2,
-      "default": 2,
+      "max": 3,
+      "default": 1,
       "unit": 1
+    },
+    {
+      "group": "조향일반",
+      "name": "AutoTurnControlSpeedLaneChange",
+      "title": "NOO Helper 차선변경속도(60)",
+      "descr": "0:사용안함, 차선변경시 적용속도",
+      "min": 0,
+      "max": 100,
+      "default": 60,
+      "unit": 5
+    },
+    {
+      "group": "조향일반",
+      "name": "AutoTurnControlSpeedTurn",
+      "title": "NOO Helper 턴속도(20)",
+      "descr": "0:사용안함, 턴시 적용속도",
+      "min": 0,
+      "max": 100,
+      "default": 20,
+      "unit": 5
     },
     {
       "group": "조향일반",
@@ -1091,6 +1111,16 @@
       "max": 50,
       "default": 10,
       "unit": 5
+    },
+    {
+      "group": "감속제어",
+      "name": "AutoNaviSpeedBumpSpeed",
+      "title": "사고방지턱 속도(25Km/h)",
+      "descr": "",
+      "min": 10,
+      "max": 50,
+      "default": 25,
+      "unit": 1
     }
 
   ]

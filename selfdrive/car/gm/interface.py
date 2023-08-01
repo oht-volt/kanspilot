@@ -131,7 +131,7 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kpV = [2.0]
       ret.longitudinalTuning.kiV = [0.36]
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM_LONG
-
+      ret.naviCluster = 0 #현기차용, carstate.py에 False 값을 주기 위한 것뿐임
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
     # These cars likely still work fine. Once a user confirms each car works and a test route is
     # added to selfdrive/car/tests/routes.py, we can remove it from this list.

@@ -154,7 +154,7 @@ class RoadLimitSpeedServer:
   def udp_recv(self, sock):
     ret = False
     try:
-      ready = select.select([sock], [], [], 1.2)
+      ready = select.select([sock], [], [], 0.2)
       ret = bool(ready[0])
       if ret:
         data, self.remote_addr = sock.recvfrom(2048)
@@ -288,6 +288,21 @@ def main():
   mappyMode = True
   mappyMode_valid = False
 
+  nTBTTurnType = -1
+  nSdiType = -1
+  nSdiDist = -1
+  nSdiSpeedLimit = -1
+  nSdiPlusType = -1
+  nSdiPlusDist = -1
+  nSdiPlusSpeedLimit = -1
+  nSdiBlockType = -1
+  nSdiBlockSpeed = -1
+  nSdiBlockDist = -1
+  nTBTDist = -1
+  nRoadLimitSpeed = -1
+  
+  prev_recvTime = sec_since_boot()
+
   with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     try:
       try:
@@ -299,7 +314,7 @@ def main():
 
       while True:
 
-        server.udp_recv(sock)
+        ret = server.udp_recv(sock)
 
         try:
           dat = messaging.recv_sock(sock_carState, wait=False)
@@ -333,6 +348,9 @@ def main():
           value_int = -100
 
         now = sec_since_boot()
+        if ret:
+          prev_recvTime = now
+
         #print(atype, value)
         delta_dist = 0.0
         if carState is not None:
@@ -403,18 +421,26 @@ def main():
         #dat.roadLimitSpeed.xRoadName = apilot_val['opkrroadname']['value']
 
         #for 띠맵
-        nTBTTurnType = int(server.get_apilot_val("nTBTTurnType", -1))
-        nSdiType = int(server.get_apilot_val("nSdiType", -1))
-        nSdiDist = int(server.get_apilot_val("nSdiDist", -1))
-        nSdiSpeedLimit = int(server.get_apilot_val("nSdiSpeedLimit", -1))
-        nSdiPlusType = int(server.get_apilot_val("nSdiPlusType", -1))
-        nSdiPlusDist = int(server.get_apilot_val("nSdiPlusDist", -1))
-        nSdiPlusSpeedLimit = int(server.get_apilot_val("nSdiPlusSpeedLimit", -1))
-        nSdiBlockType = int(server.get_apilot_val("nSdiBlockType", -1))
-        nSdiBlockSpeed = int(server.get_apilot_val("nSdiBlockSpeed", -1))
-        nSdiBlockDist = int(server.get_apilot_val("nSdiBlockDist", -1))
-        nTBTDist = int(server.get_apilot_val("nTBTDist", 0))
-        nRoadLimitSpeed = int(server.get_apilot_val("nRoadLimitSpeed", -1))
+        if ret or now - prev_recvTime > 1.5: # 수신값이 있거나, 1.5초가 지난경우 데이터를 초기화함.
+          nTBTTurnType = nSdiType = nSdiDist = nSdiSpeedLimit = nSdiPlusType = nSdiPlusDist = nSdiPlusSpeedLimit = nSdiBlockType = -1
+          nSdiBlockSpeed = nSdiBlockDist = nTBTDist = nRoadLimitSpeed = -1
+        else:
+          nSdiDist -= delta_dist
+          nSdiPlusDist -= delta_dist
+          nSdiBlockDist -= delta_dist
+
+        nTBTTurnType = int(server.get_apilot_val("nTBTTurnType", nTBTTurnType))
+        nSdiType = int(server.get_apilot_val("nSdiType", nSdiType))
+        nSdiDist = int(server.get_apilot_val("nSdiDist", nSdiDist))
+        nSdiSpeedLimit = int(server.get_apilot_val("nSdiSpeedLimit", nSdiSpeedLimit))
+        nSdiPlusType = int(server.get_apilot_val("nSdiPlusType", nSdiPlusType))
+        nSdiPlusDist = int(server.get_apilot_val("nSdiPlusDist", nSdiPlusDist))
+        nSdiPlusSpeedLimit = int(server.get_apilot_val("nSdiPlusSpeedLimit", nSdiPlusSpeedLimit))
+        nSdiBlockType = int(server.get_apilot_val("nSdiBlockType", nSdiBlockType))
+        nSdiBlockSpeed = int(server.get_apilot_val("nSdiBlockSpeed", nSdiBlockSpeed))
+        nSdiBlockDist = int(server.get_apilot_val("nSdiBlockDist", nSdiBlockDist))
+        nTBTDist = int(server.get_apilot_val("nTBTDist", nTBTDist))
+        nRoadLimitSpeed = int(server.get_apilot_val("nRoadLimitSpeed", nRoadLimitSpeed))
 
         if nTBTTurnType in [12, 16]:
           xTurnInfo = 1  # turn left
@@ -465,7 +491,8 @@ def main():
         if sdi_valid:
           sdi_valid_count = 10
         sdiDebugText = "({}/{}/{} {}/{}/{})".format(nSdiType, nSdiDist, nSdiSpeedLimit, nSdiPlusType, nSdiPlusDist, nSdiPlusSpeedLimit)
-        print(sdiDebugText)
+        if ret:
+          print(sdiDebugText)
         apm_valid_count -= 1
         if apm_valid:
           apm_valid_count = 10
@@ -534,6 +561,10 @@ class RoadSpeedLimiter:
 
     self.sock = messaging.sub_sock("roadLimitSpeed")
     self.roadLimitSpeed = None
+    self.autoNaviSpeedCtrlStart = 22
+    self.autoNaviSpeedCtrlEnd = 6
+    self.autoNaviSpeedBumpDist = 10
+    self.autoNaviSpeedBumpSpeed = 25
 
   def recv(self):
     try:
@@ -549,7 +580,7 @@ class RoadSpeedLimiter:
       return self.roadLimitSpeed.active % 100
     return 0
 
-  def get_max_speed(self, cluster_speed, is_metric, autoNaviSpeedCtrlStart=22, autoNaviSpeedCtrlEnd=6, autoNaviSpeedBumpDist=10):
+  def get_max_speed(self, CS, cluster_speed, is_metric, apNaviSpeed, apNaviDistance):
 
     log = ""
     self.recv()
@@ -566,13 +597,31 @@ class RoadSpeedLimiter:
       cam_limit_speed_left_dist = self.roadLimitSpeed.camLimitSpeedLeftDist
       cam_limit_speed = self.roadLimitSpeed.camLimitSpeed
 
-      if self.roadLimitSpeed.xSpdLimit > 0 and self.roadLimitSpeed.xSpdDist > 0:
+      if apNaviSpeed > 0 and apNaviDistance > 0:
+        cam_limit_speed = apNaviSpeed
+        cam_limit_speed_left_dist = apNaviDistance
+        cam_type = 1000
+      elif self.roadLimitSpeed.xSpdLimit > 0 and self.roadLimitSpeed.xSpdDist > 0:
         cam_limit_speed_left_dist = self.roadLimitSpeed.xSpdDist
         cam_limit_speed = self.roadLimitSpeed.xSpdLimit
         self.session_limit = True if (self.roadLimitSpeed.xSignType == 165) or (cam_limit_speed_left_dist > 3000) or cam_type==4 else False
         #log = "limit={:.1f},{:.1f}".format(self.roadLimitSpeed.xSpdLimit, self.roadLimitSpeed.xSpdDist)
 
         self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
+
+      hda_limit_active = False # 현기 순정 네비 사용시 True 값을 주기 위한 로직이라서 벌트엔 False 값만 필요
+      if CS.speedLimit>0 and CS.speedLimitDistance>0:
+        #log = "hda_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
+        hda_limit_active = True
+      #아래 624까지 역시 현기 순정네비용이라 벌트에겐 없어도 되는 코드
+      if cam_limit_speed <= 0:
+        if CS.speedLimit>0 and CS.speedLimitDistance>0:
+          cam_limit_speed_left_dist = CS.speedLimitDistance
+          cam_limit_speed = CS.speedLimit
+          self.session_limit = True if cam_limit_speed_left_dist > 3000 else False
+          log = "HDA_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
+          self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
+          hda_limit_active = True
 
       section_limit_speed = self.roadLimitSpeed.sectionLimitSpeed
       section_left_dist = self.roadLimitSpeed.sectionLeftDist
@@ -590,11 +639,12 @@ class RoadSpeedLimiter:
           MIN_LIMIT = 20
           MAX_LIMIT = 100
       else:
-        MIN_LIMIT = 20
+        MIN_LIMIT = 10
         MAX_LIMIT = 120
 
       if cam_type == 22:  # speed bump
         MIN_LIMIT = 10
+        cam_speed_limit = self.autoNaviSpeedBumpSpeed
 
       if cam_limit_speed_left_dist is not None and cam_limit_speed is not None and cam_limit_speed_left_dist > 0:
 
@@ -603,13 +653,16 @@ class RoadSpeedLimiter:
         #cam_limit_speed_ms = cam_limit_speed * (CV.KPH_TO_MS if is_metric else CV.MPH_TO_MS)
 
         #starting_dist = v_ego * 30.
-        starting_dist = v_ego * autoNaviSpeedCtrlStart
+        starting_dist = v_ego * self.autoNaviSpeedCtrlStart
 
-        if cam_type == 22:
-          starting_dist = v_ego * 6
-          safe_dist = autoNaviSpeedBumpDist #v_ego * 0.5 # speed bump
+        if cam_type == 1000:
+          starting_dist = v_ego * 12
+          safe_dist = 80
+        elif cam_type == 22:
+          starting_dist = v_ego * 10 #6
+          safe_dist = self.autoNaviSpeedBumpDist #v_ego * 0.5 # speed bump
         else:
-          safe_dist = v_ego * autoNaviSpeedCtrlEnd
+          safe_dist = v_ego * self.autoNaviSpeedCtrlEnd
 
         if not hda_limit_active:
           log = "SPDCTRL({})={:.0f}<{:.0f}<{:.0f},type={},{:.0f}".format(self.slowing_down, safe_dist, cam_limit_speed_left_dist, starting_dist, cam_type, self.started_dist)

@@ -58,6 +58,8 @@ class DesireHelper:
     self.noDetectManDesireTime = 5.0
     self.prev_road_edge_stat = 0
     self.latDebugText = ""
+    self.apNaviDistance = 0
+    self.apNaviSpeed = 0
 
 
   def update_(self, carstate, lateral_active, lane_change_prob):
@@ -138,6 +140,8 @@ class DesireHelper:
     self.paramsCount += 1
     if self.paramsCount > 100:
       self.autoTurnControl = int(Params().get("AutoTurnControl", encoding="utf8"))
+      self.autoTurnControlSpeedLaneChange = int(Params().get("AutoTurnControlSpeedLaneChange", encoding="utf8"))
+      self.autoTurnControlSpeedTurn = int(Params().get("AutoTurnControlSpeedTurn", encoding="utf8"))
       self.autoLaneChangeSpeed = int(Params().get("AutoLaneChangeSpeed", encoding="'utf8"))
       self.paramsCount = 0
 
@@ -211,14 +215,18 @@ class DesireHelper:
       direction = LaneChangeDirection.left if nav_type in [1,3] else LaneChangeDirection.right if nav_type in [2,4,43] else LaneChangeDirection.none
   
     nav_direction = LaneChangeDirection.none
-    if 5 < nav_distance < 200:
+    if 5 < nav_distance < 300:
       if self.desireReady >= 0: # -1이면 현재의 네비정보는 사용안함.
         self.desireReady = 1
+        if self.autoTurnControl >= 3:
+          self.apNaviDistance = nav_distance
+          self.apNaviSpeed = self.autoTurnControlSpeedTurn if nav_turn else self.autoTurnControlSpeedLaneChange
+
         if nav_turn:
           if nav_distance < 60: # 턴시작
             nav_direction = direction
           # 로드에지가 검출안되면 차로변경(토크필요), 그외 차로변경 명령
-          else: # nav_distance < 180 and (direction == LaneChangeDirection.right) and (road_edge_stat & 2 != 0) and not carstate.rightBlindspot and self.navActive==0: # 멀리있는경우 차로변경
+          elif nav_distance < 200: # and (direction == LaneChangeDirection.right) and (road_edge_stat & 2 != 0) and not carstate.rightBlindspot and self.navActive==0: # 멀리있는경우 차로변경
             need_torque = 1
             nav_turn = False
             nav_direction = direction
@@ -228,10 +236,15 @@ class DesireHelper:
         nav_event = EventName.audioTurn if nav_turn else EventName.audioLaneChange
       else:
         nav_turn = False
+        self.apNaviDistance = 0
+        self.apNaviSpeed = 0
+
     else:
       nav_turn = False
       self.desireReady = 0
       direction = LaneChangeDirection.none
+      self.apNaviDistance = 0
+      self.apNaviSpeed = 0
 
     return nav_direction, nav_turn, need_torque, nav_event
 
@@ -360,7 +373,7 @@ class DesireHelper:
               else:
                 if nav_direction == LaneChangeDirection.right and carstate.rightBlinker: # 대기중 우측깜박이를 켜면, 토크검사생략하고 작동시작.
                   need_torque = 0
-                if self.autoTurnControl == 2 and need_torque > 0 and nav_direction == LaneChangeDirection.right and self.prev_road_edge_stat & 2 == 2: #우측차로변경, 우측로드에지가 사라짐, 차로변경시작,
+                if self.autoTurnControl >= 2 and need_torque > 0 and nav_direction == LaneChangeDirection.right and self.prev_road_edge_stat & 2 == 2: #우측차로변경, 우측로드에지가 사라짐, 차로변경시작,
                   need_torque = 0
                 if need_torque == 2 and carstate.leftBlinker: # need_torque:2 는 차로변경만 하는경우, 1은 턴직전 차로변경조건,
                   need_torque = 0

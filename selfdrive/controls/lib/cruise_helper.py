@@ -111,6 +111,7 @@ class CruiseHelper:
     self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
     self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
     self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
+    self.autoNaviSpeedBumpSpeed = float(Params().get("AutoNaviSpeedBumpSpeed"))
     self.autoRoadLimitCtrl = int(Params().get("AutoRoadLimitCtrl", encoding="utf8"))
     self.autoResumeFromGasSpeed = float(int(Params().get("AutoResumeFromGasSpeed", encoding="utf8")))
     self.autoResumeFromGas = Params().get_bool("AutoResumeFromGas")
@@ -190,6 +191,12 @@ class CruiseHelper:
         self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
         self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
         self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
+        self.autoNaviSpeedBumpSpeed = float(Params().get("AutoNaviSpeedBumpSpeed"))
+        road_speed_limiter = get_road_speed_limiter()
+        road_speed_limiter.autoNaviSpeedCtrlStart = self.autoNaviSpeedCtrlStart
+        road_speed_limiter.autoNaviSpeedCtrlEnd = self.autoNaviSpeedCtrlEnd
+        road_speed_limiter.autoNaviSpeedBumpDist = self.autoNaviSpeedBumpDist
+        road_speed_limiter.autoNaviSpeedBumpSpeed = self.autoNaviSpeedBumpSpeed
       elif self.update_params_count == 16:
         self.cruiseControlMode = int(Params().get("CruiseControlMode", encoding="utf8"))
         self.cruiseOnDist = float(int(Params().get("CruiseOnDist", encoding="utf8"))) / 100.
@@ -308,20 +315,22 @@ class CruiseHelper:
     return button_type, LongPressed, v_cruise_kph
 
   def update_speed_nda(self, CS, controls):
-    cluster_speed = CS.vEgoCluster * CV.MS_TO_KPH
+    clu11_speed = CS.vEgoCluster * CV.MS_TO_KPH
     road_speed_limiter = get_road_speed_limiter()
+    apNaviSpeed = controls.sm['lateralPlan'].apNaviSpeed
+    apNaviDistance = controls.sm['lateralPlan'].apNaviDistance
     self.ndaActive = 1 if road_speed_limiter_get_active() > 0 else 0
     apply_limit_speed, road_limit_speed, left_dist, first_started, max_speed_log = \
-      road_speed_limiter.get_max_speed(cluster_speed, True, self.autoNaviSpeedCtrlStart, self.autoNaviSpeedCtrlEnd, self.autoNaviSpeedBumpDist) #self.is_metric)
+      road_speed_limiter.get_max_speed(CS, clu11_speed, True, apNaviSpeed, apNaviDistance) #self.is_metric)
 
-    #controls.debugText1 = max_speed_log
+    controls.debugText1 = max_speed_log
 
     self.active_cam = road_limit_speed > 0 and left_dist > 0
 
     if road_speed_limiter.roadLimitSpeed is not None:
       camSpeedFactor = clip(road_speed_limiter.roadLimitSpeed.camSpeedFactor, 0.98, 1.0)
       self.over_speed_limit = road_speed_limiter.roadLimitSpeed.camLimitSpeedLeftDist > 0 and \
-                              0 < road_limit_speed * camSpeedFactor < cluster_speed + 2
+                              0 < road_limit_speed * camSpeedFactor < clu11_speed + 2
     else:
       self.over_speed_limit = False
 

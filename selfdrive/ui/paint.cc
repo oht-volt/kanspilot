@@ -1375,6 +1375,7 @@ void DrawApilot::drawLeadApilot(const UIState* s) {
         int camLimitSpeedLeftDist = road_limit_speed.getCamLimitSpeedLeftDist();
         int sectionLimitSpeed = road_limit_speed.getSectionLimitSpeed();
         int sectionLeftDist = road_limit_speed.getSectionLeftDist();
+        int camType = road_limit_speed.getCamType();
 
         int limit_speed = 0;
         int left_dist = 0;
@@ -1513,23 +1514,22 @@ void DrawApilot::drawLeadApilot(const UIState* s) {
         }
 
         if (limit_speed > 0) {
-            nvgBeginPath(s->vg);
-            nvgCircle(s->vg, bx, by, 140 / 2);
-            nvgFillColor(s->vg, COLOR_WHITE);
-            nvgFill(s->vg);
-            nvgBeginPath(s->vg);
-            nvgCircle(s->vg, bx, by, 130 / 2);
-            nvgFillColor(s->vg, COLOR_RED);
-            nvgFill(s->vg);
-            nvgBeginPath(s->vg);
-            nvgCircle(s->vg, bx, by, 110 / 2);
-            nvgFillColor(s->vg, COLOR_WHITE);
-            nvgFill(s->vg);
-            if (xSignType == 124) {
-                sprintf(str, "방지턱");
-                ui_draw_text(s, bx, by + 20, str, 35, COLOR_BLACK, BOLD, 0.0f, 0.0f);
+            if (xSignType == 124 || camType == 22) {
+                ui_draw_image(s, { bx - 60, by - 50, 120, 150 }, "ic_speed_bump", 1.0f);
             }
             else {
+                nvgBeginPath(s->vg);
+                nvgCircle(s->vg, bx, by, 140 / 2);
+                nvgFillColor(s->vg, COLOR_WHITE);
+                nvgFill(s->vg);
+                nvgBeginPath(s->vg);
+                nvgCircle(s->vg, bx, by, 130 / 2);
+                nvgFillColor(s->vg, COLOR_RED);
+                nvgFill(s->vg);
+                nvgBeginPath(s->vg);
+                nvgCircle(s->vg, bx, by, 110 / 2);
+                nvgFillColor(s->vg, COLOR_WHITE);
+                nvgFill(s->vg);
                 sprintf(str, "%d", limit_speed);
                 ui_draw_text(s, bx, by + 25, str, 60, COLOR_BLACK, BOLD, 0.0f, 0.0f);
             }
@@ -1843,6 +1843,7 @@ void ui_nvg_init(UIState *s) {
   {"ic_traffic_red", "../assets/images/traffic_red.png"},
   {"ic_tire", "../assets/images/img_tire.png"},
   {"ic_road_speed", "../assets/images/road_speed.png"},
+  {"ic_speed_bump", "../assets/images/speed_bump.png"},
   {"ic_nda", "../assets/images/img_nda.png"},
   {"ic_navi","../assets/images/img_navi.png"},
   {"ic_scc2", "../assets/images/img_scc2.png"},

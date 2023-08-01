@@ -70,6 +70,9 @@ class CarState(CarStateBase):
     self.cluster_speed = 0
     self.cluster_speed_counter = CLUSTER_SAMPLE_RATE
 
+    self.totalDistance = 0.0
+    self.speedLimitDistance = 0
+
   def update(self, pt_cp, cam_cp, loopback_cp, chassis_cp): # line for brake light & GM: EPS fault workaround (#22404)
     ret = car.CarState.new_message()
 
@@ -244,6 +247,22 @@ class CarState(CarStateBase):
     # autohold on ui icon
     #if self.CP.enableAutoHold:
     ret.brakeHoldActive = self.autoHoldActivated
+
+    #여기서부터 아래 265라인까지 모두 현기차에만 해당됨. 
+    self.totalDistance += ret.vEgo * DT_CTRL
+    ret.totalDistance = self.totalDistance
+    #맨아래 speedLimit, Distance 값만 road_speed_limiter에 주기 위한 것임
+    if self.CP.naviCluster == 1:
+      if ret.speedLimit>0:
+        if self.speedLimitDistance <= self.totalDistance:
+          self.speedLimitDistance = self.totalDistance + ret.speedLimit * 6  #일반적으로 속도*6M 시점에 안내하는것으로 보임.
+        self.speedLimitDistance = max(self.totalDistance+1, self.speedLimitDistance) #구간또는 거리가 벗어난경우에는 1M를 유지함.
+      else:
+        self.speedLimitDistance = self.totalDistance
+      ret.speedLimitDistance = self.speedLimitDistance - self.totalDistance
+    else:
+      ret.speedLimit = 0
+      ret.speedLimitDistance = 0
 
     return ret
 
