@@ -36,7 +36,7 @@ const CanMsg GM_CAM_TX_MSGS[] = {{384, 0, 4},  // pt bus
                                  {481, 2, 7}, {388, 2, 8}};  // camera bus
 
 const CanMsg GM_CAM_LONG_TX_MSGS[] = {{384, 0, 4}, {789, 0, 5}, {715, 0, 8}, {880, 0, 6},  // pt bus
-                                      {388, 2, 8}};  // camera bus
+                                      {481, 2, 7}, {388, 2, 8}};  // camera bus
 
 // TODO: do checksum and counter checks. Add correct timestep, 0.1s for now.
 AddrCheckStruct gm_addr_checks[] = {
@@ -109,11 +109,11 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     // Reference for brake pressed signals:
     // https://github.com/commaai/openpilot/blob/master/selfdrive/car/gm/carstate.py
     if ((addr == 190) && (gm_hw == GM_ASCM)) {
-      brake_pressed = GET_BYTE(to_push, 1) >= 8U;
+      //brake_pressed = GET_BYTE(to_push, 1) >= 8U;
     }
 
     if ((addr == 201) && (gm_hw == GM_CAM)) {
-      brake_pressed = GET_BIT(to_push, 40U) != 0U;
+      //brake_pressed = GET_BIT(to_push, 40U) != 0U;
     }
 
     if (addr == 452) {
@@ -126,8 +126,10 @@ static int gm_rx_hook(CANPacket_t *to_push) {
       }
     }
 
+    // exit controls on regen paddle
     if (addr == 189) {
-      regen_braking = (GET_BYTE(to_push, 0) >> 4) != 0U;
+      //regen_braking = (GET_BYTE(to_push, 0) >> 4) != 0U;
+      controls_allowed = 1;
     }
 
     bool stock_ecu_detected = (addr == 384);  // ASCMLKASteeringCmd

@@ -1464,15 +1464,15 @@ void DrawApilot::drawLeadApilot(const UIState* s) {
         }
         if (s->show_conn_info) {
             //ui_draw_text(s, strlen(str) / 2 * 35 / 2 + 50,40, str, 35, COLOR_WHITE, BOLD);
-            int hda_speedLimit = car_state.getSpeedLimit(); 
-            int hda_speedLimitDistance = car_state.getSpeedLimitDistance();
-            int naviCluster = (int)car_params.getNaviCluster();
+            //int hda_speedLimit = car_state.getSpeedLimit(); 
+            //int hda_speedLimitDistance = car_state.getSpeedLimitDistance();
+            //int naviCluster = (int)car_params.getNaviCluster();
             if (sccBus) ui_draw_image(s, { 30, 20, 120, 54 }, "ic_scc2", 1.0f);
             if (activeNDA >= 200) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_apn", 1.0f);
-            else if (hda_speedLimit > 0 && hda_speedLimitDistance > 0) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_hda", 1.0f);
+            //else if (hda_speedLimit > 0 && hda_speedLimitDistance > 0) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_hda", 1.0f);
             else if (activeNDA >= 100) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_apm", 1.0f);
             else if (activeNDA % 100 > 0) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_nda", 1.0f);
-            else if (naviCluster > 0) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_hda", 1.0f);
+            //else if (naviCluster > 0) ui_draw_image(s, { 30 + 135, 20, 120, 54 }, "ic_hda", 1.0f);
             if (radar_tracks) ui_draw_image(s, { 30 + 135 * 2, 20, 240, 54 }, "ic_radartracks", 1.0f);
         }
 
@@ -1704,10 +1704,10 @@ void DrawApilot::drawDebugText(UIState* s) {
 
     int y = 350, dy = 40;
 
-    const int text_x = s->fb_w - 20;
+    const int text_x = 1880;
     const auto live_torque_params = sm["liveTorqueParameters"].getLiveTorqueParameters();
-    
-    sprintf(str, "LT[%.0f]:%s (%.4f/%.4f)", live_torque_params.getTotalBucketPoints(), live_torque_params.getLiveValid() ? "ON" : "OFF", live_torque_params.getLatAccelFactorFiltered(), live_torque_params.getFrictionCoefficientFiltered());
+    const auto controls_state = sm["controlsState"].getControlsState();
+    sprintf(str, "LT[%.0f]:%s (%.2f/%.2f/%.2f)", live_torque_params.getTotalBucketPoints(), live_torque_params.getLiveValid() ? "ON" : "OFF", live_torque_params.getLatAccelFactorFiltered(), controls_state.getLatAccelOffset(), live_torque_params.getFrictionCoefficientFiltered());
     ui_draw_text(s, text_x, y, str, 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
 
     qstr = QString::fromStdString(live_torque_params.getDebugText().cStr());
@@ -1719,19 +1719,25 @@ void DrawApilot::drawDebugText(UIState* s) {
     y += dy;
     ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
     const auto live_params = sm["liveParameters"].getLiveParameters();
-    float   liveSteerRatio = live_params.getSteerRatio();
-    sprintf(str, "LiveSR = %.2f", liveSteerRatio);
+    float liveSteerRatio = live_params.getSteerRatio();
+    float fixedSteerRatio = controls_state.getSteerRatio();
+    sprintf(str, "Live SR/Fixed SR = %.2f/%.2f", liveSteerRatio, fixedSteerRatio);
     y += dy;
     ui_draw_text(s, text_x, y, str, 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
 
-    auto controls_state = sm["controlsState"].getControlsState();
     qstr = QString::fromStdString(controls_state.getDebugText1().cStr());
     y += dy;
     ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
     qstr = QString::fromStdString(controls_state.getDebugText2().cStr());
     y += dy;
     ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
+    qstr = QString::fromStdString(controls_state.getDebugText3().cStr());
+    y += dy;
+    ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
 
+    qstr = QString::fromStdString(controls_state.getDebugText4().cStr());
+    y += dy;
+    ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
     const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
     bool navEnabled = model.getNavEnabled();
     auto meta = sm["modelV2"].getModelV2().getMeta();

@@ -82,8 +82,9 @@ class CarInterfaceBase(ABC):
       self.cp_cam = self.CS.get_cam_can_parser(CP)
       self.cp_adas = self.CS.get_adas_can_parser(CP)
       self.cp_body = self.CS.get_body_can_parser(CP)
+      self.cp_chassis = self.CS.get_chassis_can_parser(CP) #this line for brakeLights
       self.cp_loopback = self.CS.get_loopback_can_parser(CP)
-      self.can_parsers = [self.cp, self.cp_cam, self.cp_adas, self.cp_body, self.cp_loopback]
+      self.can_parsers = [self.cp, self.cp_cam, self.cp_adas, self.cp_body, self.cp_loopback, self.cp_chassis]
 
     self.CC = None
     if CarController is not None:
@@ -150,9 +151,11 @@ class CarInterfaceBase(ABC):
   def get_std_params(candidate):
     ret = car.CarParams.new_message()
     ret.carFingerprint = candidate
+    ret.alternativeExperience = 1
 
     # Car docs fields
     ret.maxLateralAccel = get_torque_params(candidate)['MAX_LAT_ACCEL_MEASURED']
+    print("====================================== get_torque_params() ")
     ret.autoResumeSng = True  # describes whether car can resume from a stop automatically
 
     # standard ALC params
@@ -183,7 +186,7 @@ class CarInterfaceBase(ABC):
     return ret
 
   @staticmethod
-  def configure_torque_tune(candidate, tune, steering_angle_deadzone_deg=0.0, use_steering_angle=True):
+  def configure_torque_tune(candidate, tune, steering_angle_deadzone_deg=0.15, use_steering_angle=True):
     params = get_torque_params(candidate)
 
     tune.init('torque')
@@ -264,6 +267,8 @@ class CarInterfaceBase(ABC):
       events.add(EventName.wrongCarMode)
     if cs_out.espDisabled:
       events.add(EventName.espDisabled)
+    if cs_out.gasPressed:
+      events.add(EventName.gasPressedOverride)
     if cs_out.stockFcw:
       events.add(EventName.stockFcw)
     if cs_out.stockAeb:
@@ -277,8 +282,6 @@ class CarInterfaceBase(ABC):
       pass
     if cs_out.parkingBrake:
       events.add(EventName.parkBrake)
-    if cs_out.accFaulted:
-      events.add(EventName.accFaulted)
     if cs_out.steeringPressed:
       events.add(EventName.steerOverride)
 
@@ -460,6 +463,11 @@ class CarStateBase(ABC):
 
   @staticmethod
   def get_body_can_parser(CP):
+    return None
+
+#bellows are for brakeLights
+  @staticmethod
+  def get_chassis_can_parser(CP):
     return None
 
   @staticmethod

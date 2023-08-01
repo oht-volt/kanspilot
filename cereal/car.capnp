@@ -231,6 +231,13 @@ struct CarState {
   fuelGauge @41 :Float32; # battery or fuel tank level from 0.0 to 1.0
   charging @43 :Bool;
 
+  # kans
+  cluSpeedMs @57 :Float32;
+  cruiseButtons @58 :Int32;
+  diffDistance @59 :Float32;
+  # Autohold for GM
+  autoHoldActivated @60 :Bool;
+  cruiseMain  @61 :Bool;
 
   cruiseGap @53 : Int32;
   tpms @48 : Tpms;
@@ -267,6 +274,7 @@ struct CarState {
     standstill @4 :Bool;
     nonAdaptive @5 :Bool;
     pcmMode @7 :Bool;
+    resumeButton @8: Bool;
   }
 
   enum GearShifter {
@@ -436,6 +444,9 @@ struct CarControl {
       seatbeltUnbuckled @5;
       speedTooHigh @6;
       ldw @7;
+
+      # Autohold Event
+      autoHoldActivated @8;
     }
 
     enum AudibleAlert {
@@ -467,7 +478,7 @@ struct CarControl {
       speedDown @20;
       stopStop @21;
       audioTurn @22;
-      
+      reverseGear @23;
     }
   }
 
@@ -493,6 +504,10 @@ struct CarParams {
   enableDsu @5 :Bool;        # driving support unit
   enableBsm @56 :Bool;       # blind spot monitoring
   flags @64 :UInt32;         # flags for car specific quirks
+
+  # Autohold
+  enableAutoHold @75 :Bool;
+
   experimentalLongitudinalAvailable @71 :Bool;
 
   minEnableSpeed @7 :Float32;
@@ -581,6 +596,7 @@ struct CarParams {
     useSteeringAngle @0 :Bool;
     kp @1 :Float32;
     ki @2 :Float32;
+    kd @8 :Float32;
     friction @3 :Float32;
     kf @4 :Float32;
     steeringAngleDeadzoneDeg @5 :Float32;

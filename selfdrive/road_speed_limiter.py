@@ -14,7 +14,7 @@ from common.numpy_fast import clip
 from common.realtime import sec_since_boot
 from common.conversions import Conversions as CV
 
-CAMERA_SPEED_FACTOR = 1.05
+CAMERA_SPEED_FACTOR = 0.99
 
 
 class Port:
@@ -564,7 +564,7 @@ class RoadSpeedLimiter:
     self.autoNaviSpeedCtrlStart = 22
     self.autoNaviSpeedCtrlEnd = 6
     self.autoNaviSpeedBumpDist = 10
-    self.autoNaviSpeedBumpSpeed = 30
+    self.autoNaviSpeedBumpSpeed = 25
 
   def recv(self):
     try:
@@ -609,11 +609,11 @@ class RoadSpeedLimiter:
 
         self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
 
-      hda_limit_active = False
+      hda_limit_active = False # 현기 순정 네비 사용시 True 값을 주기 위한 로직이라서 벌트엔 False 값만 필요
       if CS.speedLimit>0 and CS.speedLimitDistance>0:
         #log = "hda_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
         hda_limit_active = True
-
+      #아래 624까지 역시 현기 순정네비용이라 벌트에겐 없어도 되는 코드
       if cam_limit_speed <= 0:
         if CS.speedLimit>0 and CS.speedLimitDistance>0:
           cam_limit_speed_left_dist = CS.speedLimitDistance
@@ -629,7 +629,7 @@ class RoadSpeedLimiter:
       section_left_time = self.roadLimitSpeed.sectionLeftTime
       section_adjust_speed = self.roadLimitSpeed.sectionAdjustSpeed
 
-      camSpeedFactor = clip(self.roadLimitSpeed.camSpeedFactor, 1.0, 1.1)
+      camSpeedFactor = clip(self.roadLimitSpeed.camSpeedFactor, 0.98, 1.0)
 
       if False and is_highway is not None:
         if is_highway:

@@ -107,7 +107,7 @@ class Controls:
 
     # set alternative experiences from parameters
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
-    self.CP.alternativeExperience = 0
+    self.CP.alternativeExperience = 1
     if not self.disengage_on_accelerator:
       self.CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.DISABLE_DISENGAGE_ON_GAS
 
@@ -186,6 +186,9 @@ class Controls:
     self.cruise_helper = CruiseHelper()
     self.debugText1 = ""
     self.debugText2 = ""
+    self.debugText3 = ""
+    self.debugText4 = ""
+    #self.debugText5 = ""
     self.pcmLongSpeed = 100.0
     self.cruiseButtonCounter = 0
     self.enableAutoEngage = int(Params().get("EnableAutoEngage")) if self.CP.openpilotLongitudinalControl else 0
@@ -196,6 +199,16 @@ class Controls:
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
     self.can_log_mono_time = 0
+
+    #live torque by Telly
+    self.torque_latAccelFactor = 0.
+    self.torque_latAccelOffset = 0.
+    self.torque_friction = 0.
+    self.totalBucketPoints = 0.
+    self.second = 0.0
+    self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
+    self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
+    self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
 
     self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0)
 
@@ -354,6 +367,13 @@ class Controls:
     # All events here should at least have NO_ENTRY and SOFT_DISABLE.
     num_events = len(self.events)
 
+    #opkr
+    self.second += DT_CTRL
+    if self.second > 1.0:
+      self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
+      self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
+      self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
+      self.second = 0.0
     not_running = {p.name for p in self.sm['managerState'].processes if not p.running and p.shouldBeRunning}
     if self.sm.rcv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
       self.events.add(EventName.processNotRunning)
@@ -740,8 +760,8 @@ class Controls:
           left_deviation = steering_value > 0 and dpath_points[0] < -0.20
           right_deviation = steering_value < 0 and dpath_points[0] > 0.20
 
-          if left_deviation or right_deviation:
-            self.events.add(EventName.steerSaturated)
+          #if left_deviation or right_deviation:
+          #  self.events.add(EventName.steerSaturated)
 
     # Ensure no NaNs/Infs
     for p in ACTUATOR_FIELDS:
@@ -904,6 +924,13 @@ class Controls:
     #self.debugText2 = self.LoC.debugLoCText
     self.debugText2 = self.LaC.latDebugText
     controlsState.debugText2 = self.debugText2
+    self.debugText3 = self.LaC.torqDebugText
+    controlsState.debugText3 = self.debugText3
+    self.debugText4 = self.LoC.debugLoCText1
+    controlsState.debugText4 = self.debugText4
+    #self.debugText5 = self.LoC.debugLoCText2
+    #controlsState.debugText5 = self.debugText5
+
     controlsState.longActiveUser = self.cruise_helper.longActiveUser
     controlsState.longActiveUserReady = self.cruise_helper.longActiveUserReady
     controlsState.cruiseButtonCounter = self.cruiseButtonCounter
@@ -919,6 +946,9 @@ class Controls:
     controlsState.cumLagMs = -self.rk.remaining * 1000.
 
     #print("cumLagMsg={:5.2f}".format(-self.rk.remaining * 1000.))
+
+    # display SR/SRC/SAD on Ui
+    controlsState.steerRatio = self.VM.sR
     #self.debugText1 = 'cumLagMs={:5.1f}'.format(-self.rk.remaining * 1000.)
     #controlsState.debugText1 = self.debugText1
 
@@ -926,6 +956,12 @@ class Controls:
     controlsState.forceDecel = bool(force_decel)
     controlsState.canErrorCounter = self.can_rcv_cum_timeout_counter
     controlsState.experimentalMode = self.experimental_mode
+
+    # live torque by Telly
+    controlsState.latAccelFactor = self.torque_latAccelFactor
+    controlsState.latAccelOffset = self.torque_latAccelOffset
+    controlsState.friction = self.torque_friction
+    controlsState.totalBucketPoints = self.totalBucketPoints
 
     lat_tuning = self.CP.lateralTuning.which()
     if self.joystick_mode:
