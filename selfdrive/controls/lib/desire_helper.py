@@ -215,7 +215,7 @@ class DesireHelper:
       direction = LaneChangeDirection.left if nav_type in [1,3] else LaneChangeDirection.right if nav_type in [2,4,43] else LaneChangeDirection.none
   
     nav_direction = LaneChangeDirection.none
-    if 5 < nav_distance < 300:
+    if 5 < nav_distance < 300 and direction != LaneChangeDirection.none:
       if self.desireReady >= 0: # -1이면 현재의 네비정보는 사용안함.
         self.desireReady = 1
         if self.autoTurnControl >= 3:
