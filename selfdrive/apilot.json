@@ -1086,9 +1086,9 @@
       "group": "감속제어",
       "name": "AutoNaviSpeedCtrl",
       "title": "과속카메라 작동방법(2)",
-      "descr": "0:사용안함, 1:NDA, 2:NDA + 순정네비게이션",
+      "descr": "0:사용안함, 1:APM, 2:APM + 순정네비게이션, 3:NDA , 재시작필요",
       "min": 0,
-      "max": 2,
+      "max": 3,
       "default": 1,
       "unit": 1
     },

@@ -13,6 +13,8 @@ from cereal import messaging, log
 from common.numpy_fast import clip
 from common.realtime import sec_since_boot
 from common.conversions import Conversions as CV
+from system.hardware import TICI
+from common.params import Params
 
 CAMERA_SPEED_FACTOR = 0.99
 
@@ -38,6 +40,10 @@ class RoadLimitSpeedServer:
 
     self.remote_gps_addr = None
     self.last_time_location = 0
+    
+    if Params().get("AutoNaviSpeedCtrl") != '3':
+      Port.BROADCAST_PORT = 7708
+      Port.RECEIVE_PORT = 7707
 
     broadcast = Thread(target=self.broadcast_thread, args=[])
     broadcast.setDaemon(True)
@@ -133,7 +139,12 @@ class RoadLimitSpeedServer:
 
             if broadcast_address is not None:
               address = (broadcast_address, Port.BROADCAST_PORT)
-              sock.sendto('EON:ROAD_LIMIT_SERVICE:v1'.encode(), address)
+                  
+              if Params().get("AutoNaviSpeedCtrl") != '3':
+                msg = 'APMSERVICE:C3:V1' if TICI else 'APMSERVICE:C2:V1'
+              else:        
+                msg = 'EON:ROAD_LIMIT_SERVICE:v1'
+              sock.sendto(msg.encode(), address)
           except:
             pass
 
@@ -145,9 +156,11 @@ class RoadLimitSpeedServer:
 
   def send_sdp(self, sock):
     try:
-      sock.sendto('EON:ROAD_LIMIT_SERVICE:v1'.encode(), (self.remote_addr[0], Port.BROADCAST_PORT))
-      #print(self.remote_addr[0])
-      sock.sendto('EON:ROAD_LIMIT_SERVICE:v1'.encode(), (self.remote_addr[0], 2898))
+      if Params().get("AutoNaviSpeedCtrl") != '3':
+        msg = 'APMSERVICE:C3:V1' if TICI else 'APMSERVICE:C2:V1'
+      else:        
+        msg = 'EON:ROAD_LIMIT_SERVICE:v1'
+      sock.sendto(msg.encode(), (self.remote_addr[0], Port.BROADCAST_PORT))
     except:
       pass
 
@@ -305,10 +318,14 @@ def main():
 
   with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     try:
-      try:
-        sock.bind(('0.0.0.0', 843))
-      except:
+      if Params().get("AutoNaviSpeedCtrl") != '3':
         sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+      else:
+        try:
+          sock.bind(('0.0.0.0', 843))
+        except:
+          sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+
 
       sock.setblocking(False)
 
@@ -656,7 +673,7 @@ class RoadSpeedLimiter:
         starting_dist = v_ego * self.autoNaviSpeedCtrlStart
 
         if cam_type == 1000:
-          starting_dist = v_ego * 12
+          starting_dist = v_ego * 15
           safe_dist = 80
         elif cam_type == 22:
           starting_dist = v_ego * 10 #6
