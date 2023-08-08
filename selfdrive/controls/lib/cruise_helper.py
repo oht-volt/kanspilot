@@ -1,6 +1,7 @@
 import copy
 import random
 import numpy as np
+import math
 from common.numpy_fast import clip, interp
 from cereal import car
 from common.realtime import DT_CTRL
@@ -89,7 +90,7 @@ class CruiseHelper:
     self.active_cam = False
     self.over_speed_limit = False
 
-    self.roadLimitSpeed = 0.0
+    self.roadLimitSpeed = None
     self.ndaActive = 0
     self.apilotEventFrame = 0
     self.apilotEventWait = 0
@@ -108,10 +109,13 @@ class CruiseHelper:
     self.autoCurveSpeedFactor = float(int(Params().get("AutoCurveSpeedFactor", encoding="utf8")))*0.01
     self.autoCurveSpeedFactorIn = float(int(Params().get("AutoCurveSpeedFactorIn", encoding="utf8")))*0.01
     self.autoNaviSpeedCtrl = int(Params().get("AutoNaviSpeedCtrl"))
+    self.autoNaviSpeedCtrlMode = int(Params().get("AutoNaviSpeedCtrlMode"))
     self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
     self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
+    self.autoNaviSpeedFactor = 1.05
     self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
     self.autoNaviSpeedBumpSpeed = float(Params().get("AutoNaviSpeedBumpSpeed"))
+    self.autoNaviSpeedDecelRate = float(Params().get("AutoNaviSpeedDecelRate"))*0.01
     self.autoRoadLimitCtrl = int(Params().get("AutoRoadLimitCtrl", encoding="utf8"))
     self.autoResumeFromGasSpeed = float(int(Params().get("AutoResumeFromGasSpeed", encoding="utf8")))
     self.autoResumeFromGas = Params().get_bool("AutoResumeFromGas")
@@ -130,7 +134,8 @@ class CruiseHelper:
     self.autoResumeFromGasSpeedMode = int(Params().get("AutoResumeFromGasSpeedMode"))
     self.initMyDrivingMode = int(Params().get("InitMyDrivingMode"))
     self.myDrivingMode = self.initMyDrivingMode if self.initMyDrivingMode < 5 else 3
-    self.mySafeModeFactor = float(int(Params().get("MySafeModeFactor", encoding="utf8"))) / 100. if self.myDrivingMode == 2 else 1.0
+    mySafeModeFactor = float(int(Params().get("MySafeModeFactor", encoding="utf8"))) / 100.
+    self.mySafeModeFactor = mySafeModeFactor if self.myDrivingMode == 2 else (1. + mySafeModeFactor) / 2. if self.myDrivingMode == 1 else 1.0
     self.liveSteerRatioApply  = float(int(Params().get("LiveSteerRatioApply", encoding="utf8"))) / 100.
     self.autoCancelFromGasMode = int(Params().get("AutoCancelFromGasMode"))
     self.steerActuatorDelay = float(int(Params().get("SteerActuatorDelay", encoding="utf8"))) / 100.
@@ -150,6 +155,7 @@ class CruiseHelper:
         self.autoCurveSpeedFactorIn = float(int(Params().get("AutoCurveSpeedFactorIn", encoding="utf8")))*0.01
       elif self.update_params_count == 1:
         self.autoNaviSpeedCtrl = int(Params().get("AutoNaviSpeedCtrl"))
+        self.autoNaviSpeedCtrlMode = int(Params().get("AutoNaviSpeedCtrlMode"))
         self.autoRoadLimitCtrl = int(Params().get("AutoRoadLimitCtrl", encoding="utf8"))
       elif self.update_params_count == 2:
         pass
@@ -178,7 +184,8 @@ class CruiseHelper:
         self.autoResumeFromGasSpeedMode = int(Params().get("AutoResumeFromGasSpeedMode"))
       elif self.update_params_count == 11:
         #self.myDrivingMode = int(Params().get("InitMyDrivingMode")) #초기에 한번만 읽어옴...
-        self.mySafeModeFactor = float(int(Params().get("MySafeModeFactor", encoding="utf8"))) / 100. if self.myDrivingMode == 2 else 1.0
+        mySafeModeFactor = float(int(Params().get("MySafeModeFactor", encoding="utf8"))) / 100.
+        self.mySafeModeFactor = mySafeModeFactor if self.myDrivingMode == 2 else (1. + mySafeModeFactor) / 2. if self.myDrivingMode == 1 else 1.0
         self.liveSteerRatioApply  = float(int(Params().get("LiveSteerRatioApply", encoding="utf8"))) / 100.
       elif self.update_params_count == 12:
         self.autoCancelFromGasMode = int(Params().get("AutoCancelFromGasMode"))
@@ -192,6 +199,7 @@ class CruiseHelper:
         self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
         self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
         self.autoNaviSpeedBumpSpeed = float(Params().get("AutoNaviSpeedBumpSpeed"))
+        self.autoNaviSpeedDecelRate = float(Params().get("AutoNaviSpeedDecelRate"))*0.01
         road_speed_limiter = get_road_speed_limiter()
         road_speed_limiter.autoNaviSpeedCtrlStart = self.autoNaviSpeedCtrlStart
         road_speed_limiter.autoNaviSpeedCtrlEnd = self.autoNaviSpeedCtrlEnd
@@ -314,6 +322,74 @@ class CruiseHelper:
     v_cruise_kph = clip(v_cruise_kph, self.cruiseSpeedMin, MAX_SET_SPEED_KPH)
     return button_type, LongPressed, v_cruise_kph
 
+  def decelerate_for_speed_camera(self, safe_speed, safe_dist, current_speed, decel_rate, left_dist):
+
+    if left_dist <= safe_dist:
+      return safe_speed
+    temp = safe_speed*safe_speed + 2*(left_dist - safe_dist)/decel_rate
+    dV = (-safe_speed + math.sqrt(temp)) * decel_rate
+    apply_speed = min(250 , safe_speed + dV)
+    return apply_speed
+
+  def update_speed_apilot(self, CS, controls):
+    v_ego = CS.vEgoCluster
+    msg = self.roadLimitSpeed = controls.sm['roadLimitSpeed']
+    apNaviSpeed = controls.sm['lateralPlan'].apNaviSpeed
+    apNaviDistance = controls.sm['lateralPlan'].apNaviDistance
+
+    active = msg.active
+    self.ndaActive = 1 if active > 0 else 0
+    roadSpeed = clip(30, msg.roadLimitSpeed, MAX_SET_SPEED_KPH)
+    camType = int(msg.camType)
+    xSignType = msg.xSignType
+
+    isSpeedBump = False
+    isNoo = False
+    isSectionLimit = False
+    safeSpeed = 0
+    leftDist = 0
+    
+    if camType == 22 or xSignType == 22:
+      safeSpeed = self.autoNaviSpeedBumpSpeed
+      isSpeedBump = True
+
+    if msg.xSpdLimit > 0 and msg.xSpdDist > 0:
+      safeSpeed = msg.xSpdLimit if safeSpeed <= 0 else safeSpeed
+      leftDist = msg.xSpdDist
+      isSectionLimit = True if xSignType==165 or leftDist > 3000 or camType == 4 else False
+      isSectionLimit = False if leftDist < 50 else isSectionLimit
+    elif msg.camLimitSpeed > 0 and msg.camLimitSpeedLeftDist>0:
+      safeSpeed = msg.camLimitSpeed
+      leftDist = msg.camLimitSpeedLeftDist
+      isSectionLimit = True if leftDist > 3000 or camType == 4 else False
+      isSectionLimit = False if leftDist < 50 else isSectionLimit
+    elif CS.speedLimit > 0 and CS.speedLimitDistance > 0 and self.autoNaviSpeedCtrl >= 2:
+      safeSpeed = CS.speedLimit
+      leftDist = CS.speedLimitDistance
+
+    if apNaviSpeed > 0 and apNaviDistance > 0:
+      if leftDist > 0 and apNaviDistance > leftDist:
+        pass
+      else:
+        isNoo = True
+        safeSpeed = apNaviSpeed
+        leftDist = apNaviDistance
+
+    #safeDist = self.autoNaviSpeedBumpDist if isSpeedBump else 30 if isNoo else self.autoNaviSpeedCtrlEnd * v_ego
+    safeDist = self.autoNaviSpeedBumpDist if isSpeedBump else 30 if isNoo else self.autoNaviSpeedCtrlEnd * safeSpeed/3.6
+
+    log = ""
+    if isSectionLimit:
+      applySpeed = safeSpeed
+    elif leftDist > 0 and safeSpeed > 0 and safeDist > 0:
+      applySpeed = self.decelerate_for_speed_camera(safeSpeed/3.6, safeDist, self.v_cruise_kph_apply/3.6, self.autoNaviSpeedDecelRate, leftDist) * 3.6
+      log = "ApplySpeed={:.1f},Speed={:.1f},Dist={:.1f},Decel={:.1f},Left={:.0f}".format(applySpeed, safeSpeed, safeDist, self.autoNaviSpeedDecelRate, leftDist)
+    else:
+      applySpeed = 255
+
+    controls.debugText1 = log
+    return applySpeed, roadSpeed
+
   def update_speed_nda(self, CS, controls):
     clu11_speed = CS.vEgoCluster * CV.MS_TO_KPH
     road_speed_limiter = get_road_speed_limiter()
@@ -336,9 +412,9 @@ class CruiseHelper:
 
     #str1 = 'applyLimit={},speedLimit={},leftDist={}'.format(apply_limit_speed, road_limit_speed, left_dist)
     #controls.debugText1 = str1
-    self.roadLimitSpeed = controls.sm['roadLimitSpeed'].roadLimitSpeed
+    roadSpeed = controls.sm['roadLimitSpeed'].roadLimitSpeed
 
-    return clip(apply_limit_speed, 0, MAX_SET_SPEED_KPH), clip(self.roadLimitSpeed, 10, MAX_SET_SPEED_KPH)
+    return clip(apply_limit_speed, 0, MAX_SET_SPEED_KPH), clip(roadSpeed, 10, MAX_SET_SPEED_KPH)
 
   def apilot_driving_mode(self, CS, controls):
     accel_index = interp(CS.aEgo, [-3.0, -2.0, 0.0, 2.0, 3.0], [100.0, 0, 0, 0, 100.0])
@@ -668,7 +744,10 @@ class CruiseHelper:
     self.frame = controls.sm.frame
     self.update_params(self.frame)
 
-    self.naviSpeed, self.roadSpeed = self.update_speed_nda(CS, controls)
+    if self.autoNaviSpeedCtrlMode == 1:
+      self.naviSpeed, self.roadSpeed = self.update_speed_apilot(CS, controls)
+    else:
+      self.naviSpeed, self.roadSpeed = self.update_speed_nda(CS, controls)
     
     self.curveSpeed = 255
     self.apilot_driving_mode(CS, controls)
