@@ -1085,11 +1085,11 @@
     {
       "group": "감속제어",
       "name": "AutoNaviSpeedCtrlMode",
-      "title": "과속카메라 감속방법(1)",
+      "title": "과속카메라 감속방법(0)",
       "descr": "0:기존방식, 1:APILOT방식",
       "min": 0,
       "max": 1,
-      "default": 1,
+      "default": 0,
       "unit": 1
     },
     {
@@ -1135,11 +1135,11 @@
     {
       "group": "감속제어",
       "name": "AutoNaviSpeedDecelRate",
-      "title": "과속카메라 감속율 x0.01m/s^2(100)",
+      "title": "과속카메라 감속율 x0.01m/s^2(40)",
       "descr": "",
       "min": 10,
       "max": 200,
-      "default": 100,
+      "default": 40,
       "unit": 10
     }
 
