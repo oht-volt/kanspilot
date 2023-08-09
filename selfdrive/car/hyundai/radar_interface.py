@@ -67,7 +67,7 @@ class RadarInterface(RadarInterfaceBase):
   def update(self, can_strings):
     # This one causes my radar points to not work
     # if self.radar_off_can or (self.rcp is None):
-    #   return super().update(None)
+    #   return None
 
     vls = self.rcp.update_strings(can_strings)
     self.updated_messages.update(vls)

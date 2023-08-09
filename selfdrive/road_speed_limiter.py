@@ -41,7 +41,7 @@ class RoadLimitSpeedServer:
     self.remote_gps_addr = None
     self.last_time_location = 0
     
-    if Params().get("AutoNaviSpeedCtrl") != '3':
+    if int(Params().get("AutoNaviSpeedCtrl")) != 3:
       Port.BROADCAST_PORT = 7708
       Port.RECEIVE_PORT = 7707
 
@@ -140,7 +140,7 @@ class RoadLimitSpeedServer:
             if broadcast_address is not None:
               address = (broadcast_address, Port.BROADCAST_PORT)
                   
-              if Params().get("AutoNaviSpeedCtrl") != '3':
+              if int(Params().get("AutoNaviSpeedCtrl")) != 3:
                 msg = 'APMSERVICE:C3:V1' if TICI else 'APMSERVICE:C2:V1'
               else:        
                 msg = 'EON:ROAD_LIMIT_SERVICE:v1'
@@ -156,7 +156,7 @@ class RoadLimitSpeedServer:
 
   def send_sdp(self, sock):
     try:
-      if Params().get("AutoNaviSpeedCtrl") != '3':
+      if int(Params().get("AutoNaviSpeedCtrl")) != 3:
         msg = 'APMSERVICE:C3:V1' if TICI else 'APMSERVICE:C2:V1'
       else:        
         msg = 'EON:ROAD_LIMIT_SERVICE:v1'
@@ -164,10 +164,10 @@ class RoadLimitSpeedServer:
     except:
       pass
 
-  def udp_recv(self, sock):
+  def udp_recv(self, sock, wait_time):
     ret = False
     try:
-      ready = select.select([sock], [], [], 0.2)
+      ready = select.select([sock], [], [], wait_time)
       ret = bool(ready[0])
       if ret:
         data, self.remote_addr = sock.recvfrom(2048)
@@ -315,12 +315,17 @@ def main():
   nRoadLimitSpeed = -1
   
   prev_recvTime = sec_since_boot()
+  autoNaviSpeedCtrl = int(Params().get("AutoNaviSpeedCtrl"))
+  sockWaitTime = 1.0 if autoNaviSpeedCtrl == 3 else 0.2
 
   with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     try:
-      if Params().get("AutoNaviSpeedCtrl") != '3':
+      if int(Params().get("AutoNaviSpeedCtrl")) != 3:
         sock.bind(('0.0.0.0', Port.RECEIVE_PORT))
+        print("AutoNaviSpeed != 3")
+
       else:
+        print("AutoNaviSpeed == 3")
         try:
           sock.bind(('0.0.0.0', 843))
         except:
@@ -331,7 +336,7 @@ def main():
 
       while True:
 
-        ret = server.udp_recv(sock)
+        ret = server.udp_recv(sock, sockWaitTime)
 
         try:
           dat = messaging.recv_sock(sock_carState, wait=False)
@@ -507,7 +512,13 @@ def main():
         sdi_valid_count -= 1
         if sdi_valid:
           sdi_valid_count = 10
-        sdiDebugText = "({}/{}/{} {}/{}/{})".format(nSdiType, nSdiDist, nSdiSpeedLimit, nSdiPlusType, nSdiPlusDist, nSdiPlusSpeedLimit)
+        sdiDebugText = ":"
+        if nSdiType >= 0:
+          sdiDebugText += "S-{}/{}/{} ".format(nSdiType, nSdiDist, nSdiSpeedLimit)
+        if nSdiPlusType >= 0:
+          sdiDebugText += "P-{}/{}/{} ".format(nSdiPlusType, nSdiPlusDist, nSdiPlusSpeedLimit)
+        if nSdiBlockType >= 0:
+          sdiDebugText += "B-{}/{}/{} ".format(nSdiBlockType, nSdiBlockDist, nSdiBlockSpeed)
         if ret:
           print(sdiDebugText)
         apm_valid_count -= 1
@@ -684,7 +695,7 @@ class RoadSpeedLimiter:
         if not hda_limit_active:
           log = "SPDCTRL({})={:.0f}<{:.0f}<{:.0f},type={},{:.0f}".format(self.slowing_down, safe_dist, cam_limit_speed_left_dist, starting_dist, cam_type, self.started_dist)
 
-        if MIN_LIMIT <= cam_limit_speed <= MAX_LIMIT and (self.slowing_down or cam_limit_speed_left_dist < starting_dist):
+        if MIN_LIMIT <= cam_limit_speed <= MAX_LIMIT and (self.slowing_down or cam_limit_speed_left_dist < starting_dist or self.session_limit):
           if not self.slowing_down:
             self.started_dist = cam_limit_speed_left_dist
             self.slowing_down = True

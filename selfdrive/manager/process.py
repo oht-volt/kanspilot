@@ -17,7 +17,6 @@ from common.basedir import BASEDIR
 from common.params import Params
 from common.realtime import sec_since_boot
 from system.swaglog import cloudlog
-from system.hardware import HARDWARE
 from cereal import log
 
 WATCHDOG_FN = "/dev/shm/wd_"
@@ -68,7 +67,6 @@ def join_process(process: Process, timeout: float) -> None:
 
 
 class ManagerProcess(ABC):
-  unkillable = False
   daemon = False
   sigkill = False
   onroad = True
@@ -133,22 +131,11 @@ class ManagerProcess(ABC):
 
       join_process(self.proc, 5)
 
-      # If process failed to die send SIGKILL or reboot
+      # If process failed to die send SIGKILL
       if self.proc.exitcode is None and retry:
-        if self.unkillable:
-          cloudlog.critical(f"unkillable process {self.name} failed to exit! rebooting in 15 if it doesn't die")
-          join_process(self.proc, 15)
-
-          if self.proc.exitcode is None:
-            cloudlog.critical(f"unkillable process {self.name} failed to die!")
-            os.system("date >> /data/unkillable_reboot")
-            os.sync()
-            HARDWARE.reboot()
-            raise RuntimeError
-        else:
-          cloudlog.info(f"killing {self.name} with SIGKILL")
-          self.signal(signal.SIGKILL)
-          self.proc.join()
+        cloudlog.info(f"killing {self.name} with SIGKILL")
+        self.signal(signal.SIGKILL)
+        self.proc.join()
 
     ret = self.proc.exitcode
     cloudlog.info(f"{self.name} is dead with {ret}")
@@ -197,6 +184,7 @@ class NativeProcess(ManagerProcess):
     self.unkillable = unkillable
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
+    self.launcher = nativelauncher
 
   def prepare(self) -> None:
     pass
@@ -211,7 +199,7 @@ class NativeProcess(ManagerProcess):
 
     cwd = os.path.join(BASEDIR, self.cwd)
     cloudlog.info(f"starting process {self.name}")
-    self.proc = Process(name=self.name, target=nativelauncher, args=(self.cmdline, cwd, self.name))
+    self.proc = Process(name=self.name, target=self.launcher, args=(self.cmdline, cwd, self.name))
     self.proc.start()
     self.watchdog_seen = False
     self.shutting_down = False
@@ -228,6 +216,7 @@ class PythonProcess(ManagerProcess):
     self.unkillable = unkillable
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
+    self.launcher = launcher
 
   def prepare(self) -> None:
     if self.enabled:
@@ -243,7 +232,7 @@ class PythonProcess(ManagerProcess):
       return
 
     cloudlog.info(f"starting python {self.module}")
-    self.proc = Process(name=self.name, target=launcher, args=(self.module, self.name))
+    self.proc = Process(name=self.name, target=self.launcher, args=(self.module, self.name))
     self.proc.start()
     self.watchdog_seen = False
     self.shutting_down = False

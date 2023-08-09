@@ -8,7 +8,7 @@ import capnp
 from cereal import messaging, log, car
 from common.numpy_fast import interp
 from common.params import Params
-from common.realtime import Ratekeeper, Priority, config_realtime_process
+from common.realtime import Ratekeeper, Priority, config_realtime_process, DT_MDL
 from system.swaglog import cloudlog
 
 from common.kalman.simple_kalman import KF1D
@@ -60,7 +60,8 @@ class KalmanParams:
 
 
 class Track:
-  def __init__(self, v_lead: float, kalman_params: KalmanParams):
+  def __init__(self, identifier: int, v_lead: float, kalman_params: KalmanParams):
+    self.identifier = identifier
     self.cnt = 0
     self.aLeadTau = _LEAD_ACCEL_TAU
     self.K_A = kalman_params.A
@@ -73,8 +74,12 @@ class Track:
     self.dRel = d_rel   # LONG_DIST
     self.yRel = y_rel   # -LAT_DIST
     self.vRel = v_rel   # REL_SPEED
-    self.vLead = v_lead
     self.measured = measured   # measured or estimate
+
+    self.update_vlead(v_lead)
+
+  def update_vlead(self, v_lead: float):
+    self.vLead = v_lead
 
     # computed velocity and accelerations
     if self.cnt > 0:
@@ -108,11 +113,12 @@ class Track:
       "vLead": float(self.vLead),
       "vLeadK": float(self.vLeadK),
       "aLeadK": float(self.aLeadK),
+      "aLeadTau": float(self.aLeadTau),
       "status": True,
       "fcw": self.is_potential_fcw(model_prob),
       "modelProb": model_prob,
       "radar": True,
-      "aLeadTau": float(self.aLeadTau)
+      "radarTrackId": self.identifier,
     }
   
   def get_RadarState2(self, model_prob, lead_msg, mixRadarInfo):
@@ -133,12 +139,9 @@ class Track:
       "fcw": self.is_potential_fcw(model_prob),
       "modelProb": model_prob,
       "radar": True,
-      "aLeadTau": 0.3 if useVisionMix else float(self.aLeadTau)
+      "radarTrackId": self.identifier,
     }
 
-  def __str__(self):
-    ret = f"x: {self.dRel:4.1f}  y: {self.yRel:4.1f}  v: {self.vRel:4.1f}  a: {self.aLeadK:4.1f}"
-    return ret
 
   def potential_low_speed_lead(self, v_ego: float):
     # stop for stuff in front of you and low speed, even without model confirmation
@@ -254,14 +257,16 @@ def get_RadarState_from_vision(lead_msg: capnp._DynamicStructReader, v_ego: floa
     "aLeadTau": 0.3,
     "fcw": False,
     "modelProb": float(lead_msg.prob),
+    "status": True,
     "radar": False,
-    "status": True
+    "radarTrackId": -1,
   }
 
 
 def get_lead(v_ego: float, ready: bool, tracks: Dict[int, Track], lead_msg: capnp._DynamicStructReader, model_v_ego: float, low_speed_override: bool = True, mixRadarInfo=0) -> Dict[str, Any]:
   # Determine leads, this is where the essential logic happens
-  if len(tracks) > 0 and ready and lead_msg.prob > .5:
+  lead_msg_empty = any([len(c) == 0 for c in [lead_msg.x, lead_msg.y, lead_msg.v]])
+  if len(tracks) > 0 and ready and not lead_msg_empty and lead_msg.prob > .5:
     track = match_vision_to_track(v_ego, lead_msg, tracks)
   else:
     track = None
@@ -269,7 +274,7 @@ def get_lead(v_ego: float, ready: bool, tracks: Dict[int, Track], lead_msg: capn
   lead_dict = {'status': False}
   if track is not None:
     lead_dict = track.get_RadarState2(lead_msg.prob, lead_msg, mixRadarInfo)
-  elif (track is None) and ready and (lead_msg.prob > .5):
+  elif track is None and ready and not lead_msg_empty and lead_msg.prob > .5:
     lead_dict = get_RadarState_from_vision(lead_msg, v_ego, model_v_ego)
 
   if low_speed_override:
@@ -301,7 +306,7 @@ class RadarD:
     self.showRadarInfo = False
     self.mixRadarInfo = 0
 
-  def update(self, sm: messaging.SubMaster, rr: Optional[car.RadarData]):
+  def update(self, sm: messaging.SubMaster, radar_data: Optional[car.RadarData]):
     self.showRadarInfo = int(Params().get("ShowRadarInfo"))
     self.mixRadarInfo = int(Params().get("MixRadarInfo"))
 
@@ -309,9 +314,9 @@ class RadarD:
 
     radar_points = []
     radar_errors = []
-    if rr is not None:
-      radar_points = rr.points
-      radar_errors = rr.errors
+    if radar_data is not None:
+      radar_points = radar_data.points
+      radar_errors = radar_data.errors
 
     if sm.updated['carState']:
       self.v_ego = sm['carState'].vEgo
@@ -319,26 +324,32 @@ class RadarD:
     if sm.updated['modelV2']:
       self.ready = True
 
-    ar_pts = {}
-    for pt in radar_points:
-      ar_pts[pt.trackId] = [pt.dRel, pt.yRel, pt.vRel, pt.measured]
+    if radar_data is not None:
+      ar_pts = {}
+      for pt in radar_points:
+        ar_pts[pt.trackId] = [pt.dRel, pt.yRel, pt.vRel, pt.measured]
 
-    # *** remove missing points from meta data ***
-    for ids in list(self.tracks.keys()):
-      if ids not in ar_pts:
-        self.tracks.pop(ids, None)
+      # *** remove missing points from meta data ***
+      for ids in list(self.tracks.keys()):
+        if ids not in ar_pts:
+          self.tracks.pop(ids, None)
 
-    # *** compute the tracks ***
-    for ids in ar_pts:
-      rpt = ar_pts[ids]
+      # *** compute the tracks ***
+      for ids in ar_pts:
+        rpt = ar_pts[ids]
 
-      # align v_ego by a fixed time to align it with the radar measurement
-      v_lead = rpt[2] + self.v_ego_hist[0]
+        # align v_ego by a fixed time to align it with the radar measurement
+        v_lead = rpt[2] + self.v_ego_hist[0]
 
-      # create the track if it doesn't exist or it's a new track
-      if ids not in self.tracks:
-        self.tracks[ids] = Track(v_lead, self.kalman_params)
-      self.tracks[ids].update(rpt[0], rpt[1], rpt[2], v_lead, rpt[3])
+        # create the track if it doesn't exist or it's a new track
+        if ids not in self.tracks:
+          self.tracks[ids] = Track(ids, v_lead, self.kalman_params)
+        self.tracks[ids].update(rpt[0], rpt[1], rpt[2], v_lead, rpt[3])
+    else:
+      # *** no radar points, keep existing tracks, update v_lead
+      for track in self.tracks.values():
+        v_lead = track.vRel + self.v_ego_hist[0]
+        track.update_vlead(v_lead)
 
     # *** publish radarState ***
     self.radar_state_valid = sm.all_checks() and len(radar_errors) == 0
@@ -406,32 +417,30 @@ def radard_thread(sm: Optional[messaging.SubMaster] = None, pm: Optional[messagi
   cloudlog.info("radard is importing %s", CP.carName)
   RadarInterface = importlib.import_module(f'selfdrive.car.{CP.carName}.radar_interface').RadarInterface
 
-  # *** setup messaging
+  # setup messaging
   if can_sock is None:
     can_sock = messaging.sub_sock('can')
   if sm is None:
-    sm = messaging.SubMaster(['modelV2', 'carState', 'lateralPlan'], ignore_avg_freq=['modelV2', 'carState', 'lateralPlan'])  # Can't check average frequency, since radar determines timing
+    sm = messaging.SubMaster(['modelV2', 'carState', 'lateralPlan'], poll=["modelV2", "lateralPlan"])
   if pm is None:
     pm = messaging.PubMaster(['radarState', 'liveTracks'])
 
-  RI = RadarInterface(CP)
+  interface = RadarInterface(CP)
 
-  rk = Ratekeeper(1.0 / CP.radarTimeStep, print_delay_threshold=None)
-  RD = RadarD(CP.radarTimeStep, RI.delay)
+  rk = Ratekeeper(1 / DT_MDL, print_delay_threshold=None)
+  radar = RadarD(DT_MDL, interface.delay)
 
-  while 1:
-    can_strings = messaging.drain_sock_raw(can_sock, wait_for_one=True)
-    rr = RI.update(can_strings)
+  while True:
+    sm.update()
 
-    if rr is None:
-      continue
+    if sm.updated['modelV2']:
+      can_strings = messaging.drain_sock_raw(can_sock)
+      radar_data = interface.update(can_strings)
 
-    sm.update(0)
+      radar.update(sm, radar_data)
+      radar.publish(pm, -rk.remaining*1000.0)
 
-    RD.update(sm, rr)
-    RD.publish(pm, -rk.remaining*1000.0)
-
-    rk.monitor_time()
+      rk.monitor_time()
 
 
 def main(sm: Optional[messaging.SubMaster] = None, pm: Optional[messaging.PubMaster] = None, can_sock: messaging.SubSocket = None):
