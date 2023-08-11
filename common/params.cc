@@ -315,6 +315,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     { "SccConnectedBus2", PERSISTENT },
     { "TFollowRatio", PERSISTENT },
     { "JerkUpperLowerLimit", PERSISTENT },
+    { "TorqueFriction", PERSISTENT },
+    { "TorqueMaxLatAccel", PERSISTENT },
     { "KeepEngage", PERSISTENT },
     { "UseLaneLineSpeed", PERSISTENT },
     { "PathOffset", PERSISTENT },
