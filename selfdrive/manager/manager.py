@@ -90,7 +90,7 @@ def manager_init() -> None:
     ("AutoNaviSpeedCtrlEnd", "5"),
     ("AutoNaviSpeedBumpDist", "10"),
     ("AutoNaviSpeedBumpSpeed", "25"),
-    ("AutoNaviSpeedSafetyFactor", "99"),
+    ("AutoNaviSpeedSafetyFactor", "105"),
     ("AutoNaviSpeedDecelRate", "40"),
     ("AutoRoadLimitCtrl", "1"),
     ("AutoResumeFromBrakeRelease", "0"),

@@ -429,7 +429,7 @@ class CruiseHelper:
     #controls.debugText1 = str1
     roadSpeed = controls.sm['roadLimitSpeed'].roadLimitSpeed
 
-    return clip(apply_limit_speed, 0, MAX_SET_SPEED_KPH), clip(roadSpeed, 10, MAX_SET_SPEED_KPH)
+    return clip(apply_limit_speed, 0, MAX_SET_SPEED_KPH), clip(roadSpeed, 10, MAX_SET_SPEED_KPH), 0, 2
 
   def apilot_driving_mode(self, CS, controls):
     accel_index = interp(CS.aEgo, [-3.0, -2.0, 0.0, 2.0, 3.0], [100.0, 0, 0, 0, 100.0])
