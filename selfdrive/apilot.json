@@ -1159,7 +1159,7 @@
       "descr": "",
       "min": 80,
       "max": 120,
-      "default": 99,
+      "default": 105,
       "unit": 1
     }
   ]

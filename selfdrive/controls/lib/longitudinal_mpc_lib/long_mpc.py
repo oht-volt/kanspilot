@@ -52,7 +52,7 @@ LIMIT_COST = 1e6
 ACADOS_SOLVER_TYPE = 'SQP_RTI'
 
 CRUISE_GAP_BP = [1., 2., 3.]
-CRUISE_GAP_V = [1.0, 1.8, 2.7]
+CRUISE_GAP_V = [0.9, 1.35, 1.8]
 
 # Fewer timestamps don't hurt performance and lead to
 # much better convergence of the MPC with low iterations
@@ -617,7 +617,7 @@ class LongitudinalMpc:
       self.applyCruiseGap = clip(self.applyCruiseGap, 1, 4)
     else:
       self.applyCruiseGap = float(controls.longCruiseGap)
-      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [1.0, 1.8, 2.7])
+      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [0.9, 1.35, 1.8])
 
     self.t_follow = max(0.9, cruiseGapRatio * self.tFollowRatio * (2.0 - self.mySafeModeFactor)) # 0.9아래는 위험하니 적용안함.
 
@@ -664,7 +664,7 @@ class LongitudinalMpc:
     if v_ego_kph < 1.0: 
       stopSign = model_x < 20.0 and model_v < 10.0
     elif v_ego_kph < 80.0:
-      stopSign = model_x < 110.0 and ((model_v < 3.0) or (model_v < v[0]*0.5))  and abs(y[-1]) < 5.0
+      stopSign = model_x < 120.0 and ((model_v < 3.0) or (model_v < v[0]*0.4))  and abs(y[-1]) < 5.0
     else:
       stopSign = False
 

@@ -16,7 +16,7 @@ from common.conversions import Conversions as CV
 from system.hardware import TICI
 from common.params import Params
 
-CAMERA_SPEED_FACTOR = 0.99
+CAMERA_SPEED_FACTOR = 1.05
 
 
 class Port:
@@ -593,7 +593,7 @@ class RoadSpeedLimiter:
     self.autoNaviSpeedCtrlEnd = 6
     self.autoNaviSpeedBumpDist = 10
     self.autoNaviSpeedBumpSpeed = 25
-    self.autoNaviSpeedSafetyFactor = .99
+    self.autoNaviSpeedSafetyFactor = 1.05
 
   def recv(self):
     try:
