@@ -1,3 +1,17 @@
+Version tw-0.8.12-18 (2023-8-10)
+========================
+ * IMPROVED: redone error response (mk 3)
+ * IMPROVED: UI lanelines are now always white (for better visibility)
+ * FIXED: UI metrics persist across drives correctly (if not, let me know how to reproduce it not working)
+
+Version tw-0.8.12-17 (2023-4-30--6-06)
+========================
+  * IMPROVED: NNFF improvements
+  * NEW Add Acadia and LaCrosse NNFF for torque and lat-pid controllers
+  * IMPROVED: UI path gets a face lift
+  * NEW: Print time to pass (seconds) for closest adjacent ongoing lead (if show all car speeds is enabled in toggles)
+  * IMPROVED: Vision turn controller fixes and improvements
+
 Version tw-0.8.12-16 (2023-4-7,9)
 ========================
   * Improved "torque" lateral control

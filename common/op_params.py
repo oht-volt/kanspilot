@@ -29,6 +29,8 @@ PARAMS_DIR = os.path.join(BASEDIR, 'community', 'params')
 IMPORTED_PATH = os.path.join(PARAMS_DIR, '.imported')
 OLD_PARAMS_FILE = os.path.join(BASEDIR, 'op_params.json')
 
+PARAM_PARAMS_DIR = "/data/params/d"
+
 HISTORY_FILE = os.path.join(BASEDIR, 'community', 'op_params_history.csv')
 HISTORY_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
 HISTORY_COLUMN_HEADINGS = [
@@ -38,6 +40,12 @@ HISTORY_COLUMN_HEADINGS = [
   "old value",
   "reason"
 ]
+
+def get_param_param_path(param_name):
+  return os.path.join(PARAM_PARAMS_DIR, param_name)
+
+def get_opparam_param_path(param_name):
+  return os.path.join(PARAMS_DIR, param_name)
 
 # write history. cancel write by setting reason to False
 def write_history(data):
@@ -296,7 +304,7 @@ def _import_params():
 
 
 class opParams:
-  def __init__(self, calling_function='', check_for_reset=False):
+  def __init__(self, calling_function='', check_for_reset=False, overwrite_params=False):
     """
       To add your own parameter to opParams in your fork, simply add a new entry in self.fork_params, instancing a new Param class with at minimum a default value.
       The allowed_types and description args are not required but highly recommended to help users edit their parameters with opEdit safely.
@@ -463,7 +471,7 @@ class opParams:
       
       #####
       
-      'CB_VTSC_smoothing_factor': Param(0.3, float, 'The vision turn controller output acceleration is smoothed. Increase/decrease for more/less smoothing.', live=True, min_val=0.01, max_val=3.0),
+      'CB_VTSC_accel_rate_limit': Param(1.0, float, 'The vision turn controller output acceleration is rate-limited so that when you exit a curve, acceleration resumes smoothly. Increase/decrease for faster/slower ramping.', live=True, min_val=0.1, max_val=10.0, unit="m/s²/s"),
       
       'CB_VTSC_lat_accel_factor': Param(1.0, float, 'The vision turn controller uses the car\'s lateral acceleration in order to lookup corresponding desired values of output longitudinal acceleration. Use this to scale the lateral acceleration values used in the lookup. A value less/greater than 1.0 will make curve braking less/more sensitive to lateral acceleration and apply braking later/sooner.', live=True, min_val=0.01, max_val=3.0),
       
@@ -479,7 +487,7 @@ class opParams:
       
       #####
       
-      'CB_MTSC_smoothing_factor': Param(0.3, float, 'The map turn controller output acceleration is smoothed. Increase/decrease for more/less smoothing.', live=True, min_val=0.01, max_val=3.0),
+      'CB_MTSC_accel_rate_limit': Param(1.0, float, 'The map turn controller output acceleration is rate-limited so that when you exit a curve, acceleration resumes smoothly. Increase/decrease for faster/slower ramping.', live=True, min_val=0.1, max_val=10.0, unit="m/s²/s"),
       
       'CB_MTSC_speed_scale_interchange': Param(1.4, float, 'This scales the speed limit for a curve on interchanges. By 55mph, no scaling is applied. A value less/greater than 1.0 will decrease/increase the speed at which curves are taken at low speeds.', live=True, min_val=0.01, max_val=2.0),
       
@@ -701,25 +709,25 @@ class opParams:
       
       #####
       
-      'MET_00': Param('PERCENT_GRADE_DEVICE', [int,str], 'UI metric in top row right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot00', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_00': Param('PERCENT_GRADE_DEVICE', [int,str], 'UI metric in top row right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot00', param_param_use_ord=True),
       
-      'MET_01': Param('ALTITUDE', [int,str], 'UI metric in second row from top, right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot01', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_01': Param('ALTITUDE', [int,str], 'UI metric in second row from top, right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot01', param_param_use_ord=True),
       
-      'MET_02': Param('ENGINE_RPM_TEMPF', [int,str], 'UI metric in third row from top, right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot02', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_02': Param('ROLL', [int,str], 'UI metric in third row from top, right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot02', param_param_use_ord=True),
       
-      'MET_03': Param('EV_EFF_RECENT', [int,str], 'UI metric in fourth row from top, right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot03', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_03': Param('ENGINE_RPM_TEMPF', [int,str], 'UI metric in fourth row from top, right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot03', param_param_use_ord=True),
       
-      'MET_04': Param('CPU_TEMP_AND_PERCENTC', [int,str], 'UI metric in bottom row right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot04', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_04': Param('CPU_TEMP_AND_PERCENTC', [int,str], 'UI metric in bottom row right column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot04', param_param_use_ord=True),
       
-      'MET_05': Param('DISTANCE_ENGAGED_PERCENT_TOTAL', [int,str], 'UI metric in top row left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot05', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_05': Param('STEERING_ANGLE_ERROR', [int,str], 'UI metric in top row left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot05', param_param_use_ord=True),
       
-      'MET_06': Param('TIME_ENGAGED_PERCENT_TOTAL', [int,str], 'UI metric in second row from top, left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot06', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_06': Param('STEERING_TORQUE_EPS', [int,str], 'UI metric in second row from top, left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot06', param_param_use_ord=True),
       
-      'MET_07': Param('LANE_DIST_FROM_CENTER', [int,str], 'UI metric in third row from top, left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot07', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_07': Param('LAT_ACCEL', [int,str], 'UI metric in third row from top, left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot07', param_param_use_ord=True),
       
-      'MET_08': Param('FANSPEED_PERCENT', [int,str], 'UI metric in fourth row from top, left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot08', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_08': Param('EV_EFF_RECENT', [int,str], 'UI metric in fourth row from top, left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot08', param_param_use_ord=True),
       
-      'MET_09': Param('MEMORY_USAGE_PERCENT', [int,str], 'UI metric in bottom row left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot09', param_param_use_ord=True, param_param_read_on_startup=True),
+      'MET_09': Param('MEMORY_USAGE_PERCENT', [int,str], 'UI metric in bottom row left column. Enter the name of the metric or it\'s number.', allowed_vals=UI_METRICS, param_param='MeasureSlot09', param_param_use_ord=True),
       
       'MET_reset_trip_metrics': Param(False, bool, 'Set this to true in order to, the next time you start your car, reset trip and EV "total" efficiency metrics. This sets the UI metric reset toggle in OpenPilot settings, so you can reset on-device or here using opparams.', param_param='MetricResetSwitch', param_param_read_on_startup=True, is_common=True, fake_live=True),
       
@@ -799,9 +807,9 @@ class opParams:
       }  # a dict where each key is a date in 'yyyy/mm/dd-hh:mm' (24-hour) format, and the value is a list of names of params OR regular expressions to match params you want reset to their default values if the modification date is before the key date
       # use something that doesn't match the date string format and the associated list of param names or regex's will apply no matter the modified date of the param
     self._calling_function = calling_function
-    self._run_init(calling_function=calling_function, check_for_reset=check_for_reset)  # restores, reads, and updates params
+    self._run_init(calling_function=calling_function, check_for_reset=check_for_reset, overwrite_params=overwrite_params)  # restores, reads, and updates params
 
-  def _run_init(self, calling_function = '', check_for_reset=False):  # does first time initializing of default params
+  def _run_init(self, calling_function = '', check_for_reset=False, overwrite_params=False):  # does first time initializing of default params
     # Two required parameters for opEdit
     self.live_tuning_enabled = Params().get_bool("OPParamsLiveTuneEnabled")
     do_reset = check_for_reset and Params().get_bool("OPParamsReset")
@@ -828,6 +836,8 @@ class opParams:
     # cloudlog.info(f"opParams: {calling_function}:   added default params")
     self._delete_and_reset(full_reset=do_reset)  # removes old params
     # cloudlog.info(f"opParams: {calling_function}:   delete and reset applied")
+    if overwrite_params:
+      self._overwrite_param_params()
     if self.live_tuning_enabled:
       self.put('op_params_live_tune_enabled', True, reason=False)
       
@@ -874,6 +884,15 @@ class opParams:
       print(warning(f'Provided value was clipped to param bounds. {key = }, {value = }'))
     self.params.update({key: value})
     self.fork_params[key].value = value
+    self.put_params(key, value)
+    _write_param(key, value, reason=reason, old_value=old_val, do_log=do_log)
+    if show_alert:
+      _write_param('op_edit_param_changed', True, reason=reason, old_value=old_val, do_log=False)
+      _write_param('op_edit_param_changed_name', key, reason=reason, old_value=old_val, do_log=False)
+      _write_param('op_edit_param_changed_val_old', str(old_val), reason=reason, old_value=old_val, do_log=False)
+      _write_param('op_edit_param_changed_val_new', str(value), reason=reason, old_value=old_val, do_log=False)
+  
+  def put_params(self, key, value):
     if self.fork_params[key].param_param != '':
       if self.fork_params[key].param_param_use_ord and value in self.fork_params[key].allowed_vals:
         ind = self.fork_params[key].allowed_vals.index(value)
@@ -885,13 +904,21 @@ class opParams:
           else str(value)
         cloudlog.info(f"opParams: putting value in linked param {self.fork_params[key].param_param}: {value = }. {key = }")
         self.fork_params[key]._params.put(self.fork_params[key].param_param, put_val)
-    _write_param(key, value, reason=reason, old_value=old_val, do_log=do_log)
-    if show_alert:
-      _write_param('op_edit_param_changed', True, reason=reason, old_value=old_val, do_log=False)
-      _write_param('op_edit_param_changed_name', key, reason=reason, old_value=old_val, do_log=False)
-      _write_param('op_edit_param_changed_val_old', str(old_val), reason=reason, old_value=old_val, do_log=False)
-      _write_param('op_edit_param_changed_val_new', str(value), reason=reason, old_value=old_val, do_log=False)
 
+  def _overwrite_param_params(self):
+    for key, param in self.fork_params.items():
+      if self.fork_params[key].param_param != '':
+        opparam_path = get_opparam_param_path(key)
+        param_param_path = get_param_param_path(self.fork_params[key].param_param)
+        # compare modified time of both files
+        if os.path.exists(opparam_path) and os.path.exists(param_param_path):
+          opparam_mtime = os.path.getmtime(opparam_path)
+          param_param_mtime = os.path.getmtime(param_param_path)
+          if opparam_mtime > param_param_mtime:
+            cloudlog.warning(f'opParams: {key}: Overwriting param param ({self.fork_params[key].param_param}) with opparam ({key})')
+            self.put_params(key, param.value)
+          
+  
   def _load_params(self, can_import=False):
     if not os.path.exists(PARAMS_DIR):
       os.makedirs(PARAMS_DIR)
@@ -932,9 +959,10 @@ class opParams:
 
   def _delete_and_reset(self, full_reset=False):
     for key in list(self.params):
+      p = get_opparam_param_path(key)
       if key in self._to_delete:
         del self.params[key]
-        os.remove(os.path.join(PARAMS_DIR, key))
+        os.remove(p)
     if full_reset:
       cloudlog.warning(warning("opParams: Performing a full reset of all params!"))
       for k,v in self.fork_params.items():
@@ -948,7 +976,7 @@ class opParams:
         except:
           dt = None
         for key in v:
-          p = os.path.join(PARAMS_DIR, key)
+          p = get_opparam_param_path(key)
           if key in self.fork_params and os.path.exists(p): # key is exact match for param
             dm = datetime.fromtimestamp(os.path.getmtime(p)) # modification date
             if (dt is None or dm < dt) and self.params[key] != self.fork_params[key].default_value: # if param modification date older than cutoff, overwrite
@@ -967,7 +995,6 @@ class opParams:
                 m = r.match(key2)
                 if m is not None:
                   key1 = m.group()
-                  p = os.path.join(PARAMS_DIR, key1)
                   if key1 in self.fork_params and os.path.exists(p):
                     dm = datetime.fromtimestamp(os.path.getmtime(p)) # modification date
                     if (dt is None or dm < dt) and self.params[key1] != self.fork_params[key1].default_value: # if param modification date older than cutoff, overwrite

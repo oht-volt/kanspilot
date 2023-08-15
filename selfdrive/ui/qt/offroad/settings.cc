@@ -49,7 +49,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("DisableDisengageOnGas",
                                   "가스페달 인게이지",
-                                  "Keep steering when gas (accelerator) is pressed",
+                                  "가스페달에도 인게이지를 유지합니다.",
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("MADSEnabled",
@@ -68,8 +68,8 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_car_pedal.png",
                                   this));
   toggles.append(new ParamControl("MADSPauseBlinkerSteering",
-                                  "MADS 스티어링 일시 중지",
-                                  "MADS가 활성화되어 있을 때 깜빡이를 켜고 시속 70키로 이하로 감속하면 급격한 회전을 쉽게 수행하기 위해 스티어링이 일시 중지됩니다(오파 의도와 반대일 수 있음). 가속을 재개하거나 다시 70키로를 초과하면 스티어링이 일시 중지가 해제됩니다.",
+                                  "MADS 스티어링 일시중지",
+                                  "MADS가 활성화되어 있을 때 깜빡이를 켜고 시속 70키로 이하로 감속하면 급격한 회전을 쉽게 수행하기 위해 MADS스티어링이 일시 중지됩니다(오파 의도와 반대일 수 있음). 가속을 재개하거나 다시 70키로를 초과하면 MADS스티어링 일시중지가 해제됩니다.",
                                   "../assets/offroad/icon_hands_on_wheel.png",
                                   this));
 
@@ -81,19 +81,19 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
 
   toggles.append(new ParamControl("OPParamsLateralOverride",
                                   "횡가속 사용자맞춤",
-                                  "This enables the lateral tune specified in opParams.",
+                                  "./common/op_params.py로 횡방향 가속도를 튜닝합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
 
   toggles.append(new ParamControl("OPParamsLongitudinalOverride",
                                   "롱컨 사용자맞춤",
-                                  "This enables the longitudinal tune specified in opParams.",
+                                  "./common/op_params.py로 종방향 가속도를 튜닝합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
 
   toggles.append(new ParamControl("OPParamsReset",
                                   "OPParams 디폴트 설정 ",
-                                  "활성화된 경우 다음 번에 OPParams를 실행할 때, 오픈 파일럿을 시작하거나 ./opparams.py 을 실행하여 모든 파라미터가 기본값으로 재설정됩니다. 그러면 이 토글이 비활성화됩니다.",
+                                  "./common/op_params.py로 튜닝할 경우 op_params.py에 설정된 값을 모두 기본값으로 재설정합니다.",
                                   "../assets/offroad/icon_calibration.png",
                                   this));
   
@@ -109,7 +109,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   "../assets/offroad/icon_plus.png",
                                   this));
   toggles.append(new ParamControl("TurnVisionControl",
-                                  "비전카메라 기반 커브 컨트롤",
+                                  "비전카메라 기반 커브컨트롤",
                                   "Use vision path predictions to estimate the appropiate speed to drive through turns ahead.",
                                   "../assets/offroad/icon_slow_curves_vision.png",
                                   this));
@@ -120,7 +120,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("SpeedLimitControl",
                                   "속도제한 컨트롤(권장되지 않음)",
-                                  "Use speed limit signs information from map data and car interface to automatically adapt cruise speed to road limits.",
+                                  "지도테이터에 제공되는 도로별 제한속도로 속도제한을 컨트롤합니다.",
                                   "../assets/offroad/icon_speed_limit_sign.png",
                                   this));
   toggles.append(new ParamControl("EUSpeedLimitStyle",
@@ -130,7 +130,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("SpeedLimitPercOffset",
                                   "속도제한 오프셑(권장되지 않음)",
-                                  "Set speed limit slightly higher than actual speed limit for a more natural drive.",
+                                  "보다 자연스런 드라입을 위해 실제재한속도보다 살짝 속도를 높여줍니다.",
                                   "../assets/offroad/icon_speed_limit_percent.png",
                                   this));
   toggles.append(new ParamControl("ReverseSpeedAdjust",
@@ -145,7 +145,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("LanePositionEnabled",
                                   "차선위치 조정",
-                                  "화면상 나타나는 화살표를 터치하여 임시로 주행위치 조정.",
+                                  "화면상 나타나는 화살표를 터치하여 임시로 차선의 좌우 주행위치를 보정합니다.",
                                   "../assets/offroad/icon_road.png",
                                   this));
   toggles.append(new ParamControl("AutoAutoLanePosition",
@@ -235,7 +235,7 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                   this));
   toggles.append(new ParamControl("WeatherSafetyEnabled",
                                   "기상 안전",
-                                  "OpenPilot은 자동으로 더 부드러운 가속과 곡선 제동, 더 먼 거리의 교통 흐름을 따르거나 사용 중 제한 속도 오프셋을 낮추어줍니다. 원하는 경우 /data/OpenWeatherMap_apiKey.txt 파일에 여러분 자신의 OpenWeatherMap.org API 키를 입력합십시오.",
+                                  "OpenPilot이 자동으로 더 부드겁게 가속하거나 커브길을 제동하게 하고, 교통혼잡시(traffic) 앞차 간격을 벌리거나 도로 제한속도보다 더 속도를 낮추어줍니다. 원하는 경우 /data/OpenWeatherMap_apiKey.txt 파일에 여러분 자신의 OpenWeatherMap.org API 키를 입력합십시오.",
                                   "../assets/weather/10n.png",
                                   this));
   toggles.append(new ParamControl("AutoBrightness",
@@ -276,13 +276,13 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
 
   toggles.append(new ParamControl("EnableTorqueControl",
                                   "토크조향 컨트롤",
-                                  "(Restart car to take effect) Use the newer torque-based steering control that steers by achieving a target amount of lateral acceleration rather than achieving a target steering angle. Torque tune is only available in the Volt.",
+                                  "(차량을 재시동해야 적용됩니다) Use the newer torque-based steering control that steers by achieving a target amount of lateral acceleration rather than achieving a target steering angle. Torque tune is only available in the Volt.",
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
 
   toggles.append(new ParamControl("EnableNNFF",
                                   "\"torque\"뉴럴 피드포워드",
-                                  "(차량재시동으로 적용) 3부분에서 합성된 피드포워드(모두 여전히 차량 데이터에서 파생된) 대신 실험적 신경망 피드포워드를 사용합니다.",
+                                  "(차량을 재시동해야 적용됩니다) 3부분에서 합성된 피드포워드(모두 여전히 차량 데이터에서 파생된) 대신 실험적 신경망 피드포워드를 사용합니다.",
                                   "../assets/offroad/icon_openpilot.png",
                                   this));
 
@@ -322,8 +322,8 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
                                                  this);
   toggles.append(record_toggle);
   toggles.append(new ParamControl("EndToEndToggle",
-                                  "차선사용 무시(Alpha)",
-                                  "In this mode openpilot will ignore lanelines and just drive how it thinks a human would.",
+                                  "\U0001f96c 차선 사용안함(레인리스모드) \U0001f96c",
+                                  "차선을 무시하고 사람이 운전하듯이..",
                                   "../assets/offroad/icon_road.png",
                                   this));
   
