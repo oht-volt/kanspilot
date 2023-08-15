@@ -615,7 +615,7 @@ class LongitudinalMpc:
       self.applyCruiseGap = clip(self.applyCruiseGap, 1, 4)
     else:
       self.applyCruiseGap = float(controls.longCruiseGap)
-      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [0.9, 1.35 1.8])
+      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [0.9, 1.35, 1.8])
 
     self.t_follow = max(0.9, cruiseGapRatio * self.tFollowRatio * (2.0 - self.mySafeModeFactor)) # 0.9아래는 위험하니 적용안함.
 
