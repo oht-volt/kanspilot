@@ -1,6 +1,6 @@
 import copy
 from cereal import car
-from common.filter_simple import FirstOrderFilter
+
 from common.numpy_fast import interp
 from common.realtime import DT_CTRL
 from common.conversions import Conversions as CV
@@ -31,9 +31,6 @@ class CarState(CarStateBase):
     self.pt_lka_steering_cmd_counter = 0
     self.cam_lka_steering_cmd_counter = 0
 
-    self.a_ego_filtered_rc = 1.0
-    self.a_ego_filtered = FirstOrderFilter(0.0, self.a_ego_filtered_rc, DT_CTRL)
-
     self.cruise_buttons = 0
     self.prev_cruise_buttons = 0
     self.vEgo = 0
@@ -57,7 +54,7 @@ class CarState(CarStateBase):
     #Engine Rpm
     self.engineRPM = 0
 
-    self.use_cluster_speed = True # Params().get_bool('UseClusterSpeed')
+    self.use_cluster_speed = Params().get_bool('UseClusterSpeed')
     self.is_metric = False
 
     # lead_distance
@@ -70,6 +67,9 @@ class CarState(CarStateBase):
     #self.standstill_status = False
     self.cluster_speed = 0
     self.cluster_speed_counter = CLUSTER_SAMPLE_RATE
+
+    self.totalDistance = 0.0
+    self.speedLimitDistance = 0
 
   def update(self, pt_cp, cam_cp, loopback_cp, chassis_cp): # line for brake light & GM: EPS fault workaround (#22404)
     ret = car.CarState.new_message()
@@ -107,8 +107,7 @@ class CarState(CarStateBase):
     self.distance_button = pt_cp.vl["ASCMSteeringButton"]["DistanceButton"]
 
     cluSpeed = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
-
-    ret.cluSpeedMs = cluSpeed * self.speed_conv_to_ms
+    ret.vEgoCluster = cluSpeed * self.speed_conv_to_ms
 
     ret.wheelSpeeds = self.get_wheel_speeds(
       pt_cp.vl["EBCMWheelSpdFront"]["FLWheelSpd"],
@@ -116,11 +115,13 @@ class CarState(CarStateBase):
       pt_cp.vl["EBCMWheelSpdRear"]["RLWheelSpd"],
       pt_cp.vl["EBCMWheelSpdRear"]["RRWheelSpd"],
     )
+    # ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]) * (106./100.)
+    # ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
     vEgoRawClu = cluSpeed * self.speed_conv_to_ms
     vEgoClu, aEgoClu = self.update_clu_speed_kf(vEgoRawClu)
 
-    vEgoRawWheel = (ret.wheelSpeeds.fl + ret.wheelSpeeds.fr + ret.wheelSpeeds.rl + ret.wheelSpeeds.rr) / 4.
+    vEgoRawWheel = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]) * (106./100.)
     vEgoRawWheel = interp(vEgoRawWheel, [0., 10.], [(vEgoRawWheel + vEgoRawClu) / 2., vEgoRawWheel])
     vEgoWheel, aEgoWheel = self.update_speed_kf(vEgoRawWheel)
 
@@ -134,13 +135,6 @@ class CarState(CarStateBase):
       ret.aEgo = aEgoWheel
 
     ret.vCluRatio = (vEgoWheel / vEgoClu) if (vEgoClu > 3. and vEgoWheel > 3.) else 1.0
-
-    # ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]) * (106./100.)
-    # ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-    if ret.vEgo < 3.0:
-      self.a_ego_filtered = FirstOrderFilter(ret.aEgo, self.a_ego_filtered_rc, DT_CTRL)
-    else:
-      self.a_ego_filtered.update(ret.aEgo)
 
     self.vEgo = ret.vEgo
 
@@ -173,7 +167,7 @@ class CarState(CarStateBase):
     ret.tpms.fl = 36 #TODO:
     ret.tpms.fr = 36 #TODO:
     ret.tpms.rl = 36 #TODO:
-    ret.tpms.rr = 36 #TODO:    
+    ret.tpms.rr = 36 #TODO:
 
     ret.gas = pt_cp.vl["AcceleratorPedal2"]["AcceleratorPedal2"] / 254.
     ret.gasPressed = ret.gas > 1e-5
@@ -204,8 +198,6 @@ class CarState(CarStateBase):
     ret.parkingBrake = pt_cp.vl["VehicleIgnitionAlt"]["ParkBrake"] == 1
     ret.cruiseState.available = pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"] != 0
     ret.espDisabled = pt_cp.vl["ESPStatus"]["TractionControlOn"] != 1
-    #ret.accFaulted = (pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.FAULTED or
-    #                  pt_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakeUnavailable"] == 1)
     self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
 
     ret.brakePressed = ret.brake > 1e-5
