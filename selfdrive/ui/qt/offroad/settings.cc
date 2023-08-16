@@ -690,6 +690,7 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
   toggleLayout->addWidget(new CValueControl("UseLaneLineSpeed", "Auto LaneMode change speed(0)", "0: Always laneless, 으로 하면 안함", "../assets/offroad/icon_road.png", 0, 200, 10));
   toggleLayout->addWidget(new CValueControl("PathOffset", "PathOffset", "(-)Left, (+)Right", "../assets/offroad/icon_road.png", -200, 200, 1));
   toggleLayout->addWidget(new CValueControl("HapticFeedbackWhenSpeedCamera", "Haptic handle function", "0:사용안함,1:진동,2:계기판,3:HUD표시", "../assets/offroad/icon_road.png", 0, 3, 1));
+  toggleLayout->addWidget(new CValueControl("UseClusterSpeed", "클러스터속도 사용(1)", "0:사용안함,1:사용함", "../assets/offroad/icon_road.png", 0, 1, 1));
   toggleLayout->addWidget(new CValueControl("SoftHoldMode", "SoftHold(1)", "0:Not used,1:Use,2: with SCC(단,사이드가 걸리는 차량이 있음)", "../assets/offroad/icon_road.png", 0, 2, 1));
   toggleLayout->addWidget(horizontal_line());
   toggleLayout->addWidget(new CValueControl("ShowHudMode", "DISP:Display Mode", "0:Normal,1:APilot,2:Bottom,3:Top,4:Left,5:Left-Bottom", "../assets/offroad/icon_shell.png", 0, 5, 1));

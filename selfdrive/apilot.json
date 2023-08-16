@@ -904,6 +904,16 @@
     },
     {
       "group": "시작",
+      "name": "UseClusterSpeed",
+      "title": "클러스터 속도 사용(1)",
+      "descr": "0:사용안함,1:사용",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "unit": 1
+    },
+    {
+      "group": "시작",
       "name": "KeepEngage",
       "title": "인게이지 유지모드(0)",
       "descr": "",
