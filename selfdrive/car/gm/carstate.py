@@ -134,7 +134,7 @@ class CarState(CarStateBase):
       ret.vEgo = vEgoWheel
       ret.aEgo = aEgoWheel
 
-    ret.vCluRatio = (vEgoWheel / vEgoClu) if (vEgoClu > 3. and vEgoWheel > 3.) else 1.0
+    ret.vCluRatio = (ret.vEgoCluster / vEgoClu) if (vEgoClu > 3. and ret.vEgoCluster > 3.) else 1.0
 
     self.vEgo = ret.vEgo
 
