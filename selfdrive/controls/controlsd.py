@@ -205,10 +205,6 @@ class Controls:
     self.torque_latAccelOffset = 0.
     self.torque_friction = 0.
     self.totalBucketPoints = 0.
-    self.second = 0.0
-    self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
-    self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
-    self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
 
     self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0)
 
@@ -367,13 +363,6 @@ class Controls:
     # All events here should at least have NO_ENTRY and SOFT_DISABLE.
     num_events = len(self.events)
 
-    #opkr
-    self.second += DT_CTRL
-    if self.second > 1.0:
-      self.autoNaviSpeedCtrlStart = float(Params().get("AutoNaviSpeedCtrlStart"))
-      self.autoNaviSpeedCtrlEnd = float(Params().get("AutoNaviSpeedCtrlEnd"))
-      self.autoNaviSpeedBumpDist = float(Params().get("AutoNaviSpeedBumpDist"))
-      self.second = 0.0
     not_running = {p.name for p in self.sm['managerState'].processes if not p.running and p.shouldBeRunning}
     if self.sm.rcv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
       self.events.add(EventName.processNotRunning)
