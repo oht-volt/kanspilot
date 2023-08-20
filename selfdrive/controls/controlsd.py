@@ -207,7 +207,7 @@ class Controls:
     self.autoEngageCounter = 200
     self.right_lane_visible = False
     self.left_lane_visible = False
-    self.nn_alert_shown = False
+    self.nnff_alert_shown = False
 
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
@@ -269,9 +269,12 @@ class Controls:
       return
     
     # show alert to indicate whether NNFF is loaded
-    if not self.nn_alert_shown and self.sm.frame % 1000 == 0 and self.CP.lateralTuning.which() == 'torque':
-      self.nn_alert_shown = True
-      self.events.add(EventName.torqueNNLoad)
+    if not self.nnff_alert_shown and self.sm.frame % 1000 == 0 and self.CP.lateralTuning.which() == 'torque':
+      self.nnff_alert_shown = True
+      if self.LaC.use_nn:
+        self.events.add(EventName.torqueNNFFLoadSuccess)
+      else: 
+        self.events.add(EventName.torqueNNFFNotLoaded)
 
     # Block resume if cruise never previously enabled
     resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
