@@ -11,7 +11,7 @@ from selfdrive.controls.lib.latcontrol import LatControl
 from selfdrive.controls.lib.pid import PIDController
 from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 from selfdrive.modeld.constants import T_IDXS
-from system.swaglog import cloudlog
+from selfdrive.swaglog import cloudlog
 from common.params import Params
 
 # At higher speeds (25+mph) we can assume:
@@ -111,7 +111,7 @@ class LatControlTorque(LatControl):
     if not active:
       output_torque = 0.0
       pid_log.active = False
-      angle_steers_des = 0.
+      angle_steers_des = 0.0
     else:
       if self.use_steering_angle:
         actual_curvature = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
