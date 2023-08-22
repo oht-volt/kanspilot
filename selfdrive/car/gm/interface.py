@@ -203,7 +203,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.buttonEvents = buttonEvents
 
-    if cruiseEnabled and self.CS.lka_button and self.CS.lka_button != self.CS.prev_lka_button:
+    if cruiseEnabled and self.CS.lkas_enabled and self.CS.lkas_enabled != self.CS.prev_lkas_enabled:
       self.CS.lkMode = not self.CS.lkMode
 
     if self.CS.distance_button and self.CS.distance_button != self.CS.prev_distance_button:
