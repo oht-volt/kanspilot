@@ -1,7 +1,6 @@
 import json
 import math
 import os
-import re
 import subprocess
 import time
 from enum import IntEnum
@@ -9,11 +8,11 @@ from functools import cached_property, lru_cache
 from pathlib import Path
 
 from cereal import log
-from common.gpio import gpio_set, gpio_init, get_irqs_for_action
-from system.hardware.base import HardwareBase, ThermalConfig
-from system.hardware.tici import iwlist
-from system.hardware.tici.pins import GPIO
-from system.hardware.tici.amplifier import Amplifier
+from openpilot.common.gpio import gpio_set, gpio_init, get_irqs_for_action
+from openpilot.system.hardware.base import HardwareBase, ThermalConfig
+from openpilot.system.hardware.tici import iwlist
+from openpilot.system.hardware.tici.pins import GPIO
+from openpilot.system.hardware.tici.amplifier import Amplifier
 
 NM = 'org.freedesktop.NetworkManager'
 NM_CON_ACT = NM + '.Connection.Active'
@@ -84,6 +83,17 @@ def affine_irq(val, action):
   for i in irqs:
     sudo_write(str(val), f"/proc/irq/{i}/smp_affinity_list")
 
+@lru_cache
+def get_device_type():
+  # lru_cache and cache can cause memory leaks when used in classes
+  with open("/sys/firmware/devicetree/base/model") as f:
+    model = f.read().strip('\x00')
+  model = model.split('comma ')[-1]
+  # TODO: remove this with AGNOS 7+
+  if model.startswith('Qualcomm'):
+    model = 'tici'
+  return model
+
 class Tici(HardwareBase):
   @cached_property
   def bus(self):
@@ -106,15 +116,8 @@ class Tici(HardwareBase):
     with open("/VERSION") as f:
       return f.read().strip()
 
-  @lru_cache
   def get_device_type(self):
-    with open("/sys/firmware/devicetree/base/model") as f:
-      model = f.read().strip('\x00')
-    model = model.split('comma ')[-1]
-    # TODO: remove this with AGNOS 7+
-    if model.startswith('Qualcomm'):
-      model = 'tici'
-    return model
+    return get_device_type()
 
   def get_sound_card_online(self):
     if os.path.isfile('/proc/asound/card0/state'):
@@ -163,8 +166,12 @@ class Tici(HardwareBase):
     return NetworkType.none
 
   def get_modem(self):
-    objects = self.mm.GetManagedObjects(dbus_interface="org.freedesktop.DBus.ObjectManager", timeout=TIMEOUT)
-    modem_path = list(objects.keys())[0]
+    try:
+      objects = self.mm.GetManagedObjects(dbus_interface="org.freedesktop.DBus.ObjectManager", timeout=TIMEOUT)
+      modem_path = list(objects.keys())[0]
+    except:
+      modem_path = "/"
+      pass
     return self.bus.get_object(MM, modem_path)
 
   def get_wlan(self):
@@ -320,7 +327,8 @@ class Tici(HardwareBase):
       (True, tc + ["class", "add", "dev", adapter, "parent", "1:", "classid", "1:20", "htb", "rate", f"{upload_speed_kbps}kbit"]),
 
       # Create universal 32 bit filter on adapter that sends all outbound ip traffic through the class
-      (True, tc + ["filter", "add", "dev", adapter, "parent", "1:", "protocol", "ip", "prio", "10", "u32", "match", "ip", "dst", "0.0.0.0/0", "flowid", "1:20"]),
+      (True, tc + ["filter", "add", "dev", adapter, "parent", "1:", "protocol", "ip", "prio", \
+                   "10", "u32", "match", "ip", "dst", "0.0.0.0/0", "flowid", "1:20"]),
     ]
 
     download = [
@@ -329,7 +337,8 @@ class Tici(HardwareBase):
 
       # Redirect ingress (incoming) to egress ifb0
       (True, tc + ["qdisc", "add", "dev", adapter, "handle", "ffff:", "ingress"]),
-      (True, tc + ["filter", "add", "dev", adapter, "parent", "ffff:", "protocol", "ip", "u32", "match", "u32", "0", "0", "action", "mirred", "egress", "redirect", "dev", ifb]),
+      (True, tc + ["filter", "add", "dev", adapter, "parent", "ffff:", "protocol", "ip", "u32", \
+                   "match", "u32", "0", "0", "action", "mirred", "egress", "redirect", "dev", ifb]),
 
       # Add class and rules for virtual interface
       (True, tc + ["qdisc", "add", "dev", ifb, "root", "handle", "2:", "htb"]),
@@ -596,13 +605,14 @@ class Tici(HardwareBase):
     gpio_set(GPIO.STM_BOOT0, 0)
 	
   def get_ip_address(self):
+    ipaddress = ""
     try:
-      wlan = subprocess.check_output(["ifconfig", "wlan0"], encoding='utf8').strip()
-      pattern = re.compile(r'inet (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
-      return pattern.search(wlan).group(1)
+      out = subprocess.check_output("hostname -I", shell=True)
+      ipaddress = str(out.strip().decode()).replace(' ', '\n')
     except Exception:
       return "--"
-
+      pass
+    return ipaddress
 
 if __name__ == "__main__":
   t = Tici()

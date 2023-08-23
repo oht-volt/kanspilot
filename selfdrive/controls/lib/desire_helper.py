@@ -1,8 +1,8 @@
 import numpy as np
 from cereal import log, car
-from common.conversions import Conversions as CV
-from common.realtime import DT_MDL
-from common.params import Params
+from openpilot.common.conversions import Conversions as CV
+from openpilot.common.realtime import DT_MDL
+from openpilot.common.params import Params
 
 LaneChangeState = log.LateralPlan.LaneChangeState
 LaneChangeDirection = log.LateralPlan.LaneChangeDirection
@@ -54,7 +54,7 @@ class DesireHelper:
     self.right_road_edge_width = 0.0
     self.left_steering_torque_timer = 0
     self.right_steering_torque_timer = 0
-    self.turnState = False
+    self.turnState = 0
     self.noDetectManDesireTime = 5.0
     self.prev_road_edge_stat = 0
     self.latDebugText = ""
@@ -315,19 +315,19 @@ class DesireHelper:
           leftBlinker = True
         elif md.meta.desireState[1] > 0.01:
           leftBlinker = True
-          self.turnState = True
+          self.turnState = 1
       elif self.right_steering_torque_timer > 1.0:
         if md.meta.desireState[4] > 0.01 or car_lane_pos < -1.0:
           rightBlinker = True
         elif md.meta.desireState[2] > 0.01:
           rightBlinker = True
-          self.turnState = True
+          self.turnState = 1
       #print("BL:{}{},md:{:.1f},{:.1f},{:.1f},{:.1f},T:{:.1f}{:.1f}".format(leftBlinker, rightBlinker, md.meta.desireState[1],md.meta.desireState[2],md.meta.desireState[3],md.meta.desireState[4],self.left_steering_torque_timer, self.right_steering_torque_timer))
 
     ## nav것과 carstate것과 같이 사용함.
     one_blinker = leftBlinker != rightBlinker
     ## 네비가 켜지면 강제로 상태변경
-    if one_blinker and nav_direction != LaneChangeDirection.none:
+    if (one_blinker and nav_direction != LaneChangeDirection.none) or trig_leftBlinker or trig_rightBlinker:
       self.prev_one_blinker = False
       
     ## 핸들토크가 조향방향으로 가해짐.
@@ -362,9 +362,9 @@ class DesireHelper:
         if not one_blinker:
           self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
-          self.turnState = False
+          self.turnState = 0
         else:
-          if nav_turn or self.turnState:
+          if nav_turn or self.turnState > 0:
             self.lane_change_state = LaneChangeState.laneChangeStarting
             self.needTorque = False
           else:
@@ -414,8 +414,14 @@ class DesireHelper:
         # fade out over .5s
         self.lane_change_ll_prob = max(self.lane_change_ll_prob - 2 * DT_MDL, 0.0) ## *2씩 뺐으니, 0.5초,
 
-        if nav_turn or self.turnState:
+        if nav_turn or self.turnState>0:
           self.desire = log.LateralPlan.Desire.turnLeft if self.lane_change_direction == LaneChangeDirection.left else log.LateralPlan.Desire.turnRight
+          lane_change_prob = turn_prob
+          if self.turnState == 1:
+            if turn_prob < 0.2:
+              self.lane_change_ll_prob = 1.0
+            else:
+              self.turnState = 2
         else:
           self.desire = log.LateralPlan.Desire.laneChangeLeft if self.lane_change_direction == LaneChangeDirection.left else log.LateralPlan.Desire.laneChangeRight
 
@@ -427,7 +433,7 @@ class DesireHelper:
           self.lane_change_state = LaneChangeState.off
           if nav_distance < 100:
             self.desireReady = -1
-          self.turnState = False
+          self.turnState = 0
           self.noDetectManDesireTime = 2.0
       # LaneChangeState.laneChangeFinishing
       elif self.lane_change_state == LaneChangeState.laneChangeFinishing:
@@ -438,7 +444,7 @@ class DesireHelper:
         if self.lane_change_ll_prob > 0.5: # 0.5초로변경함... 0.99: # 차선변경완료 후 1초동안 기다림. (왜?)
           self.lane_change_direction = LaneChangeDirection.none
           self.lane_change_state = LaneChangeState.off
-          self.turnState = False
+          self.turnState = 0
           if one_blinker:
             self.lane_change_state = LaneChangeState.preLaneChange
             self.needTorque = True # 두번째부터 토크...
@@ -446,7 +452,7 @@ class DesireHelper:
             self.lane_change_state = LaneChangeState.off
             self.lane_change_direction = LaneChangeDirection.none
 
-    if self.lane_change_state in (LaneChangeState.off, LaneChangeState.preLaneChange) or nav_turn or self.turnState:
+    if self.lane_change_state in (LaneChangeState.off, LaneChangeState.preLaneChange) or nav_turn or self.turnState>0:
       self.lane_change_timer = 0.0
     else:
       self.lane_change_timer += DT_MDL

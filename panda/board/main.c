@@ -237,7 +237,7 @@ void tick_handler(void) {
       if (controls_allowed && !heartbeat_engaged) {
         heartbeat_engaged_mismatches += 1U;
         if (heartbeat_engaged_mismatches >= 3U) {
-          controls_allowed = 0U;
+          controls_allowed = false;
         }
       } else {
         heartbeat_engaged_mismatches = 0U;
@@ -370,13 +370,6 @@ int main(void) {
   enable_fpu();
 
   log("main start");
-
-  if (current_board->has_gps) {
-    uart_init(&uart_ring_gps, 9600);
-  } else {
-    // enable ESP uart
-    uart_init(&uart_ring_gps, 115200);
-  }
 
   if (current_board->has_lin) {
     // enable LIN

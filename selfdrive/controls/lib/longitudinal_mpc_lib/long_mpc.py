@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 import os
+import time
 import numpy as np
 from cereal import log
-from common.realtime import sec_since_boot
-from common.numpy_fast import clip, interp
-from system.swaglog import cloudlog
+from openpilot.common.numpy_fast import clip, interp
+from openpilot.system.swaglog import cloudlog
 # WARNING: imports outside of constants will not trigger a rebuild
-from selfdrive.modeld.constants import index_function
-from selfdrive.car.interfaces import ACCEL_MIN
-from selfdrive.controls.radard import _LEAD_ACCEL_TAU
-from common.conversions import Conversions as CV
-from common.params import Params
-from common.realtime import DT_MDL
-from common.filter_simple import StreamingMovingAverage
+from openpilot.selfdrive.modeld.constants import index_function
+from openpilot.selfdrive.car.interfaces import ACCEL_MIN
+from openpilot.selfdrive.controls.radard import _LEAD_ACCEL_TAU
+from openpilot.common.conversions import Conversions as CV
+from openpilot.common.params import Params
+from openpilot.common.realtime import DT_MDL
+from openpilot.common.filter_simple import StreamingMovingAverage
 from cereal import log, car
 EventName = car.CarEvent.EventName
 
 XState = log.LongitudinalPlan.XState
 
 if __name__ == '__main__':  # generating code
-  from third_party.acados.acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
+  from openpilot.third_party.acados.acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
 else:
-  from selfdrive.controls.lib.longitudinal_mpc_lib.c_generated_code.acados_ocp_solver_pyx import AcadosOcpSolverCython  # pylint: disable=no-name-in-module, import-error
+  from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.c_generated_code.acados_ocp_solver_pyx import AcadosOcpSolverCython
 
 from casadi import SX, vertcat
 
@@ -259,7 +259,6 @@ class LongitudinalMpc:
     self.stopDist = 0.0
     self.e2eCruiseCount = 0
     self.mpcEvent = 0
-    self.lightSensor = 0
     self.prev_x = 0
 
     self.t_follow = T_FOLLOW
@@ -415,11 +414,9 @@ class LongitudinalMpc:
     self.cruise_min_a = min_a
     self.max_a = max_a
 
-  def update(self, carstate, radarstate, model, controls, v_cruise, x, v, a, j, y, prev_accel_constraint, light_sensor):
+  def update(self, carstate, radarstate, model, controls, v_cruise, x, v, a, j, y, prev_accel_constraint):
 
     self.update_params()
-    if light_sensor >= 0:
-      self.lightSensor = light_sensor
     v_ego = self.x0[1]
     a_ego = carstate.aEgo
 
@@ -478,7 +475,7 @@ class LongitudinalMpc:
 
       #self.debugLongText1 = 'A{:.2f},Y{:.1f},TR={:.2f},state={} {},L{:3.1f} C{:3.1f},{:3.1f},{:3.1f} X{:3.1f} S{:3.1f},V={:.1f}:{:.1f}:{:.1f}'.format(
       #  self.prev_a[0], y[-1], self.t_follow, self.xState, self.e2ePaused, lead_0_obstacle[0], cruise_obstacle[0], cruise_obstacle[1], cruise_obstacle[-1],model.position.x[-1], model_x, v_ego*3.6, v[0]*3.6, v[-1]*3.6)
-      self.debugLongText1 = "L{},A{:3.2f},L0{:5.1f},C{:5.1f},X{:5.1f},S{:5.1f}".format(self.lightSensor, self.max_a, lead_0_obstacle[0], cruise_obstacle[0], x2[0], self.stopDist)
+      self.debugLongText1 = "A{:3.2f},L0{:5.1f},C{:5.1f},X{:5.1f},S{:5.1f}".format(self.max_a, lead_0_obstacle[0], cruise_obstacle[0], x2[0], self.stopDist)
 
       self.source = SOURCES[np.argmin(x_obstacles[0])]
 
@@ -538,7 +535,7 @@ class LongitudinalMpc:
     self.x_obstacle_min = self.params[:,2]
 
   def run(self):
-    # t0 = sec_since_boot()
+    # t0 = time.monotonic()
     # reset = 0
     for i in range(N+1):
       self.solver.set(i, 'p', self.params[i])
@@ -552,7 +549,8 @@ class LongitudinalMpc:
     self.time_integrator = float(self.solver.get_stats('time_sim')[0])
 
     # qp_iter = self.solver.get_stats('statistics')[-1][-1] # SQP_RTI specific
-    # print(f"long_mpc timings: tot {self.solve_time:.2e}, qp {self.time_qp_solution:.2e}, lin {self.time_linearization:.2e}, integrator {self.time_integrator:.2e}, qp_iter {qp_iter}")
+    # print(f"long_mpc timings: tot {self.solve_time:.2e}, qp {self.time_qp_solution:.2e}, lin {self.time_linearization:.2e}, \
+    # integrator {self.time_integrator:.2e}, qp_iter {qp_iter}")
     # res = self.solver.get_residuals()
     # print(f"long_mpc residuals: {res[0]:.2e}, {res[1]:.2e}, {res[2]:.2e}, {res[3]:.2e}")
     # self.solver.print_statistics()
@@ -568,14 +566,15 @@ class LongitudinalMpc:
 
     self.prev_a = np.interp(T_IDXS + 0.05, T_IDXS, self.a_solution)
 
-    t = sec_since_boot()
+    t = time.monotonic()
     if self.solution_status != 0:
       if t > self.last_cloudlog_t + 5.0:
         self.last_cloudlog_t = t
         cloudlog.warning(f"Long mpc reset, solution_status: {self.solution_status}")
       self.reset()
       # reset = 1
-    # print(f"long_mpc timings: total internal {self.solve_time:.2e}, external: {(sec_since_boot() - t0):.2e} qp {self.time_qp_solution:.2e}, lin {self.time_linearization:.2e} qp_iter {qp_iter}, reset {reset}")
+    # print(f"long_mpc timings: total internal {self.solve_time:.2e}, external: {(time.monotonic() - t0):.2e} qp {self.time_qp_solution:.2e}, \
+    # lin {self.time_linearization:.2e} qp_iter {qp_iter}, reset {reset}")
 
 
   def update_params(self):

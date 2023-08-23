@@ -169,7 +169,7 @@
       "descr": "",
       "min": 1000,
       "max": 4000,
-      "default": 1860,
+      "default": 1770,
       "unit": 1
     },
     {
@@ -1109,7 +1109,7 @@
       "descr": "감속시작시점을 설정합니다.",
       "min": 10,
       "max": 50,
-      "default": 17,
+      "default": 22,
       "unit": 1
     },
     {

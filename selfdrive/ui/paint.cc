@@ -376,7 +376,9 @@ void DrawApilot::drawLaneLines(const UIState* s) {
     if (s->show_lane_info > 1) {
         for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
             //color = nvgRGBAf(1.0, 0.0, 1.0, std::clamp<float>(3.0 - scene.road_edge_stds[i], 0.0, 1.0));
-            color = nvgRGBAf(1.0, 0.0, 1.0, (scene.road_edge_stds[i]<2.0)?1.0:0.0);
+            //color = nvgRGBAf(1.0, 0.0, 1.0, (scene.road_edge_stds[i] < 2.0) ? 1.0 : 0.0);
+            float temp_f = std::clamp<float>(scene.road_edge_stds[i] / 2., 0.0, 1.0);
+            color = nvgRGBAf(1.0 - temp_f, 0.0, temp_f, 1.0);
             ui_draw_line(s, scene.road_edge_vertices[i], &color, nullptr);
         }
     }
@@ -1728,9 +1730,9 @@ void DrawApilot::drawDebugText(UIState* s) {
     qstr = QString::fromStdString(controls_state.getDebugText1().cStr());
     y += dy;
     ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
-    qstr = QString::fromStdString(controls_state.getDebugText2().cStr());
-    y += dy;
-    ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
+    //qstr = QString::fromStdString(controls_state.getDebugText2().cStr());
+    //y += dy;
+    //ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
     qstr = QString::fromStdString(controls_state.getDebugText3().cStr());
     y += dy;
     ui_draw_text(s, text_x, y, qstr.toStdString().c_str(), 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);

@@ -1,8 +1,8 @@
 import numpy as np
 from cereal import log
-from common.filter_simple import FirstOrderFilter
-from common.numpy_fast import interp, clip, mean
-from common.realtime import DT_MDL
+from openpilot.common.filter_simple import FirstOrderFilter
+from openpilot.common.numpy_fast import interp, clip, mean
+from openpilot.common.realtime import DT_MDL
 
 TRAJECTORY_SIZE = 33
 

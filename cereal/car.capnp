@@ -130,6 +130,8 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     stopStop @127; #ajouatom
     audioLaneChange @130; #ajouatom
     audioTurn @131; #ajouatom
+    pedalInterceptorNoBrake @132;
+
     radarCanErrorDEPRECATED @15;
     communityFeatureDisallowedDEPRECATED @62;
     radarCommIssueDEPRECATED @67;
@@ -528,6 +530,7 @@ struct CarParams {
 
   # things we can derive
   rotationalInertia @22 :Float32;    # [kg*m2] body rotational inertia
+  tireStiffnessFactor @76 :Float32;  # scaling factor used in calculating tireStiffness[Front,Rear]
   tireStiffnessFront @23 :Float32;   # [N/rad] front tire coeff of stiff
   tireStiffnessRear @24 :Float32;    # [N/rad] rear tire coeff of stiff
 
@@ -674,6 +677,7 @@ struct CarParams {
     hongqi @26;
     body @27;
     hyundaiCanfd @28;
+    volkswagenMqbEvo @29;
   }
 
   enum SteerControlType {
