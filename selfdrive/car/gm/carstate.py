@@ -1,7 +1,4 @@
-    if self.CP.carFingerprint in CC_ONLY_CAR:
-      ret.accFaulted = False
-      ret.cruiseState.speed = pt_cp.vl["ECMCruiseControl"]["CruiseSetSpeed"] * CV.KPH_TO_MS
-      ret.cruiseState.enabled = pt_cp.vl["ECMCruiseControl"]["CruiseActive"] != 0import copy
+import copy
 from cereal import car
 
 from openpilot.common.numpy_fast import interp
@@ -45,13 +42,10 @@ class CarState(CarStateBase):
     self.lkas_enabled = 0
     self.distance_button = 0
     self.follow_level = 2
-    self.lkMode = True
+
     #bellow 5lines for Autohold
     self.autoHold = False
-    self.autoHoldActive = False
     self.autoHoldActivated = False
-    self.lastAutoHoldTime = 0.0
-    self.sessionInitTime = sec_since_boot()
     self.regenPaddlePressed = False
     self.cruiseMain = False
 

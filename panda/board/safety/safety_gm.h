@@ -52,8 +52,11 @@ AddrCheckStruct gm_addr_checks[] = {
   {.msg = {{388, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
   {.msg = {{842, 0, 5, .expected_timestep = 100000U}, { 0 }, { 0 }}},
   {.msg = {{481, 0, 7, .expected_timestep = 100000U}, { 0 }, { 0 }}},
-  {.msg = {{241, 0, 6, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{190, 0, 6, .expected_timestep = 100000U},    // Volt, Silverado, Acadia Denali
+           {190, 0, 7, .expected_timestep = 100000U},    // Bolt EUV
+           {190, 0, 8, .expected_timestep = 100000U}}},  // Escalade
   {.msg = {{452, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
+  {.msg = {{201, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
 };
 #define GM_RX_CHECK_LEN (sizeof(gm_addr_checks) / sizeof(gm_addr_checks[0]))
 addr_checks gm_rx_checks = {gm_addr_checks, GM_RX_CHECK_LEN};
@@ -149,7 +152,7 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     }
 
     if (addr == 189) {
-      regen_braking = (GET_BYTE(to_push, 0) >> 4) != 0U;
+      //regen_braking = (GET_BYTE(to_push, 0) >> 4) != 0U;
     }
 
     // Pedal Interceptor
