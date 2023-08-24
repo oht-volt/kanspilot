@@ -87,7 +87,7 @@ class FluxModel:
   # Begin activation functions.
   # These are called by name using the keys in the model json file
   def sigmoid(self, x):
-    return 1 / (1 + np.exp(np.clip(-x, -np.inf, 709)))
+    return 1 / (1 + np.exp(-x))
 
   def identity(self, x):
     return x
@@ -107,8 +107,8 @@ class FluxModel:
         input_array = input_array + [0] * (self.input_size - in_len)
       else:
         raise ValueError(f"Input array length {len(input_array)} must be length 2 or greater")
-
-    input_array = np.array(input_array, dtype=np.float32)#.reshape(1, -1)
+        
+    input_array = np.array(input_array, dtype=np.float32)
 
     # Rescale the input array using the input_mean and input_std
     input_array = (input_array - self.input_mean) / self.input_std
@@ -121,21 +121,20 @@ class FluxModel:
     for W, b, activation in self.layers:
       if not hasattr(self, activation):
         raise ValueError(f"Unknown activation: {activation}")
-
-def get_nn_ff_model_path(car):
-  return f"/data/openpilot/selfdrive/car/torque_data/lat_models/{car}.json"
-
-def has_nn_ff(car):
-  model_path = get_nn_ff_model_path(car)
-  if os.path.isfile(model_path):
-    return True
-  else:
-    return False
-
-def initialize_nnff(car) -> Union[FluxModel, None]:
-  model = None
-  if has_nn_ff(car):
-    model = FluxModel(get_nn_ff_model_path(car))
+  
+def get_nnff_model_path(car, eps_firmware) -> Union[str, None]:
+  eps_firmware = eps_firmware.replace("\\", "")
+  model_path = f"/data/openpilot/selfdrive/car/torque_data/lat_models/{car} {eps_firmware}.json"
+  if not os.path.isfile(model_path):
+    model_path = f"/data/openpilot/selfdrive/car/torque_data/lat_models/{car}.json"
+    if not os.path.isfile(model_path):
+      model_path = None
+  return model_path
+  
+def get_nnff_model(car, eps_firmware) -> Union[FluxModel, None]:
+  model = get_nnff_model_path(car, eps_firmware)
+  if model is not None:
+    model = FluxModel(model)
   return model
 
 # generic car and radar interfaces
@@ -144,7 +143,8 @@ class CarInterfaceBase(ABC):
   def __init__(self, CP, CarController, CarState):
     self.CP = CP
     self.VM = VehicleModel(CP)
-    self.has_lateral_torque_nnff = self.initialize_lat_torque_nnff(CP.carFingerprint)
+    eps_firmware = str(next((fw.fwVersion for fw in CP.carFw if fw.ecu == "eps"), ""))
+    self.has_lateral_torque_nnff = self.initialize_lat_torque_nnff(CP.carFingerprint, eps_firmware)
 
     self.frame = 0
     self.steering_unpressed = 0
@@ -175,9 +175,9 @@ class CarInterfaceBase(ABC):
       
   def get_ff_nn(self, x):
     return self.lat_torque_nnff_model.evaluate(x)
-
-  def initialize_lat_torque_nnff(self, car):
-    self.lat_torque_nnff_model = initialize_nnff(car)
+  
+  def initialize_lat_torque_nnff(self, car, eps_firmware):
+    self.lat_torque_nnff_model = get_nnff_model(car, eps_firmware)
     return (self.lat_torque_nnff_model is not None)
 
   @staticmethod
@@ -197,10 +197,10 @@ class CarInterfaceBase(ABC):
     
     # Enable torque controller for all cars
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
-
-    # Vehicle mass is published curb weight plus assumed payload such as a human driver; notCars have no assumed payload
-    if not ret.notCar:
-      ret.mass = ret.mass + STD_CARGO_KG
+    eps_firmware = str(next((fw.fwVersion for fw in car_fw if fw.ecu == "eps"), ""))
+    model = get_nnff_model_path(candidate, eps_firmware)
+    if model is not None:
+      ret.lateralTuning.torque.nnModelName = os.path.splitext(os.path.basename(model))[0]
 
     # Set common params using fields set by the car interface
     # TODO: get actual value, for now starting with reasonable value for
