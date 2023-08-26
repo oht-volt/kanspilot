@@ -20,7 +20,7 @@ class LatControl(ABC):
     self.torqDebugText = ""
 
   @abstractmethod
-  def update(self, active, CS, VM, params, last_actuators, steer_limited, desired_curvature, desired_curvature_rate, llk, lat_plan=None, model_data=None):
+  def update(self, active, CS, VM, params, last_actuators, steer_limited, desired_curvature, desired_curvature_rate, llk):
     pass
 
   def reset(self):

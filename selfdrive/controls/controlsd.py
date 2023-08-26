@@ -113,7 +113,7 @@ class Controls:
 
     # set alternative experiences from parameters
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
-    self.CP.alternativeExperience = 1
+    self.CP.alternativeExperience = 0
     if not self.disengage_on_accelerator:
       self.CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.DISABLE_DISENGAGE_ON_GAS
 
@@ -199,7 +199,7 @@ class Controls:
     self.debugText1 = ""
     self.debugText2 = ""
     self.debugText3 = ""
-    self.debugText4 = ""
+    #self.debugText4 = ""
     #self.debugText5 = ""
     self.pcmLongSpeed = 100.0
     self.cruiseButtonCounter = 0
@@ -207,16 +207,9 @@ class Controls:
     self.autoEngageCounter = 200
     self.right_lane_visible = False
     self.left_lane_visible = False
-    self.nnff_alert_shown = False
 
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
-
-    #live torque by Telly
-    self.torque_latAccelFactor = 0.
-    self.torque_latAccelOffset = 0.
-    self.torque_friction = 0.
-    self.totalBucketPoints = 0.
 
     self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0)
 
@@ -267,11 +260,6 @@ class Controls:
     # no more events while in dashcam mode
     if self.read_only:
       return
-    
-    # show alert to indicate whether NNFF is loaded
-    if not self.nnff_alert_shown and self.sm.frame % 1000 == 0 and self.CP.lateralTuning.which() == 'torque':
-      self.nnff_alert_shown = True
-      self.events.add(EventName.torqueNNFFLoadSuccess)
 
     # Block resume if cruise never previously enabled
     resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
@@ -716,8 +704,7 @@ class Controls:
                                                                                        lat_plan.curvatureRates, self.cruise_helper.steerActuatorDelay)
       actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
                                                                              self.last_actuators, self.steer_limited, self.desired_curvature,
-                                                                             self.desired_curvature_rate, self.sm['liveLocationKalman'],
-                                                                             lat_plan=lat_plan, model_data=self.sm['modelV2'])
+                                                                             self.desired_curvature_rate, self.sm['liveLocationKalman'])
       actuators.curvature = self.desired_curvature
     else:
       lac_log = log.ControlsState.LateralDebugState.new_message()
@@ -761,8 +748,8 @@ class Controls:
           left_deviation = steering_value > 0 and dpath_points[0] < -0.20
           right_deviation = steering_value < 0 and dpath_points[0] > 0.20
 
-          #if left_deviation or right_deviation:
-          #  self.events.add(EventName.steerSaturated)
+          if left_deviation or right_deviation:
+            self.events.add(EventName.steerSaturated)
 
     # Ensure no NaNs/Infs
     for p in ACTUATOR_FIELDS:
@@ -926,7 +913,7 @@ class Controls:
     controlsState.debugText2 = self.debugText2
     self.debugText3 = self.LaC.torqDebugText
     controlsState.debugText3 = self.debugText3
-    self.debugText4 = self.LoC.debugLoCText1
+    self.debugText4 = self.LoC.debugLoCText
     controlsState.debugText4 = self.debugText4
     #self.debugText5 = self.LoC.debugLoCText2
     #controlsState.debugText5 = self.debugText5
@@ -946,7 +933,7 @@ class Controls:
     #C2#controlsState.cumLagMs = -self.rk.remaining * 1000.
 
     #print("cumLagMsg={:5.2f}".format(-self.rk.remaining * 1000.))
-    # display SR/SRC/SAD on Ui
+    # Fixed SR
     controlsState.steerRatio = self.VM.sR
     #self.debugText1 = 'cumLagMs={:5.1f}'.format(-self.rk.remaining * 1000.)
     #controlsState.debugText1 = self.debugText1
@@ -955,12 +942,6 @@ class Controls:
     controlsState.forceDecel = bool(force_decel)
     #C2#controlsState.canErrorCounter = self.can_rcv_timeout_counter
     controlsState.experimentalMode = self.experimental_mode
-
-    # live torque by Telly
-    controlsState.latAccelFactor = self.torque_latAccelFactor
-    controlsState.latAccelOffset = self.torque_latAccelOffset
-    controlsState.friction = self.torque_friction
-    controlsState.totalBucketPoints = self.totalBucketPoints
 
     #C2#lat_tuning = self.CP.lateralTuning.which()
     #C2#if self.joystick_mode:
