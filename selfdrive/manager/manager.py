@@ -74,7 +74,6 @@ def manager_init() -> None:
     ("AutoResumeFromGasSpeed", "10"),
     ("AutoResumeFromGasSpeedMode", "1"),    
     ("AutoCancelFromGasMode", "0"),
-    ("UseClusterSpeed", "1"),	    
     ("OpkrPrebuiltOn", "0"),
     ("OpkrHotspotOnBoot", "0"),
     ("OPKRTimeZone", "Asia/Seoul"),    
@@ -162,14 +161,12 @@ def manager_init() -> None:
     ("LateralTorqueKd", "0"),       
     ("LateralTorqueKf", "102"),       
     ("LateralTorqueCustom", "1"),       
-    ("LateralTorqueAccelFactor", "1880"),       
+    ("LateralTorqueAccelFactor", "1770"),       
     ("LateralTorqueFriction", "58"),       
     ("SteerActuatorDelay", "42"),       
     ("CruiseControlMode", "0"),
-    ("TorqueFriction", "58"),
-    ("TorqueMaxLatAccel", "1880"),
     ("CruiseOnDist", "0"),
-    ("SteerRatioApply", "150"),
+    ("SteerRatioApply", "145"),
   ]
   if not PC:
     default_params.append(("LastUpdateTime", datetime.datetime.utcnow().isoformat().encode('utf8')))

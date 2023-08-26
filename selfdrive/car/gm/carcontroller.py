@@ -146,14 +146,15 @@ class CarController:
 
           # GasRegenCmdActive needs to be 1 to avoid cruise faults. It describes the ACC state, not actuation
           can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
-          can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake, idx, CC.enabled, near_stop, at_full_stop, self.CP))
+          can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake,
+                                                             idx, CC.enabled, near_stop, at_full_stop, self.CP))
           CS.autoHoldActivated = False
 
         # Send dashboard UI commands (ACC status)
         send_fcw = hud_alert == VisualAlert.fcw
-        follow_level = CS.get_follow_level()
-        can_sends.append(gmcan.create_acc_dashboard_command(self.packer_pt, CanBus.POWERTRAIN, CC.enabled,
-                                                              hud_v_cruise * CV.MS_TO_KPH, hud_control.leadVisible, send_fcw, follow_level))
+        cruiseGap = CS.get_follow_level()
+        can_sends.append(gmcan.create_acc_dashboard_command(self.packer_pt, CanBus.POWERTRAIN, CC.enabled, cruiseGap,
+                                                            hud_v_cruise * CV.MS_TO_KPH, hud_control.leadVisible, send_fcw))
       else:
         accel_g = ACCELERATION_DUE_TO_GRAVITY * apply_deadzone(self.pitch.x, PITCH_DEADZONE) # driving uphill is positive pitch
         accel += accel_g
@@ -202,7 +203,8 @@ class CarController:
     lka_icon_status = (lka_active, lka_critical)
 
     # SW_GMLAN not yet on cam harness, no HUD alerts
-    if self.CP.networkLocation != NetworkLocation.fwdCamera and (self.frame % self.params.CAMERA_KEEPALIVE_STEP == 0 or lka_icon_status != self.lka_icon_status_last):
+    if self.CP.networkLocation != NetworkLocation.fwdCamera and \
+      (self.frame % self.params.CAMERA_KEEPALIVE_STEP == 0 or lka_icon_status != self.lka_icon_status_last):
       steer_alert = hud_alert in (VisualAlert.steerRequired, VisualAlert.ldw)
       can_sends.append(gmcan.create_lka_icon_command(CanBus.SW_GMLAN, lka_active, lka_critical, steer_alert))
       self.lka_icon_status_last = lka_icon_status

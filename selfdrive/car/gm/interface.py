@@ -5,17 +5,15 @@ from math import fabs, exp
 from panda import Panda
 
 from common.conversions import Conversions as CV
-from common.realtime import sec_since_boot
 from selfdrive.car import STD_CARGO_KG, create_button_event, scale_tire_stiffness, is_ecu_disconnected, get_safety_config
 from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
-from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, AccState, FINGERPRINTS, CruiseButtons, \
+from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, FINGERPRINTS, CruiseButtons, \
                                     CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, CC_ONLY_CAR
 from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, FRICTION_THRESHOLD
 from selfdrive.controls.lib.drive_helpers import get_friction
 
 ButtonType = car.CarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
-ENABLE_BUTTONS = {CruiseButtons.RES_ACCEL, CruiseButtons.DECEL_SET, CruiseButtons.CANCEL}
 GearShifter = car.CarState.GearShifter
 TransmissionType = car.CarParams.TransmissionType
 NetworkLocation = car.CarParams.NetworkLocation
@@ -24,10 +22,6 @@ BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.D
 
 
 class CarInterface(CarInterfaceBase):
-
-  def _update(self, c: car.CarControl) -> car.CarState:
-    pass
-
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
@@ -82,8 +76,8 @@ class CarInterface(CarInterfaceBase):
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
     ret.autoResumeSng = False
 
-    # ret.enableGasInterceptor = 0x201 in fingerprint[0]
-    ret.enableGasInterceptor = 512 in fingerprint[0]
+    ret.enableGasInterceptor = 0x201 in fingerprint[0]
+    #ret.enableGasInterceptor = 512 in fingerprint[0]
     ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
 
     if candidate in EV_CAR:
@@ -125,7 +119,7 @@ class CarInterface(CarInterfaceBase):
       ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
       # supports stop and go, initial engage could (conservatively) be above -1mph
       ret.minEnableSpeed = -1
-      ret.minSteerSpeed = 3.0 * CV.MPH_TO_MS
+      ret.minSteerSpeed = -1
 
       # Tuning
       ret.longitudinalTuning.kpV = [2.0]
@@ -187,19 +181,18 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
+  def _update(self, c: car.CarControl) -> car.CarState:
+    pass
+
   def update(self, c: car.CarControl, can_strings: List[bytes]) -> car.CarState:
     self.cp.update_strings(can_strings)
     self.cp_cam.update_strings(can_strings)
-    self.cp_loopback.update_strings(can_strings) # GM: EPS fault workaround (#22404)
+    self.cp_loopback.update_strings(can_strings)
 
-    self.cp_chassis.update_strings(can_strings) # for Brake Light
-    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis) # GM: EPS fault workaround (#22404)
+    self.cp_chassis.update_strings(can_strings) # for brakeLight
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis)
 
-
-    cruiseEnabled = self.CS.pcm_acc_status != AccState.OFF
-    ret.cruiseState.enabled = cruiseEnabled
-
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid # GM: EPS fault workaround (#22404)
+    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid
     ret.engineRpm = self.CS.engineRPM
 
     buttonEvents = []
@@ -209,19 +202,17 @@ class CarInterface(CarInterfaceBase):
       # Handle ACCButtons changing buttons mid-press
       if self.CS.cruise_buttons != CruiseButtons.UNPRESS and self.CS.prev_cruise_buttons != CruiseButtons.UNPRESS:
         buttonEvents.append(create_button_event(CruiseButtons.UNPRESS, self.CS.prev_cruise_buttons, BUTTONS_DICT, CruiseButtons.UNPRESS))
-
+    if self.CS.distance_button_pressed:
+      buttonEvents.append(car.CarState.ButtonEvent(pressed=True, type=ButtonType.gapAdjustCruise))
 
     ret.buttonEvents = buttonEvents
 
-    if cruiseEnabled and self.CS.lka_button and self.CS.lka_button != self.CS.prev_lka_button:
-      self.CS.lkMode = not self.CS.lkMode
-
     if self.CS.distance_button and self.CS.distance_button != self.CS.prev_distance_button:
-       self.CS.follow_level -= 1
-       if self.CS.follow_level < 1:
-         self.CS.follow_level = 3
+       self.CS.cruise_Gap -= 1
+       if self.CS.cruise_Gap < 1:
+         self.CS.cruise_Gap = 3
 
-    ret.cruiseGap = self.CS.follow_level
+    ret.cruiseGap = self.CS.cruise_Gap
 
     # The ECM allows enabling on falling edge of set, but only rising edge of resume
     events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
@@ -265,14 +256,8 @@ class CarInterface(CarInterfaceBase):
       events.add(EventName.belowEngageSpeed)
     if ret.cruiseState.standstill:
       events.add(EventName.resumeRequired)
-
-    t = sec_since_boot()
-    if self.CS.autoHoldActivated:
-      self.CS.lastAutoHoldTime = t
-    if EventName.accFaulted in events.events and \
-        (t - self.CS.sessionInitTime < 10.0 or
-        t - self.CS.lastAutoHoldTime < 1.0):
-      events.events.remove(EventName.accFaulted)
+    if self.CP.enableGasInterceptor and self.CP.transmissionType == TransmissionType.direct and not self.CS.single_pedal_mode:
+      events.add(EventName.brakeUnavailable)
 
     # autohold on ui icon
     if self.CS.autoHoldActivated == True:

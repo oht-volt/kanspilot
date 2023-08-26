@@ -206,7 +206,6 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"SelectedCar", PERSISTENT},
     {"SupportedCars", PERSISTENT},
     {"SupportedCars_gm", PERSISTENT},
-    {"UseClusterSpeed", PERSISTENT},
     {"SoftRestartTriggered", CLEAR_ON_MANAGER_START},
     {"OpkrPrebuiltOn", PERSISTENT},
     {"OpkrHotspotOnBoot", PERSISTENT },
@@ -317,9 +316,6 @@ std::unordered_map<std::string, uint32_t> keys = {
     { "SccConnectedBus2", PERSISTENT },
     { "TFollowRatio", PERSISTENT },
     { "JerkUpperLowerLimit", PERSISTENT },
-    { "TorqueFriction", PERSISTENT },
-    { "TorqueMaxLatAccel", PERSISTENT },
-
     { "OPKRTimeZone", PERSISTENT },
     { "KeepEngage", PERSISTENT },
     { "UseLaneLineSpeed", PERSISTENT },

@@ -95,14 +95,18 @@ def create_friction_brake_command(packer, bus, apply_brake, idx, enabled, near_s
 
   return packer.make_can_msg("EBCMFrictionBrakeCmd", bus, values)
 
-def create_acc_dashboard_command(packer, bus, enabled, target_speed_kph, lead_car_in_sight, fcw, follow_level):
+def create_acc_dashboard_command(packer, bus, enabled, cruiseGap, target_speed_kph, lead_car_in_sight, fcw):
   target_speed = min(target_speed_kph, 255)
+  if not enabled:
+    gap = 0
+  else:
+    gap = cruiseGap
 
   values = {
     "ACCAlwaysOne": 1,
     "ACCResumeButton": 0,
     "ACCSpeedSetpoint": target_speed,
-    "ACCGapLevel": follow_level,
+    "ACCGapLevel": gap,
     "ACCCmdActive": enabled,
     "ACCAlwaysOne2": 1,
     "ACCLeadCar": lead_car_in_sight,

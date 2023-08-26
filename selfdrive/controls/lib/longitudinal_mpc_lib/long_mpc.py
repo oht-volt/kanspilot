@@ -42,7 +42,7 @@ X_EGO_COST = 0.
 V_EGO_COST = 0.
 A_EGO_COST = 0.
 J_EGO_COST = 5.0
-A_CHANGE_COST = 100.
+A_CHANGE_COST = 200.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .25
 LEAD_DANGER_FACTOR = 0.75
@@ -230,7 +230,7 @@ class LongitudinalMpc:
     self.trafficState = 0
     self.XEgoObstacleCost = 3.
     self.JEgoCost = 5.
-    self.AChangeCost = 100.
+    self.AChangeCost = 200.
     self.DangerZoneCost = 100.
     self.leadDangerFactor = LEAD_DANGER_FACTOR
     self.trafficStopDistanceAdjust = 0.
@@ -385,8 +385,7 @@ class LongitudinalMpc:
   def process_lead(self, lead):
     v_ego = self.x0[1]
     if lead is not None and lead.status:
-      x_lead = max(lead.dRel - 3.0, 0.)
-      # x_lead = lead.dRel
+      x_lead = lead.dRel
       v_lead = lead.vLead
       a_lead = lead.aLeadK
       a_lead_tau = lead.aLeadTau
@@ -612,7 +611,7 @@ class LongitudinalMpc:
       self.applyCruiseGap = clip(self.applyCruiseGap, 1, 4)
     else:
       self.applyCruiseGap = float(controls.longCruiseGap)
-      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [0.9, 1.4, 1.8])
+      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [1.1, 1.3, 1.6])
 
     self.t_follow = max(0.9, cruiseGapRatio * self.tFollowRatio * (2.0 - self.mySafeModeFactor)) # 0.9아래는 위험하니 적용안함.
 
@@ -659,7 +658,7 @@ class LongitudinalMpc:
     if v_ego_kph < 1.0: 
       stopSign = model_x < 20.0 and model_v < 10.0
     elif v_ego_kph < 80.0:
-      stopSign = model_x < 120.0 and ((model_v < 2.5) or (model_v < v[0]*0.4)) and abs(y[-1]) < 5.0
+      stopSign = model_x < 120.0 and ((model_v < 3.0) or (model_v < v[0]*0.7))  and abs(y[-1]) < 5.0
     else:
       stopSign = False
 
@@ -727,7 +726,7 @@ class LongitudinalMpc:
       self.softHoldTimer += 1
       if self.softHoldTimer*DT_MDL >= 0.7: 
         self.xState = XState.softHold
-        pass # self.mpcEvent = EventName.autoHold 벌트는 interface.py에서 처리함.
+        self.mpcEvent = EventName.autoHold
     else:
       self.softHoldTimer = 0
 
