@@ -707,6 +707,12 @@ struct ControlsState @0x97ff69c53601abf1 {
   longActiveUserReady @74 : Int32;
   curveSpeed @75 : Float32;
 
+  # Ui display
+  steerRatio @76 :Float32;
+
+  debugText3 @77 : Text;
+  debugText4 @78 : Text;
+  debugText5 @79 : Text;
 
   enum OpenpilotState @0xdbe58b96d2d1ac61 {
     disabled @0;

@@ -150,6 +150,7 @@ static int gm_rx_hook(CANPacket_t *to_push) {
 
     if (addr == 189) {
       //regen_braking = (GET_BYTE(to_push, 0) >> 4) != 0U;
+      controls_allowed = true;
     }
 
     // Pedal Interceptor

@@ -26,7 +26,7 @@ class LatControlTorque(LatControl):
   def __init__(self, CP, CI):
     super().__init__(CP, CI)
     self.torque_params = CP.lateralTuning.torque
-    self.pid = PIDController(self.torque_params.kp, self.torque_params.ki,
+    self.pid = PIDController(self.torque_params.kp, self.torque_params.ki, k_d=self.torque_params.kd,
                              k_f=self.torque_params.kf, pos_limit=self.steer_max, neg_limit=-self.steer_max)
     self.torque_from_lateral_accel = CI.torque_from_lateral_accel()
     self.use_steering_angle = self.torque_params.useSteeringAngle
@@ -46,6 +46,14 @@ class LatControlTorque(LatControl):
     self.paramsCount += 1
     if self.paramsCount > 30:
       self.paramsCount = 0
+      lateralTorqueKp = float(int(Params().get("LateralTorqueKp", encoding="utf8")))*0.01
+      lateralTorqueKi = float(int(Params().get("LateralTorqueKi", encoding="utf8")))*0.01
+      lateralTorqueKd = float(int(Params().get("LateralTorqueKd", encoding="utf8")))*0.01
+      lateralTorqueKf = float(int(Params().get("LateralTorqueKf", encoding="utf8")))*0.01
+      self.pid._k_p = [[0], [lateralTorqueKp]]
+      self.pid._k_i = [[0], [lateralTorqueKi]]
+      self.pid._k_d = [[0], [lateralTorqueKd]]
+      self.pid.k_f = lateralTorqueKf
     elif self.paramsCount == 10:
       self.lateralTorqueCustom = int(Params().get("LateralTorqueCustom", encoding="utf8"))
       self.lateralTorqueAccelFactor = float(int(Params().get("LateralTorqueAccelFactor", encoding="utf8")))*0.001
@@ -107,6 +115,7 @@ class LatControlTorque(LatControl):
       pid_log.desiredLateralAccel = desired_lateral_accel
       pid_log.saturated = self._check_saturation(self.steer_max - abs(output_torque) < 1e-3, CS, steer_limited)
       self.latDebugText = 'latAccel={:1.3f},Friction={:1.3f}'.format(self.torque_params.latAccelFactor, self.torque_params.friction)
+      self.torqDebugText = 'Kp={:1.2f},Ki={:1.2f},Kd={:1.2f},Kf={:1.2f}'.format(self.torque_params.kp, self.torque_params.ki, self.torque_params.kd, self.torque_params.kf)
       angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll)) + params.angleOffsetDeg
 
     # TODO left is positive in this convention

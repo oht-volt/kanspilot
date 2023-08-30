@@ -972,10 +972,10 @@ class CruiseHelper:
       applySpeedLimit = False
       if self.autoNaviSpeedCtrl > 0 and self.naviSpeed > 0:
         if self.naviSpeed < v_cruise_kph and self.longActiveUser:
-          #self.send_apilot_event(controls, EventName.speedDown, 60.0)  #시끄러..
+          self.send_apilot_event(controls, EventName.speedDown, 60.0)  #시끄러..
           if speedLimitType in [2]: # 과속카메라인경우에만 HDA깜박, 핸들진동
             self.ndaActive = 2
-          pass
+          #pass
           applySpeedLimit = True
         self.v_cruise_kph_apply = min(self.v_cruise_kph_apply, self.naviSpeed)
         #self.ndaActive = 2 if self.ndaActive == 1 else self.ndaActive

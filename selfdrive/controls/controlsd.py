@@ -187,6 +187,9 @@ class Controls:
     self.cruise_helper = CruiseHelper()
     self.debugText1 = ""
     self.debugText2 = ""
+    self.debugText3 = ""
+    #self.debugText4 = ""
+    #self.debugText5 = ""
     self.pcmLongSpeed = 100.0
     self.cruiseButtonCounter = 0
     self.enableAutoEngage = int(Params().get("EnableAutoEngage")) if self.CP.openpilotLongitudinalControl else 0
@@ -907,6 +910,8 @@ class Controls:
     #self.debugText2 = self.LoC.debugLoCText
     self.debugText2 = self.LaC.latDebugText
     controlsState.debugText2 = self.debugText2
+    self.debugText3 = self.LaC.torqDebugText
+    controlsState.debugText3 = self.debugText3
     controlsState.longActiveUser = self.cruise_helper.longActiveUser
     controlsState.longActiveUserReady = self.cruise_helper.longActiveUserReady
     controlsState.cruiseButtonCounter = self.cruiseButtonCounter
@@ -924,6 +929,9 @@ class Controls:
     controlsState.cumLagMs = -self.rk.remaining * 1000.
 
     #print("cumLagMsg={:5.2f}".format(-self.rk.remaining * 1000.))
+
+    # fixed SR
+    controlsState.steerRatio = self.VM.sR
     #self.debugText1 = 'cumLagMs={:5.1f}'.format(-self.rk.remaining * 1000.)
     #controlsState.debugText1 = self.debugText1
 

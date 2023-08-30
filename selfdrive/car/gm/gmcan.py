@@ -88,6 +88,10 @@ def create_friction_brake_command(packer, bus, apply_brake, idx, enabled, near_s
     mode = 0xa
     if at_full_stop:
       mode = 0xd
+  if near_stop:
+    mode = 0xb
+  if at_full_stop:
+    mode = 0xd
 
     # TODO: this is to have GM bringing the car to complete stop,
     # but currently it conflicts with OP controls, so turned off. Not set by all cars
@@ -130,7 +134,7 @@ def create_acc_dashboard_command(packer, bus, enabled, cruiseGap, target_speed_k
 
 def create_adas_time_status(bus, tt, idx):
   dat = [(tt >> 20) & 0xff, (tt >> 12) & 0xff, (tt >> 4) & 0xff,
-         ((tt & 0xf) << 4) + (idx << 2)]
+    ((tt & 0xf) << 4) + (idx << 2)]
   chksum = 0x1000 - dat[0] - dat[1] - dat[2] - dat[3]
   chksum = chksum & 0xfff
   dat += [0x40 + (chksum >> 8), chksum & 0xff, 0x12]
