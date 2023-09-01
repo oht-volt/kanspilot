@@ -34,7 +34,7 @@ class CarState(CarStateBase):
     self.use_cluster_speed = True # Params().get_bool('UseClusterSpeed')
 
     self.buttons_counter = 0
-
+    self.cruise_Gap = 2
     self.single_pedal_mode = False
     self.pedal_steady = 0.
     self.distance_button_pressed = False
@@ -116,7 +116,7 @@ class CarState(CarStateBase):
     ret.steeringRateDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelRate"]
     ret.steeringTorque = pt_cp.vl["PSCMStatus"]["LKADriverAppldTrq"]
     ret.steeringTorqueEps = pt_cp.vl["PSCMStatus"]["LKATorqueDelivered"]
-    ret.steeringPressed = True #abs(ret.steeringTorque) > STEER_THRESHOLD
+    ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
 
     # 0 inactive, 1 active, 2 temporarily limited, 3 failed
     self.lkas_status = pt_cp.vl["PSCMStatus"]["LKATorqueDeliveredStatus"]
@@ -256,6 +256,6 @@ class CarState(CarStateBase):
   @staticmethod
   def get_chassis_can_parser(CP):
     messages = [
-      ("FrictionBrakePressure", 100),
+      ("EBCMFrictionBrakeStatus", 100),
     ]
     return CANParser(DBC[CP.carFingerprint]["chassis"], messages, CanBus.CHASSIS)
