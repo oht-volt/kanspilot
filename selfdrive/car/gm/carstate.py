@@ -27,6 +27,12 @@ class CarState(CarStateBase):
     self.loopback_lka_steering_cmd_ts_nanos = 0
     self.pt_lka_steering_cmd_counter = 0
     self.cam_lka_steering_cmd_counter = 0
+
+    # 벌트용 3단 크루즈갭
+    self.prev_distance_button = 0
+    self.distance_button = 0
+    self.cruise_Gap = 2
+
     self.regenPaddlePressed = False
     #Engine Rpm
     self.engineRPM = 0
@@ -34,7 +40,7 @@ class CarState(CarStateBase):
     self.use_cluster_speed = True # Params().get_bool('UseClusterSpeed')
 
     self.buttons_counter = 0
-    self.cruise_Gap = 2
+
     self.single_pedal_mode = False
     self.pedal_steady = 0.
     self.distance_button_pressed = False
@@ -59,6 +65,10 @@ class CarState(CarStateBase):
     if self.CP.networkLocation == NetworkLocation.fwdCamera and not self.CP.flags & GMFlags.NO_CAMERA.value:
       self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
       self.cam_lka_steering_cmd_counter = cam_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
+
+    # 벌트용 3단 크루즈갭
+    self.prev_distance_button = self.distance_button
+    self.distance_button = pt_cp.vl["ASCMSteeringButton"]["DistanceButton"]
 
     cluSpeed = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
     ret.vEgoCluster = cluSpeed * CV.MPH_TO_MS
@@ -161,7 +171,8 @@ class CarState(CarStateBase):
 
     # bellow line for Brake Light
     ret.brakeLights = chassis_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
-
+	
+    # 벌트용 3단 크루즈갭
     ret.cruiseGap = self.cruise_Gap
     #ret.tpms =
     ret.vCluRatio = (ret.vEgoCluster / ret.vEgo) if (ret.vEgo > 3. and ret.vEgoCluster > 3.) else 1.0
@@ -178,7 +189,8 @@ class CarState(CarStateBase):
       ret.cruiseState.pcmMode = False
 
     return ret
-
+ 
+  # 벌트용 3단 크루즈갭
   def get_follow_level(self):
     return self.cruise_Gap
 

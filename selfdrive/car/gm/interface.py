@@ -325,6 +325,13 @@ class CarInterface(CarInterfaceBase):
       ret.buttonEvents = create_button_events(self.CS.cruise_buttons, self.CS.prev_cruise_buttons, BUTTONS_DICT,
                                               unpressed_btn=CruiseButtons.UNPRESS)
 
+    # 벌트용 3단 크루즈갭
+    if self.CS.distance_button and self.CS.distance_button != self.CS.prev_distance_button:
+       self.CS.cruise_Gap -= 1
+       if self.CS.cruise_Gap < 1:
+         self.CS.cruise_Gap = 3
+    ret.cruiseGap = self.CS.cruise_Gap
+
     # The ECM allows enabling on falling edge of set, but only rising edge of resume
     events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
                                                          GearShifter.eco, GearShifter.manumatic],
