@@ -126,26 +126,46 @@ class CarController:
 
         idx = (self.frame // 4) % 4
 
-        at_full_stop = CC.longActive and CS.out.standstill
-        near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE)
-        if self.CP.flags & GMFlags.CC_LONG.value:
-          if CC.longActive and CS.out.vEgo > self.CP.minEnableSpeed:
-            # Using extend instead of append since the message is only sent intermittently
-            can_sends.extend(gmcan.create_gm_cc_spam_command(self.packer_pt, self, CS, actuators))
-        if self.CP.enableGasInterceptor:
-          can_sends.append(create_gas_interceptor_command(self.packer_pt, interceptor_gas_cmd, idx))
-        if self.CP.carFingerprint not in CC_ONLY_CAR:
+        # Auto Hold State
+        if CS.out.cruiseState.available and not CC.longActive and CS.autoHold and CS.autoHoldActive and \
+               not CS.out.gasPressed and CS.out.gearShifter in ['drive','low'] and \
+               CS.out.vEgo < 0.02 and not CS.regenPaddlePressed:
+          car_stopping = self.apply_gas < self.params.ZERO_GAS
+          at_full_stop = CS.out.standstill and car_stopping
           friction_brake_bus = CanBus.CHASSIS
           # GM Camera exceptions
           # TODO: can we always check the longControlState?
-          if self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in CC_ONLY_CAR:
-            at_full_stop = at_full_stop and stopping
+          if self.CP.networkLocation == NetworkLocation.fwdCamera:
+            friction_brake_bus = CanBus.POWERTRAIN
+          near_stop = (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE) and car_stopping
+          can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake, idx, CC.enabled, near_stop, at_full_stop, self.CP))
+          CS.autoHoldActivated = True
+        else:  
+          if CS.out.gasPressed:
+            at_full_stop = False
+            near_stop = False
+            car_stopping = False
+          else:
+            at_full_stop = CC.longActive and CS.out.standstill
+            near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE)
+            if self.CP.flags & GMFlags.CC_LONG.value: # 노레이더&페달롱컨차종일 경우/ 벌트와 무관
+              if CC.longActive and CS.out.vEgo > self.CP.minEnableSpeed:
+                # Using extend instead of append since the message is only sent intermittently
+                can_sends.extend(gmcan.create_gm_cc_spam_command(self.packer_pt, self, CS, actuators))
+            if self.CP.enableGasInterceptor: #페달롱컨 차종일 경우(BOLT E(U)V)/벌트와 무관
+              can_sends.append(create_gas_interceptor_command(self.packer_pt, interceptor_gas_cmd, idx))
+          friction_brake_bus = CanBus.CHASSIS
+          # GM Camera exceptions
+          # TODO: can we always check the longControlState?
+          if self.CP.networkLocation == NetworkLocation.fwdCamera:
+            at_full_stop = at_full_stop and actuators.longControlState == LongCtrlState.stopping
             friction_brake_bus = CanBus.POWERTRAIN
 
           # GasRegenCmdActive needs to be 1 to avoid cruise faults. It describes the ACC state, not actuation
           can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
           can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake,
                                                              idx, CC.enabled, near_stop, at_full_stop, self.CP))
+          CS.autoHoldActivated = False
 
         # Send dashboard UI commands (ACC status)
         send_fcw = hud_alert == VisualAlert.fcw
@@ -172,11 +192,10 @@ class CarController:
       if self.CP.networkLocation == NetworkLocation.gateway and self.frame % self.params.ADAS_KEEPALIVE_STEP == 0:
         can_sends += gmcan.create_adas_keepalive(CanBus.POWERTRAIN)
 
-      # TODO: integrate this with the code block below?
-      if (
-          (self.CP.flags & GMFlags.PEDAL_LONG.value)  # Always cancel stock CC when using pedal interceptor
-          or (self.CP.flags & GMFlags.CC_LONG.value and not CC.enabled)  # Cancel stock CC if OP is not active
-      ) and CS.out.cruiseState.enabled:
+      # 아래, 노레이더&페달롱컨 차종에 필요한 코드/ 없어도 될듯??
+      if ((self.CP.flags & GMFlags.PEDAL_LONG.value) or \
+           (self.CP.flags & GMFlags.CC_LONG.value and not CC.enabled)) and \
+           CS.out.cruiseState.enabled:
         if (self.frame - self.last_button_frame) * DT_CTRL > 0.04:
           self.last_button_frame = self.frame
           can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.POWERTRAIN, (CS.buttons_counter + 1) % 4, CruiseButtons.CANCEL))

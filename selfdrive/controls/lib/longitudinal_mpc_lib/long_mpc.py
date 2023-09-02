@@ -660,7 +660,7 @@ class LongitudinalMpc:
     if v_ego_kph < 1.0: 
       stopSign = model_x < 20.0 and model_v < 10.0
     elif v_ego_kph < 80.0:
-      stopSign = model_x < 120.0 and ((model_v < 3.0) or (model_v < v[0]*0.7))  and abs(y[-1]) < 5.0
+      stopSign = model_x < 110.0 and ((model_v < 2.5) or (model_v < v[0]*0.4)) and abs(y[-1]) < 4.0
     else:
       stopSign = False
 
@@ -728,7 +728,7 @@ class LongitudinalMpc:
       self.softHoldTimer += 1
       if self.softHoldTimer*DT_MDL >= 0.7: 
         self.xState = XState.softHold
-        self.mpcEvent = EventName.autoHold
+        pass # self.mpcEvent = EventName.autoHold 벌트는 interface.py에서 처리함.
     else:
       self.softHoldTimer = 0
 
