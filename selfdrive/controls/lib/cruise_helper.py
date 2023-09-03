@@ -147,9 +147,6 @@ class CruiseHelper:
     self.steerRatioApply = float(int(Params().get("SteerRatioApply", encoding="utf8"))) / 10.
     self.lateralTorqueCustom = Params().get_bool("LateralTorqueCustom")
 
-    self.myDrivingMode_backup = self.myDrivingMode
-
-
   def update_params(self, frame):
     if frame % 20 == 0:
       self.update_params_count += 1
