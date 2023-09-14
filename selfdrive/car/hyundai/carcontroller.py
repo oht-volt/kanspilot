@@ -70,7 +70,7 @@ class CarController:
     self.steerDeltaDown = 7
     self.button_wait = 12
 
-  def update(self, CC, CS):
+  def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
     hud_control = CC.hudControl
 

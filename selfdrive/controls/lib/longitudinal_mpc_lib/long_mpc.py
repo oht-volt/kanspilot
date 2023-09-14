@@ -49,8 +49,6 @@ LEAD_DANGER_FACTOR = 0.75
 LIMIT_COST = 1e6
 ACADOS_SOLVER_TYPE = 'SQP_RTI'
 
-CRUISE_GAP_BP = [1., 2., 3.]
-CRUISE_GAP_V = [0.9, 1.4, 1.8]
 
 # Fewer timestamps don't hurt performance and lead to
 # much better convergence of the MPC with low iterations
@@ -433,13 +431,6 @@ class LongitudinalMpc:
 
     applyStopDistance = self.stopDistance * (2.0 - self.mySafeModeFactor)
 
-    # neokii
-    cruise_gap = int(clip(carstate.cruiseGap, 1., 3.))
-    tr = interp(float(cruise_gap), CRUISE_GAP_BP, CRUISE_GAP_V)
-
-    self.t_follow = tr
-
-
     # To estimate a safe distance from a moving lead, we calculate how much stopping
     # distance that lead needs as a minimum. We can add that to the current distance
     # and then treat that as a stopped car/obstacle at this new distance.
@@ -607,11 +598,11 @@ class LongitudinalMpc:
     v_ego_kph = v_ego * CV.MS_TO_KPH
     if controls.longCruiseGap >= 4:
       self.applyCruiseGap = interp(v_ego_kph, [0, 45, 60, 100, 120, 140], [1,1,2,2,3,4])
-      cruiseGapRatio = interp(self.applyCruiseGap, [1,2,3,4], [1.1, 1.2, 1.3, 1.45])
+      cruiseGapRatio = interp(self.applyCruiseGap, [1,2,3,4], [0.9, 1.8, 2.7, 1.5])
       self.applyCruiseGap = clip(self.applyCruiseGap, 1, 4)
     else:
       self.applyCruiseGap = float(controls.longCruiseGap)
-      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [1.1, 1.3, 1.6])
+      cruiseGapRatio = interp(controls.longCruiseGap, [1,2,3], [0.9, 1.8, 2.7])
 
     self.t_follow = max(0.9, cruiseGapRatio * self.tFollowRatio * (2.0 - self.mySafeModeFactor)) # 0.9아래는 위험하니 적용안함.
 
@@ -828,6 +819,8 @@ class LongitudinalMpc:
       if self.status:
         self.xState = XState.lead
         stop_x = 1000.0
+      elif abs(carstate.steeringAngleDeg) > 5:
+        pass
       elif self.trafficState == 1 and not carstate.gasPressed:
         self.xState = XState.e2eStop
         self.mpcEvent = EventName.trafficStopping

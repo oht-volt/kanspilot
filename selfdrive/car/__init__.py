@@ -35,7 +35,7 @@ def create_button_event(cur_but: int, prev_but: int, buttons_dict: Dict[int, cap
 
 
 def gen_empty_fingerprint():
-  return {i: {} for i in range(0, 4)}
+  return {i: {} for i in range(0, 8)}
 
 
 # FIXME: hardcoding honda civic 2016 touring params so they can be used to
@@ -69,7 +69,7 @@ def scale_tire_stiffness(mass, wheelbase, center_to_front, tire_stiffness_factor
   return tire_stiffness_front, tire_stiffness_rear
 
 
-def dbc_dict(pt_dbc, radar_dbc, chassis_dbc=None, body_dbc=None):
+def dbc_dict(pt_dbc, radar_dbc, chassis_dbc=None, body_dbc=None) -> Dict[str, str]:
   return {'pt': pt_dbc, 'radar': radar_dbc, 'chassis': chassis_dbc, 'body': body_dbc}
 
 

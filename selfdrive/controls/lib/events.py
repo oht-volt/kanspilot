@@ -827,7 +827,7 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
 
   EventName.accFaulted: {
     ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("Cruise Fault: Restart the Car"),
-    ET.PERMANENT: NormalPermanentAlert("Cruise Fault: Restart the car to engage"),
+    #ET.PERMANENT: NormalPermanentAlert("Cruise Fault: Restart the car to engage"),
     ET.NO_ENTRY: NoEntryAlert("Cruise Fault: Restart the Car"),
   },
 
@@ -1021,4 +1021,12 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
      ET.WARNING: EngagementAlert(AudibleAlert.audioTurn),
   },
 
+  EventName.pedalInterceptorNoBrake: {
+    ET.WARNING: Alert(
+      "Braking Unavailable",
+      "Shift to L",
+      AlertStatus.userPrompt, AlertSize.mid,
+      Priority.HIGH, VisualAlert.wrongGear, AudibleAlert.promptRepeat, 4.),
+    ET.NO_ENTRY: NoEntryAlert("Shift To L To Use Pedal Interceptor"),
+  },
 }

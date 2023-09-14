@@ -131,6 +131,8 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     audioTurn @129; #ajouatom
     #Autohold Activate
     autoHoldActivated @130;
+    # pedal
+    pedalInterceptorNoBrake @131;
     radarCanErrorDEPRECATED @15;
     communityFeatureDisallowedDEPRECATED @62;
     radarCommIssueDEPRECATED @67;

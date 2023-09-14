@@ -210,6 +210,7 @@ class Controls:
 
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
+    self.can_log_mono_time = 0
 
     self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0)
 
@@ -477,6 +478,8 @@ class Controls:
     # Update carState from CAN
     can_strs = messaging.drain_sock_raw(self.can_sock, wait_for_one=True)
     CS = self.CI.update(self.CC, can_strs)
+    if len(can_strs) and REPLAY:
+      self.can_log_mono_time = messaging.log_from_bytes(can_strs[0]).logMonoTime
 
     self.sm.update(0)
 
@@ -613,7 +616,7 @@ class Controls:
             self.state = State.enabled
           self.current_alert_types.append(ET.ENABLE)
           self.v_cruise_helper.initialize_v_cruise(CS)
-          self.cruise_helper.longActiveUser = 1 if self.enableAutoEngage == 2 else 0           
+          self.cruise_helper.longActiveUser = 1 if self.enableAutoEngage in [0,2] else 0           
 
     # Check if openpilot is engaged and actuators are enabled
     self.enabled = self.state in ENABLED_STATES
@@ -860,7 +863,8 @@ class Controls:
 
     if not self.read_only and self.initialized:
       # send car controls over can
-      self.last_actuators, can_sends = self.CI.apply(CC)
+      now_nanos = self.can_log_mono_time if REPLAY else int(sec_since_boot() * 1e9)
+      self.last_actuators, can_sends = self.CI.apply(CC, now_nanos)
       self.pm.send('sendcan', can_list_to_can_capnp(can_sends, msgtype='sendcan', valid=CS.canValid))
       CC.actuatorsOutput = self.last_actuators
       if self.CP.steerControlType == car.CarParams.SteerControlType.angle:
@@ -926,6 +930,8 @@ class Controls:
     controlsState.myDrivingMode = self.cruise_helper.myDrivingMode
     controlsState.mySafeModeFactor = self.cruise_helper.mySafeModeFactor
     controlsState.curveSpeed = self.cruise_helper.curveSpeed
+    if 0 < self.cruise_helper.naviSpeed < self.cruise_helper.curveSpeed:
+      controlsState.curveSpeed = -self.cruise_helper.naviSpeed
 
     #C2#controlsState.upAccelCmd = float(self.LoC.pid.p)
     #C2#controlsState.uiAccelCmd = float(self.LoC.pid.i)

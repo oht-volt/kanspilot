@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from typing import List
 from cereal import car
 from math import fabs, exp
 from panda import Panda
@@ -8,7 +7,7 @@ from common.conversions import Conversions as CV
 from selfdrive.car import STD_CARGO_KG, create_button_event, scale_tire_stiffness, is_ecu_disconnected, get_safety_config
 from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
 from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, FINGERPRINTS, CruiseButtons, \
-                                    CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, CC_ONLY_CAR
+                                    CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, GMFlags, CC_ONLY_CAR
 from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, FRICTION_THRESHOLD
 from selfdrive.controls.lib.drive_helpers import get_friction
 
@@ -18,7 +17,8 @@ GearShifter = car.CarState.GearShifter
 TransmissionType = car.CarParams.TransmissionType
 NetworkLocation = car.CarParams.NetworkLocation
 BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.DECEL_SET: ButtonType.decelCruise,
-                CruiseButtons.MAIN: ButtonType.altButton3, CruiseButtons.CANCEL: ButtonType.cancel}
+                CruiseButtons.MAIN: ButtonType.altButton3, CruiseButtons.CANCEL: ButtonType.cancel,
+                CruiseButtons.GAP_DIST: ButtonType.gapAdjustCruise}
 
 
 class CarInterface(CarInterfaceBase):
@@ -119,7 +119,7 @@ class CarInterface(CarInterfaceBase):
       ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
       # supports stop and go, initial engage could (conservatively) be above -1mph
       ret.minEnableSpeed = -1
-      ret.minSteerSpeed = -1
+      ret.minSteerSpeed = 3 * CV.MPH_TO_MS
 
       # Tuning
       ret.longitudinalTuning.kpV = [2.0]
@@ -161,6 +161,32 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiBP = [0.]
       ret.longitudinalTuning.kiV = [0.36]
 
+    if ret.enableGasInterceptor:
+      ret.flags |= GMFlags.PEDAL_LONG.value
+      ret.minEnableSpeed = -1
+      ret.pcmCruise = False
+      ret.openpilotLongitudinalControl = True
+      # Note: Low speed, stop and go not tested. Should be fairly smooth on highway
+      ret.longitudinalTuning.kpV = [0.35, 0.5]
+      ret.longitudinalTuning.kiBP = [0., 35.0]
+      ret.longitudinalTuning.kiV = [0.1, 0.1]
+      ret.longitudinalTuning.kf = 0.15
+      ret.stoppingDecelRate = 0.8  # reach stopping target smoothly, brake_travel/s while trying to stop
+      ret.vEgoStopping = 0.5  # Speed at which the car goes into stopping state, when car starts requesting stopping accel
+      ret.vEgoStarting = 0.5  # Speed at which the car goes into starting state, when car starts requesting starting accel,
+      # vEgoStarting needs to be > or == vEgoStopping to avoid state transition oscillation
+      ret.stoppingControl = True
+
+    elif candidate in CC_ONLY_CAR:
+      ret.flags |= GMFlags.CC_LONG.value
+      ret.radarUnavailable = True
+      ret.experimentalLongitudinalAvailable = False
+      ret.minEnableSpeed = 24 * CV.MPH_TO_MS
+      ret.openpilotLongitudinalControl = True
+      # FIXME
+      # ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_CC_LONG
+      ret.pcmCruise = False
+
     # TODO: start from empirically derived lateral slip stiffness for the civic and scale by
     # mass and CG position, so all cars will have approximately similar dyn behaviors
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront,
@@ -170,117 +196,54 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingControl = True
     ret.startingState = True
 
-    ret.longitudinalActuatorDelayLowerBound = 0.15
-    ret.longitudinalActuatorDelayUpperBound = 0.25
+    ret.longitudinalActuatorDelayLowerBound = 0.5
+    ret.longitudinalActuatorDelayUpperBound = 0.5
     ret.longitudinalTuning.kf = 1.0
     ret.stoppingDecelRate = 3.0  # reach stopping target smoothly, brake_travel/s while trying to stop
     ret.stopAccel = -2.0  # Required acceleration to keep vehicle stationary
-    ret.vEgoStopping = 0.35  # Speed at which the car goes into stopping state, when car starts requesting stopping accel
-    ret.vEgoStarting = 0.25  # Speed at which the car goes into starting state, when car starts requesting starting accel,
+    ret.vEgoStopping = 0.5  # Speed at which the car goes into stopping state, when car starts requesting stopping accel
+    ret.vEgoStarting = 0.5  # Speed at which the car goes into starting state, when car starts requesting starting accel,
 
     return ret
 
   # returns a car.CarState
-  def _update(self, c: car.CarControl) -> car.CarState:
-    pass
-
-  def update(self, c: car.CarControl, can_strings: List[bytes]) -> car.CarState:
-    self.cp.update_strings(can_strings)
-    self.cp_cam.update_strings(can_strings)
-    self.cp_loopback.update_strings(can_strings)
-
-    self.cp_chassis.update_strings(can_strings) # for brakeLight
+  def _update(self, c):
     ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis)
 
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid
     ret.engineRpm = self.CS.engineRPM
-
-    buttonEvents = []
-
-    if self.CS.cruise_buttons != self.CS.prev_cruise_buttons and self.CS.prev_cruise_buttons != CruiseButtons.INIT:
-      buttonEvents = [create_button_event(self.CS.cruise_buttons, self.CS.prev_cruise_buttons, BUTTONS_DICT, CruiseButtons.UNPRESS)]
-      # Handle ACCButtons changing buttons mid-press
-      if self.CS.cruise_buttons != CruiseButtons.UNPRESS and self.CS.prev_cruise_buttons != CruiseButtons.UNPRESS:
-        buttonEvents.append(create_button_event(CruiseButtons.UNPRESS, self.CS.prev_cruise_buttons, BUTTONS_DICT, CruiseButtons.UNPRESS))
-    if self.CS.distance_button_pressed:
-      buttonEvents.append(car.CarState.ButtonEvent(pressed=True, type=ButtonType.gapAdjustCruise))
-
-    ret.buttonEvents = buttonEvents
-
-    if self.CS.distance_button and self.CS.distance_button != self.CS.prev_distance_button:
-       self.CS.cruise_Gap -= 1
-       if self.CS.cruise_Gap < 1:
-         self.CS.cruise_Gap = 3
-
-    ret.cruiseGap = self.CS.cruise_Gap
+    # Don't add event if transitioning from INIT, unless it's to an actual button
+    if self.CS.cruise_buttons != CruiseButtons.UNPRESS or self.CS.prev_cruise_buttons != CruiseButtons.INIT:
+      ret.buttonEvents = [create_button_event(self.CS.cruise_buttons, self.CS.prev_cruise_buttons, BUTTONS_DICT,
+                                              unpressed=CruiseButtons.UNPRESS)]
 
     # The ECM allows enabling on falling edge of set, but only rising edge of resume
     events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
                                                          GearShifter.eco, GearShifter.manumatic],
-                                       pcm_enable=False, enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise))
-
+                                       pcm_enable=self.CP.pcmCruise, enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise, ButtonType.resumeCruise))
     if not self.CP.pcmCruise:
-      if any(b.type == ButtonType.decelCruise and b.pressed for b in ret.buttonEvents):
-        events.add(EventName.buttonEnable)
       if any(b.type == ButtonType.accelCruise and b.pressed for b in ret.buttonEvents):
         events.add(EventName.buttonEnable)
-    below_min_enable_speed = ret.vEgo < self.CP.minEnableSpeed or self.CS.moving_backward
-    if below_min_enable_speed and not (ret.standstill and ret.brake >= 20 and
-                                       self.CP.networkLocation == NetworkLocation.fwdCamera):
-      events.add(EventName.belowEngageSpeed)
 
-    #autohold event
-    if self.CS.autoHoldActivated:
-      events.add(EventName.autoHold)
-
-    ret.events = events.to_msg()
-
-    # copy back carState packet to CS
-    self.CS.out = ret.as_reader()
-
-    return self.CS.out
-
-    events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
-                                                         GearShifter.eco, GearShifter.manumatic],
-                                       pcm_enable=False, enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise))
-
-
-    if not self.CP.pcmCruise:
-      if any(b.type == ButtonType.decelCruise and b.pressed for b in ret.buttonEvents):
-        events.add(EventName.buttonEnable)
-      if any(b.type == ButtonType.accelCruise and b.pressed for b in ret.buttonEvents):
-        events.add(EventName.buttonEnable)
+    # Enabling at a standstill with brake is allowed
+    # TODO: verify 17 Volt can enable for the first time at a stop and allow for all GMs
     below_min_enable_speed = ret.vEgo < self.CP.minEnableSpeed or self.CS.moving_backward
     if below_min_enable_speed and not (ret.standstill and ret.brake >= 20 and
                                        self.CP.networkLocation == NetworkLocation.fwdCamera):
       events.add(EventName.belowEngageSpeed)
     if ret.cruiseState.standstill:
       events.add(EventName.resumeRequired)
-    if self.CP.enableGasInterceptor and self.CP.transmissionType == TransmissionType.direct and not self.CS.single_pedal_mode:
-      events.add(EventName.brakeUnavailable)
+    if 0.05 < ret.vEgo < self.CP.minSteerSpeed:
+      events.add(EventName.belowSteerSpeed)
 
-    # autohold on ui icon
-    if self.CS.autoHoldActivated == True:
-      ret.brakeHoldActive = True
+    if (self.CP.flags & GMFlags.CC_LONG.value) and ret.vEgo < self.CP.minEnableSpeed:
+      events.add(EventName.speedTooLow)
 
-    if self.CS.autoHoldActivated == False:
-      ret.brakeHoldActive = False
+    if (self.CP.flags & GMFlags.PEDAL_LONG.value) and self.CP.transmissionType == TransmissionType.direct and not self.CS.single_pedal_mode:
+      events.add(EventName.pedalInterceptorNoBrake)
+
     ret.events = events.to_msg()
 
-    # copy back carState packet to CS
-    self.CS.out = ret.as_reader()
+    return ret
 
-    return self.CS.out
-
-  def apply(self, c):
-    can_sends = self.CC.update(c, self.CS)
-    # Release Auto Hold and creep smoothly when regenpaddle pressed
-    if self.CS.regenPaddlePressed and self.CS.autoHold:
-      self.CS.autoHoldActive = False
-
-    if self.CS.autoHold and not self.CS.autoHoldActive and not self.CS.regenPaddlePressed:
-      if self.CS.out.vEgo > 0.03:
-        self.CS.autoHoldActive = True
-      elif self.CS.out.vEgo < 0.02 and self.CS.out.brakePressed:
-        self.CS.autoHoldActive = True
-    return can_sends
+  def apply(self, c, now_nanos):
+    return self.CC.update(c, self.CS, now_nanos)

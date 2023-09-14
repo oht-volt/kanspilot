@@ -66,7 +66,7 @@ class CarInterfaceBase(ABC):
     self.frame = 0
     self.steering_unpressed = 0
     self.low_speed_alert = False
-    self.steer_warning = 0
+    self.no_steer_warning = False
     self.silent_steer_warning = True
     self.v_ego_cluster_seen = False
 
@@ -89,7 +89,6 @@ class CarInterfaceBase(ABC):
     self.CC = None
     if CarController is not None:
       self.CC = CarController(self.cp.dbc_name, CP, self.VM)
-    #self.disengage_on_accelerator = Params().get_bool("DisengageOnAccelerator")
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
@@ -246,11 +245,11 @@ class CarInterfaceBase(ABC):
     return reader
 
   @abstractmethod
-  def apply(self, c: car.CarControl) -> Tuple[car.CarControl.Actuators, List[bytes]]:
+  def apply(self, c: car.CarControl, now_nanos: int) -> Tuple[car.CarControl.Actuators, List[bytes]]:
     pass
 
   def create_common_events(self, cs_out, extra_gears=None, pcm_enable=True, allow_enable=True,
-                           enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
+                           enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise, ButtonType.resumeCruise)):
     events = Events()
 
     #if cs_out.doorOpen:
@@ -296,29 +295,25 @@ class CarInterfaceBase(ABC):
         if self.CP.openpilotLongitudinalControl:
           events.add(EventName.buttonCancel)
 
-    self.steer_warning = self.steer_warning + 1 if cs_out.steerFaultTemporary else 0
+    # Handle permanent and temporary steering faults
     self.steering_unpressed = 0 if cs_out.steeringPressed else self.steering_unpressed + 1
-    if cs_out.cruiseMain:
-      # Handle permanent and temporary steering faults
-      if cs_out.steerFaultPermanent:
-        events.add(EventName.steerUnavailable)
-      elif cs_out.steerFaultTemporary:
-        # only escalate to the harsher alert after the condition has
-        # persisted for 0.5s and we're certain that the user isn't overriding
-        if self.steering_unpressed > int(0.5/DT_CTRL) and self.steer_warning > int(0.5/DT_CTRL):
-          events.add(EventName.steerTempUnavailable)
-        else:
+    if cs_out.steerFaultTemporary:
+      if cs_out.steeringPressed and (not self.CS.out.steerFaultTemporary or self.no_steer_warning):
+        self.no_steer_warning = True
+      else:
+        self.no_steer_warning = False
+
+        # if the user overrode recently, show a less harsh alert
+        if self.silent_steer_warning or cs_out.standstill or self.steering_unpressed < int(1.5 / DT_CTRL):
           self.silent_steer_warning = True
           events.add(EventName.steerTempUnavailableSilent)
-      else:
-        self.silent_steer_warning = False
-
-    # bellows are no more necessary on apilot's condition
-    # Disable on rising edge of gas or brake. Also disable on brake when speed > 0.
-    #if (cs_out.gasPressed and not self.CS.out.gasPressed and self.disengage_on_accelerator) or \
-    #   (cs_out.brakePressed and (not self.CS.out.brakePressed or not cs_out.standstill)):
-    #  #events.add(EventName.pedalPressed)
-    #  pass
+        else:
+          events.add(EventName.steerTempUnavailable)
+    else:
+      self.no_steer_warning = False
+      self.silent_steer_warning = False
+    if cs_out.steerFaultPermanent:
+      events.add(EventName.steerUnavailable)
 
     # we engage when pcm is active (rising edge)
     # enabling can optionally be blocked by the car interface
@@ -327,7 +322,7 @@ class CarInterfaceBase(ABC):
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.available:
         events.add(EventName.pcmDisable)
-    elif  cs_out.cruiseState.pcmMode:
+    elif cs_out.cruiseState.pcmMode:
       if cs_out.cruiseState.enabled and not self.CS.out.cruiseState.enabled and allow_enable:
         events.add(EventName.pcmEnable)
       elif not cs_out.cruiseState.enabled:

@@ -29,6 +29,7 @@ cdef class CANParser:
   cdef readonly:
     dict vl
     dict vl_all
+    dict ts_nanos
     bool can_valid
     bool bus_timeout
     string dbc_name
@@ -45,7 +46,7 @@ cdef class CANParser:
 
     self.vl = {}
     self.vl_all = {}
-    self.can_valid = False
+    self.ts_nanos = {}
     self.can_invalid_cnt = CAN_INVALID_CNT
 
     cdef int i
@@ -60,6 +61,8 @@ cdef class CANParser:
       self.vl[name] = self.vl[msg.address]
       self.vl_all[msg.address] = defaultdict(list)
       self.vl_all[name] = self.vl_all[msg.address]
+      self.ts_nanos[msg.address] = {}
+      self.ts_nanos[name] = self.ts_nanos[msg.address]
 
     # Convert message names into addresses
     for i in range(len(signals)):
@@ -120,6 +123,7 @@ cdef class CANParser:
       cv_name = <unicode>cv.name
       self.vl[cv.address][cv_name] = cv.value
       self.vl_all[cv.address][cv_name].extend(cv.all_values)
+      self.ts_nanos[cv.address][cv_name] = cv.ts_nanos
       updated_addrs.insert(cv.address)
 
     return updated_addrs

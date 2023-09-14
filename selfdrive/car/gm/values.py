@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, IntFlag
 from typing import Dict, List, Union
 
 from cereal import car
@@ -12,13 +12,11 @@ Ecu = car.CarParams.Ecu
 
 class CarControllerParams:
   STEER_MAX = 300  # GM limit is 3Nm. Used by carcontroller to generate LKA output
-  STEER_STEP = 3  # Active control frames per command (~33hz)
-  ACTIVE_STEER_STEP = 3 # how often we update the steer cmd
+  STEER_STEP = 2  # Active control frames per command (~33hz)
   INACTIVE_STEER_STEP = 10  # Inactive control frames per command (10hz)
-  STEER_DELTA_UP = 10  # Delta rates require review due to observed EPS weakness
-  STEER_DELTA_DOWN = 15
-  MIN_STEER_SPEED = 3.
-  STEER_DRIVER_ALLOWANCE = 65
+  STEER_DELTA_UP = 6  # Delta rates require review due to observed EPS weakness
+  STEER_DELTA_DOWN = 14
+  STEER_DRIVER_ALLOWANCE = 50
   STEER_DRIVER_MULTIPLIER = 4
   STEER_DRIVER_FACTOR = 100
   NEAR_STOP_BRAKE_PHASE = 0.5  # m/s
@@ -143,6 +141,7 @@ class CruiseButtons:
   DECEL_SET = 3
   MAIN = 5
   CANCEL = 6
+  GAP_DIST = 7
 
 class AccState:
   OFF = 0
@@ -158,6 +157,12 @@ class CanBus:
   SW_GMLAN = 3
   LOOPBACK = 128
   DROPPED = 192
+
+
+class GMFlags(IntFlag):
+  PEDAL_LONG = 1
+  CC_LONG = 2
+
 
 FINGERPRINTS = {
   CAR.HOLDEN_ASTRA: [

@@ -11,9 +11,9 @@
 const int GM_MAX_STEER = 300;
 const int GM_MAX_RT_DELTA = 128;          // max delta torque allowed for real time checks
 const uint32_t GM_RT_INTERVAL = 250000;    // 250ms between real time checks
-const int GM_MAX_RATE_UP = 10;
-const int GM_MAX_RATE_DOWN = 15;
-const int GM_DRIVER_TORQUE_ALLOWANCE = 65;
+const int GM_MAX_RATE_UP = 7;
+const int GM_MAX_RATE_DOWN = 17;
+const int GM_DRIVER_TORQUE_ALLOWANCE = 50;
 const int GM_DRIVER_TORQUE_FACTOR = 4;
 
 typedef struct {
@@ -41,12 +41,12 @@ const GmLongLimits *gm_long_limits;
 
 const int GM_STANDSTILL_THRSLD = 10;  // 0.311kph
 
-const CanMsg GM_ASCM_TX_MSGS[] = {{384, 0, 4}, {1033, 0, 7}, {1034, 0, 7}, {715, 0, 8}, {880, 0, 6}, {512, 0, 3}, {789, 0, 5}, {800, 0, 6},  // pt bus
+const CanMsg GM_ASCM_TX_MSGS[] = {{384, 0, 4}, {1033, 0, 7}, {1034, 0, 7}, {715, 0, 8}, {880, 0, 6}, {512, 0, 6}, {481, 0, 7}, {789, 0, 5}, {800, 0, 6},  // pt bus
                                   {161, 1, 7}, {774, 1, 8}, {776, 1, 7}, {784, 1, 2},   // obs bus
-                                  {789, 2, 5},  // ch bus
+                                  {789, 2, 5}, {481, 2, 7},// ch bus
                                   {0x104c006c, 3, 3}, {0x10400060, 3, 5}};  // gmlan
 
-const CanMsg GM_CAM_TX_MSGS[] = {{384, 0, 4}, {512, 0, 3}, {481, 0, 7},  // pt bus
+const CanMsg GM_CAM_TX_MSGS[] = {{384, 0, 4}, {512, 0, 6}, {481, 0, 7},  // pt bus
                                  {481, 2, 7}, {388, 2, 8}};  // camera bus
 
 // Note: TODO: button presses (481) may not be required on bus 2 when OP is handling long
@@ -69,18 +69,22 @@ addr_checks gm_rx_checks = {gm_addr_checks, GM_RX_CHECK_LEN};
 
 const uint16_t GM_PARAM_HW_CAM = 1U;
 const uint16_t GM_PARAM_HW_CAM_LONG = 2U;
+const uint16_t GM_PARAM_HW_ASCM_LONG = 4U;
+const uint16_t GM_PARAM_NO_CAMERA = 8U;
 
 enum {
   GM_BTN_UNPRESS = 1,
   GM_BTN_RESUME = 2,
   GM_BTN_SET = 3,
-  GM_BTN_MAIN = 5,
   GM_BTN_CANCEL = 6,
 };
 
 enum {GM_ASCM, GM_CAM} gm_hw = GM_ASCM;
 bool gm_cam_long = false;
 bool gm_pcm_cruise = false;
+bool gm_skip_relay_check = false;
+bool gm_force_ascm = false;
+bool brake_pressed_x = false;
 
 static int gm_rx_hook(CANPacket_t *to_push) {
 
@@ -126,11 +130,11 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     // Reference for brake pressed signals:
     // https://github.com/commaai/openpilot/blob/master/selfdrive/car/gm/carstate.py
     if ((addr == 190) && (gm_hw == GM_ASCM)) {
-      //brake_pressed = GET_BYTE(to_push, 1) >= 8U;
+      brake_pressed_x = GET_BYTE(to_push, 1) >= 8U;
     }
 
     if ((addr == 201) && (gm_hw == GM_CAM)) {
-      //brake_pressed = GET_BIT(to_push, 40U) != 0U;
+      brake_pressed_x = GET_BIT(to_push, 40U) != 0U;
     }
 
     if (addr == 452) {
@@ -267,11 +271,20 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
   }
 
   // BUTTONS: used for resume spamming and cruise cancellation with stock longitudinal
-  if ((addr == 481) && gm_pcm_cruise) {
+  if ((addr == 481) && gm_force_ascm) {  // ajouatom: add gm_force_ascm, ¨Ïoo¡§¢®¢®¨¡ Au¡§uU¢®¨¡¡Ë¢ç¡Ë¡ÍECI¡Íi¡Íi¢®¢´I...
     int button = (GET_BYTE(to_send, 5) >> 4) & 0x7U;
 
-    bool allowed_cancel = (button == 6) && cruise_engaged_prev;
-    if (!allowed_cancel) {
+    bool allowed_btn = (button == GM_BTN_CANCEL);
+    allowed_btn |= (button == GM_BTN_SET || button == GM_BTN_RESUME || button == GM_BTN_UNPRESS);
+    if (!allowed_btn) {
+      tx = 0;
+    }
+  }
+  else if ((addr == 481) && (gm_pcm_cruise)) {
+    int button = (GET_BYTE(to_send, 5) >> 4) & 0x7U;
+    bool allowed_btn = (button == GM_BTN_CANCEL) && cruise_engaged_prev;
+    // For standard CC, allow spamming of SET / RESUME
+    if (!allowed_btn) {
       tx = 0;
     }
   }
@@ -311,7 +324,9 @@ static int gm_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
 static const addr_checks* gm_init(uint16_t param) {
   gm_hw = GET_FLAG(param, GM_PARAM_HW_CAM) ? GM_CAM : GM_ASCM;
 
-  if (gm_hw == GM_ASCM) {
+  gm_force_ascm = GET_FLAG(param, GM_PARAM_HW_ASCM_LONG);
+
+  if (gm_hw == GM_ASCM || gm_force_ascm) {
     gm_long_limits = &GM_ASCM_LONG_LIMITS;
   } else if (gm_hw == GM_CAM) {
     gm_long_limits = &GM_CAM_LONG_LIMITS;
@@ -321,7 +336,8 @@ static const addr_checks* gm_init(uint16_t param) {
 #ifdef ALLOW_DEBUG
   gm_cam_long = GET_FLAG(param, GM_PARAM_HW_CAM_LONG);
 #endif
-  gm_pcm_cruise = (gm_hw == GM_CAM) && !gm_cam_long;
+  gm_pcm_cruise = (gm_hw == GM_CAM) && !gm_cam_long && !gm_force_ascm;
+  gm_skip_relay_check = GET_FLAG(param, GM_PARAM_NO_CAMERA);
   return &gm_rx_checks;
 }
 
