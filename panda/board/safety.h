@@ -7,7 +7,7 @@
 //#include "safety/safety_tesla.h"
 #include "safety/safety_gm.h"
 //#include "safety/safety_ford.h"
-#include "safety/safety_hyundai.h"
+//#include "safety/safety_hyundai.h"
 //#include "safety/safety_chrysler.h"
 //#include "safety/safety_subaru.h"
 //#include "safety/safety_mazda.h"
@@ -50,7 +50,15 @@ const safety_hooks *current_hooks = &nooutput_hooks;
 const addr_checks *current_rx_checks = &default_rx_checks;
 
 int safety_rx_hook(CANPacket_t *to_push) {
-  return current_hooks->rx(to_push);
+  bool controls_allowed_prev = controls_allowed;
+  int ret = current_hooks->rx(to_push);
+
+  // reset mismatches on rising edge of controls_allowed to avoid rare race condition
+  if (controls_allowed && !controls_allowed_prev) {
+    heartbeat_engaged_mismatches = 0;
+  }
+
+  return ret;
 }
 
 int safety_tx_hook(CANPacket_t *to_send) {
@@ -264,9 +272,9 @@ const safety_hook_config safety_hook_registry[] = {
   //{SAFETY_TOYOTA, &toyota_hooks},
   {SAFETY_ELM327, &elm327_hooks},
   {SAFETY_GM, &gm_hooks},
-  {SAFETY_HYUNDAI, &hyundai_hooks},
+  //{SAFETY_HYUNDAI, &hyundai_hooks},
   {SAFETY_NOOUTPUT, &nooutput_hooks},
-  {SAFETY_HYUNDAI_LEGACY, &hyundai_legacy_hooks},
+  //{SAFETY_HYUNDAI_LEGACY, &hyundai_legacy_hooks},
 #ifdef ALLOW_DEBUG
   //{SAFETY_TESLA, &tesla_hooks},
   //{SAFETY_SUBARU_LEGACY, &subaru_legacy_hooks},
