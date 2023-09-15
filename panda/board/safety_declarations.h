@@ -6,6 +6,9 @@
 
 const int MAX_WRONG_COUNTERS = 5;
 const uint8_t MAX_MISSED_MSGS = 10U;
+#define MAX_ADDR_CHECK_MSGS 3U
+// used to represent floating point vehicle speed in a sample_t
+#define VEHICLE_SPEED_FACTOR 100.0
 
 // sample struct that keeps 3 samples in memory
 struct sample_t {
@@ -52,7 +55,34 @@ typedef struct {
   const int max_invalid_request_frames;
   const uint32_t min_valid_request_rt_interval;
   const bool has_steer_req_tolerance;
+
+  // angle cmd limits
+  const int angle_deg_to_can;
+  const struct lookup_t angle_rate_up_lookup;
+  const struct lookup_t angle_rate_down_lookup;
+  const int max_angle_error;             // used to limit error between meas and cmd while enabled
+  const float angle_error_min_speed;     // minimum speed to start limiting angle error
+
+  const bool enforce_angle_error;        // enables max_angle_error check
+  const bool inactive_angle_is_zero;     // if false, enforces angle near meas when disabled (default)
 } SteeringLimits;
+
+typedef struct {
+  // acceleration cmd limits
+  const int max_accel;
+  const int min_accel;
+  const int inactive_accel;
+
+  // gas & brake cmd limits
+  // inactive and min gas are 0 on most safety modes
+  const int max_gas;
+  const int min_gas;
+  const int inactive_gas;
+  const int max_brake;
+
+  // speed cmd limits
+  const int inactive_speed;
+} LongitudinalLimits;
 
 typedef struct {
   const int addr;
@@ -66,7 +96,7 @@ typedef struct {
 // params and flags about checksum, counter and frequency checks for each monitored address
 typedef struct {
   // const params
-  const CanMsgCheck msg[3];          // check either messages (e.g. honda steer). Array MUST terminate with an empty struct to know its length.
+  const CanMsgCheck msg[MAX_ADDR_CHECK_MSGS];  // check either messages (e.g. honda steer)
   // dynamic flags
   bool msg_seen;
   int index;                         // if multiple messages are allowed to be checked, this stores the index of the first one seen. only msg[msg_index] will be used
@@ -89,6 +119,8 @@ uint32_t get_ts_elapsed(uint32_t ts, uint32_t ts_last);
 int to_signed(int d, int bits);
 void update_sample(struct sample_t *sample, int sample_new);
 bool max_limit_check(int val, const int MAX, const int MIN);
+bool angle_dist_to_meas_check(int val, struct sample_t *val_meas,
+  const int MAX_ERROR, const int MAX_VAL);
 bool dist_to_meas_check(int val, int val_last, struct sample_t *val_meas,
   const int MAX_RATE_UP, const int MAX_RATE_DOWN, const int MAX_ERROR);
 bool driver_limit_check(int val, int val_last, struct sample_t *val_driver,
@@ -113,6 +145,12 @@ void generic_rx_checks(bool stock_ecu_detected);
 void relay_malfunction_set(void);
 void relay_malfunction_reset(void);
 bool steer_torque_cmd_checks(int desired_torque, int steer_req, const SteeringLimits limits);
+bool steer_angle_cmd_checks(int desired_angle, bool steer_control_enabled, const SteeringLimits limits);
+bool longitudinal_accel_checks(int desired_accel, const LongitudinalLimits limits);
+bool longitudinal_speed_checks(int desired_speed, const LongitudinalLimits limits);
+bool longitudinal_gas_checks(int desired_gas, const LongitudinalLimits limits);
+bool longitudinal_brake_checks(int desired_brake, const LongitudinalLimits limits);
+bool longitudinal_interceptor_checks(CANPacket_t *to_send);
 void pcm_cruise_check(bool cruise_engaged);
 
 typedef const addr_checks* (*safety_hook_init)(uint16_t param);
@@ -143,8 +181,7 @@ bool brake_pressed_prev = false;
 bool regen_braking = false;
 bool regen_braking_prev = false;
 bool cruise_engaged_prev = false;
-bool acc_main_on_prev = false;
-float vehicle_speed = 0;
+struct sample_t vehicle_speed;
 bool vehicle_moving = false;
 bool acc_main_on = false;  // referred to as "ACC off" in ISO 15622:2018
 int cruise_button_prev = 0;
@@ -152,9 +189,6 @@ int cruise_button_prev = 0;
 // for safety modes with torque steering control
 int desired_torque_last = 0;       // last desired steer torque
 int rt_torque_last = 0;            // last desired torque for real time check
-struct sample_t torque_meas;       // last 3 motor torques produced by the eps
-struct sample_t torque_driver;     // last 3 driver torques measured
-uint32_t ts_last = 0;
 int valid_steer_req_count = 0;     // counter for steer request bit matching non-zero torque
 int invalid_steer_req_count = 0;   // counter to allow multiple frames of mismatching torque request bit
 struct sample_t torque_meas;       // last 6 motor torques produced by the eps
