@@ -185,7 +185,7 @@ void can_rx(uint8_t can_number) {
     WORD_TO_BYTE_ARRAY(&to_push.data[4], CAN->sFIFOMailBox[0].RDHR);
 
     // forwarding (panda only)
-    int bus_fwd_num = safety_fwd_hook(bus_number, &to_push);
+    int bus_fwd_num = safety_fwd_hook(bus_number, to_push.addr);
     if (bus_fwd_num != -1) {
       CANPacket_t to_send;
 

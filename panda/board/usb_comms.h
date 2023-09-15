@@ -16,29 +16,26 @@ int get_health_pkt(void *dat) {
   health->current_pkt = current_board->read_current();
 
   //Use the GPIO pin to determine ignition or use a CAN based logic
-  health->ignition_line_pkt = (uint8_t)(current_board->check_ignition());
-  health->ignition_can_pkt = (uint8_t)(ignition_can);
-
-  health->controls_allowed_pkt = controls_allowed;
-  health->gas_interceptor_detected_pkt = gas_interceptor_detected;
   health->can_rx_errs_pkt = can_rx_errs;
   health->can_send_errs_pkt = can_send_errs;
   health->can_fwd_errs_pkt = can_fwd_errs;
   health->gmlan_send_errs_pkt = gmlan_send_errs;
+  health->faults_pkt = faults;
+  health->ignition_line_pkt = (uint8_t)(current_board->check_ignition());
+  health->ignition_can_pkt = (uint8_t)(ignition_can);
+  health->controls_allowed_pkt = controls_allowed;
+  health->gas_interceptor_detected_pkt = gas_interceptor_detected;
   health->car_harness_status_pkt = car_harness_status;
   health->usb_power_mode_pkt = usb_power_mode;
   health->safety_mode_pkt = (uint8_t)(current_safety_mode);
   health->safety_param_pkt = current_safety_param;
-  health->alternative_experience_pkt = alternative_experience;
+  health->fault_status_pkt = fault_status;
   health->power_save_enabled_pkt = (uint8_t)(power_save_status == POWER_SAVE_STATUS_ENABLED);
   health->heartbeat_lost_pkt = (uint8_t)(heartbeat_lost);
+  health->alternative_experience_pkt = alternative_experience;
   health->blocked_msg_cnt_pkt = blocked_msg_cnt;
-
-  health->fault_status_pkt = fault_status;
-  health->faults_pkt = faults;
-
   health->interrupt_load = interrupt_load;
-
+  health->safety_rx_checks_invalid = safety_rx_checks_invalid;
   return sizeof(*health);
 }
 

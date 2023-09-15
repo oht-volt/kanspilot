@@ -74,7 +74,7 @@ bool brake_pressed_x = false;
 
 static int gm_rx_hook(CANPacket_t *to_push) {
 
-  bool valid = addr_safety_check(to_push, &gm_rx_checks, NULL, NULL, NULL);
+  bool valid = addr_safety_check(to_push, &gm_rx_checks, NULL, NULL, NULL, NULL);
 
   if (valid && (GET_BUS(to_push) == 0U)) {
     int addr = GET_ADDR(to_push);
@@ -156,7 +156,7 @@ static int gm_rx_hook(CANPacket_t *to_push) {
 // else
 //     block all commands that produce actuation
 
-static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
+static int gm_tx_hook(CANPacket_t *to_send) {
 
   int tx = 1;
   int addr = GET_ADDR(to_send);
@@ -175,11 +175,6 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
   if (addr == 789) {
     int brake = ((GET_BYTE(to_send, 0) & 0xFU) << 8) + GET_BYTE(to_send, 1);
     brake = (0x1000 - brake) & 0xFFF;
-    if (!longitudinal_allowed) {
-      if (brake != 0) {
-        tx = 0;
-      }
-    }
     if (longitudinal_brake_checks(brake, *gm_long_limits)) {
       tx = 0;
     }
@@ -233,12 +228,11 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
   return tx;
 }
 
-static int gm_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int gm_fwd_hook(int bus_num, int addr) {
 
   int bus_fwd = -1;
 
   if (gm_hw == GM_CAM) {
-    int addr = GET_ADDR(to_fwd);
     if (bus_num == 0) {
       // block PSCMStatus; forwarded through openpilot to hide an alert from the camera
       bool is_pscm_msg = (addr == 388);

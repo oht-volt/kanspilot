@@ -43,7 +43,7 @@ static int hyundai_community_rx_hook(CANPacket_t *to_push) {
   int addr = GET_ADDR(to_push);
   int bus = GET_BUS(to_push);
   bool valid = addr_safety_check(to_push, &hyundai_community_rx_checks, hyundai_get_checksum,
-                                 hyundai_compute_checksum, hyundai_get_counter);
+                                 hyundai_compute_checksum, hyundai_get_counter, NULL);
   if (!valid){
     puts("  CAN RX invalid: "); puth(addr); puts("\n");
   }
@@ -168,8 +168,8 @@ static int hyundai_community_rx_hook(CANPacket_t *to_push) {
   return valid;
 }
 
-static int hyundai_community_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
-  UNUSED(longitudinal_allowed);
+static int hyundai_community_tx_hook(CANPacket_t *to_send) {
+
 
   int tx = 1;
   int addr = GET_ADDR(to_send);
@@ -261,9 +261,9 @@ static int hyundai_community_tx_hook(CANPacket_t *to_send, bool longitudinal_all
   return tx;
 }
 
-static int hyundai_community_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int hyundai_community_fwd_hook(int bus_num, int addr) {
   int bus_fwd = -1;
-  int addr = GET_ADDR(to_fwd);
+
   int fwd_to_bus1 = -1;
   if (Fwd_bus1 || Fwd_obd){fwd_to_bus1 = 1;}
 

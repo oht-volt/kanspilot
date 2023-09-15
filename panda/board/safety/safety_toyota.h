@@ -62,7 +62,7 @@ static uint32_t toyota_get_checksum(CANPacket_t *to_push) {
 static int toyota_rx_hook(CANPacket_t *to_push) {
 
   bool valid = addr_safety_check(to_push, &toyota_rx_checks,
-                                 toyota_get_checksum, toyota_compute_checksum, NULL);
+                                 toyota_get_checksum, toyota_compute_checksum, NULL, NULL);
 
   if (valid && (GET_BUS(to_push) == 0U)) {
     int addr = GET_ADDR(to_push);
@@ -134,7 +134,7 @@ static int toyota_rx_hook(CANPacket_t *to_push) {
   return valid;
 }
 
-static int toyota_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
+static int toyota_tx_hook(CANPacket_t *to_send) {
 
   int tx = 1;
   int addr = GET_ADDR(to_send);
@@ -254,7 +254,7 @@ static const addr_checks* toyota_init(uint16_t param) {
   return &toyota_rx_checks;
 }
 
-static int toyota_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int toyota_fwd_hook(int bus_num, int addr) {
 
   int bus_fwd = -1;
 
@@ -263,7 +263,6 @@ static int toyota_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
   }
 
   if (bus_num == 2) {
-    int addr = GET_ADDR(to_fwd);
     // block stock lkas messages and stock acc messages (if OP is doing ACC)
     // in TSS2, 0x191 is LTA which we need to block to avoid controls collision
     int is_lkas_msg = ((addr == 0x2E4) || (addr == 0x412) || (addr == 0x191));

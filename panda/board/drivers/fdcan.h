@@ -162,7 +162,7 @@ void can_rx(uint8_t can_number) {
       }
 
       // forwarding (panda only)
-      int bus_fwd_num = safety_fwd_hook(bus_number, &to_push);
+      int bus_fwd_num = safety_fwd_hook(bus_number, to_push.addr);
       if (bus_fwd_num != -1) {
         CANPacket_t to_send;
 

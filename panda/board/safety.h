@@ -62,15 +62,15 @@ int safety_rx_hook(CANPacket_t *to_push) {
 }
 
 int safety_tx_hook(CANPacket_t *to_send) {
-  return (relay_malfunction ? -1 : current_hooks->tx(to_send, get_longitudinal_allowed()));
+  return (relay_malfunction ? -1 : current_hooks->tx(to_send));
 }
 
 int safety_tx_lin_hook(int lin_num, uint8_t *data, int len) {
   return current_hooks->tx_lin(lin_num, data, len);
 }
 
-int safety_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
-  return (relay_malfunction ? -1 : current_hooks->fwd(bus_num, to_fwd));
+int safety_fwd_hook(int bus_num, int addr) {
+  return (relay_malfunction ? -1 : current_hooks->fwd(bus_num, addr));
 }
 
 bool get_longitudinal_allowed(void) {
@@ -155,6 +155,7 @@ int get_addr_check_index(CANPacket_t *to_push, AddrCheckStruct addr_list[], cons
 
 // 1Hz safety function called by main. Now just a check for lagging safety messages
 void safety_tick(const addr_checks *rx_checks) {
+  bool rx_checks_invalid = false;
   uint32_t ts = microsecond_timer_get();
   if (rx_checks != NULL) {
     for (int i=0; i < rx_checks->len; i++) {
@@ -167,8 +168,14 @@ void safety_tick(const addr_checks *rx_checks) {
       if (lagging) {
         controls_allowed = 0;
       }
+
+      if (lagging || !is_msg_valid(rx_checks->check, i)) {
+        rx_checks_invalid = true;
+      }
     }
   }
+
+  safety_rx_checks_invalid = rx_checks_invalid;
 }
 
 void update_counter(AddrCheckStruct addr_list[], int index, uint8_t counter) {
@@ -183,7 +190,7 @@ void update_counter(AddrCheckStruct addr_list[], int index, uint8_t counter) {
 bool is_msg_valid(AddrCheckStruct addr_list[], int index) {
   bool valid = true;
   if (index != -1) {
-    if ((!addr_list[index].valid_checksum) || (addr_list[index].wrong_counters >= MAX_WRONG_COUNTERS)) {
+    if (!addr_list[index].valid_checksum || !addr_list[index].valid_quality_flag || (addr_list[index].wrong_counters >= MAX_WRONG_COUNTERS)) {
       valid = false;
       controls_allowed = 0;
     }
@@ -202,7 +209,8 @@ bool addr_safety_check(CANPacket_t *to_push,
                        const addr_checks *rx_checks,
                        uint32_t (*get_checksum)(CANPacket_t *to_push),
                        uint32_t (*compute_checksum)(CANPacket_t *to_push),
-                       uint8_t (*get_counter)(CANPacket_t *to_push)) {
+                       uint8_t (*get_counter)(CANPacket_t *to_push),
+                       bool (*get_quality_flag_valid)(CANPacket_t *to_push)) {
 
   int index = get_addr_check_index(to_push, rx_checks->check, rx_checks->len);
   update_addr_timestamp(rx_checks->check, index);
@@ -223,6 +231,13 @@ bool addr_safety_check(CANPacket_t *to_push,
       update_counter(rx_checks->check, index, counter);
     } else {
       rx_checks->check[index].wrong_counters = 0U;
+    }
+
+    // quality flag check
+    if ((get_quality_flag_valid != NULL) && rx_checks->check[index].msg[rx_checks->check[index].index].quality_flag) {
+      rx_checks->check[index].valid_quality_flag = get_quality_flag_valid(to_push);
+    } else {
+      rx_checks->check[index].valid_quality_flag = true;
     }
   }
   return is_msg_valid(rx_checks->check, index);
@@ -322,6 +337,7 @@ int set_safety_hooks(uint16_t mode, uint16_t param) {
 
   controls_allowed = false;
   relay_malfunction_reset();
+  safety_rx_checks_invalid = false;
 
   int set_status = -1;  // not set
   int hook_config_count = sizeof(safety_hook_registry) / sizeof(safety_hook_config);
@@ -480,6 +496,10 @@ float interpolate(struct lookup_t xy, float x) {
     }
   }
   return ret;
+}
+
+int ROUND(float val) {
+  return val + ((val > 0.0) ? 0.5 : -0.5);
 }
 
 // Safety checks for longitudinal actuation

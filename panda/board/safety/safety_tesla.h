@@ -53,7 +53,7 @@ bool tesla_powertrain = false;  // Are we the second panda intercepting the powe
 
 static int tesla_rx_hook(CANPacket_t *to_push) {
   bool valid = addr_safety_check(to_push, tesla_powertrain ? (&tesla_pt_rx_checks) : (&tesla_rx_checks),
-                                 NULL, NULL, NULL);
+                                 NULL, NULL, NULL, NULL);
 
   if(valid) {
     int bus = GET_BUS(to_push);
@@ -117,7 +117,7 @@ static int tesla_rx_hook(CANPacket_t *to_push) {
 }
 
 
-static int tesla_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
+static int tesla_tx_hook(CANPacket_t *to_send) {
 
   int tx = 1;
   int addr = GET_ADDR(to_send);
@@ -214,9 +214,8 @@ static int tesla_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
   return tx;
 }
 
-static int tesla_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int tesla_fwd_hook(int bus_num, int addr) {
   int bus_fwd = -1;
-  int addr = GET_ADDR(to_fwd);
 
   if(bus_num == 0) {
     // Chassis/PT to autopilot
