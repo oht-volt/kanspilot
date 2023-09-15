@@ -197,7 +197,7 @@ void tick_handler(void) {
         siren_countdown -= 1U;
       }
 
-      if (controls_allowed || heartbeat_engaged) {
+      if (controls_allowed) {
         controls_allowed_countdown = 30U;
       } else if (controls_allowed_countdown > 0U) {
         controls_allowed_countdown -= 1U;
@@ -231,9 +231,6 @@ void tick_handler(void) {
           if (is_car_safety_mode(current_safety_mode)) {
             heartbeat_lost = true;
           }
-
-          // clear heartbeat engaged state
-          heartbeat_engaged = false;
 
           if (current_safety_mode != SAFETY_SILENT) {
             set_safety_mode(SAFETY_SILENT, 0U);
