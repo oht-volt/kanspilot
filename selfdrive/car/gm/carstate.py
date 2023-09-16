@@ -32,15 +32,8 @@ class CarState(CarStateBase):
 
     self.cruise_buttons = 0
     self.prev_cruise_buttons = 0
-    self.vEgo = 0
 
-    #3Bar Distance
-    self.prev_distance_button = 0
-    self.prev_lka_button = 0
-    self.lka_button = 0
-    self.distance_button = 0
-    self.follow_level = 2
-    self.lkMode = True
+
     #bellow 5lines for Autohold
     self.autoHold = False
     self.autoHoldActive = False
@@ -48,7 +41,7 @@ class CarState(CarStateBase):
     self.lastAutoHoldTime = 0.0
     self.sessionInitTime = sec_since_boot()
     self.regenPaddlePressed = False
-    self.cruiseMain = False
+    #self.cruiseMain = False
 
     #Engine Rpm
     self.engineRPM = 0
@@ -60,7 +53,6 @@ class CarState(CarStateBase):
     self.lead_distance = 0
     self.sm = messaging.SubMaster(["radarState"])
     self.buttons_counter = 0
-    self.gasPressed = False
 
     #standstill checker
     #self.prev_standstill_status = False
@@ -89,6 +81,9 @@ class CarState(CarStateBase):
     self.buttons_counter = pt_cp.vl["ASCMSteeringButton"]["RollingCounter"]
     self.pscm_status = copy.copy(pt_cp.vl["PSCMStatus"])
     self.moving_backward = pt_cp.vl["EBCMWheelSpdRear"]["MovingBackward"] != 0
+
+    if self.cruise_buttons in [CruiseButtons.UNPRESS, CruiseButtons.INIT] and self.distance_button_pressed:
+      self.cruise_buttons = CruiseButtons.GAP_DIST
 
     # Variables used for avoiding LKAS faults
     self.loopback_lka_steering_cmd_updated = len(loopback_cp.vl_all["ASCMLKASteeringCmd"]["RollingCounter"]) > 0
@@ -167,7 +162,6 @@ class CarState(CarStateBase):
 
     ret.gas = pt_cp.vl["AcceleratorPedal2"]["AcceleratorPedal2"] / 254.
     ret.gasPressed = ret.gas > 1e-5
-    self.gasPressed = ret.gasPressed
 
     ret.steeringAngleDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelAngle"]
     ret.steeringRateDeg = pt_cp.vl["PSCMSteeringAngle"]["SteeringWheelRate"]
@@ -224,8 +218,6 @@ class CarState(CarStateBase):
     if self.CP.pcmCruise:
       ret.cruiseState.nonAdaptive = pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCCruiseState"] not in (2, 3)
 
-    #Cruise Gap
-    ret.cruiseGap = self.follow_level
 
     self.engineRPM = pt_cp.vl["ECMEngineStatus"]["EngineRPM"]
     ret.cruiseState.pcmMode = False
@@ -233,6 +225,7 @@ class CarState(CarStateBase):
     # bellow line for Brake Light
     ret.brakeLights = chassis_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
 
+    ret.cruiseGap = 1
     # bellow Lines are for Autohold
     self.autoHold = True
     # autohold on ui icon
@@ -256,9 +249,6 @@ class CarState(CarStateBase):
       ret.speedLimitDistance = 0
 
     return ret
-
-  def get_follow_level(self):
-    return self.follow_level
 
   @staticmethod
   def get_cam_can_parser(CP):
@@ -316,7 +306,6 @@ class CarState(CarStateBase):
       ("RollingCounter", "ASCMLKASteeringCmd"),
       ("VehicleSpeed", "ECMVehicleSpeed"),
       ("ACCCruiseState", "ASCMActiveCruiseControlStatus"),
-      ("ACCGapLevel", "ASCMActiveCruiseControlStatus"),
       ("ACCSpeedSetpoint", "ASCMActiveCruiseControlStatus"),
       ("EngineRPM", "ECMEngineStatus"),
       ("YawRate", "EBCMVehicleDynamic"),
