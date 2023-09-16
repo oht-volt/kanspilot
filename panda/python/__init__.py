@@ -198,6 +198,7 @@ class Panda(object):
 
   FLAG_GM_HW_CAM = 1
   FLAG_GM_HW_CAM_LONG = 2
+  FLAG_GM_HW_ASCM_LONG = 4
 
   def __init__(self, serial=None, claim=True):
     self._serial = serial

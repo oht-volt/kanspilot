@@ -8,7 +8,7 @@ from common.conversions import Conversions as CV
 from selfdrive.car import STD_CARGO_KG, create_button_event, scale_tire_stiffness, is_ecu_disconnected, get_safety_config
 from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
 from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, FINGERPRINTS, CruiseButtons, \
-                                    CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, CC_ONLY_CAR
+                                    CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, GMFlags, CC_ONLY_CAR
 from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, FRICTION_THRESHOLD
 from selfdrive.controls.lib.drive_helpers import get_friction
 
@@ -119,12 +119,14 @@ class CarInterface(CarInterfaceBase):
       ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
       # supports stop and go, initial engage could (conservatively) be above -1mph
       ret.minEnableSpeed = -1
-      ret.minSteerSpeed = -1
+      ret.minSteerSpeed = 7 * CV.MPH_TO_MS
 
       # Tuning
       ret.longitudinalTuning.kpV = [2.0]
       ret.longitudinalTuning.kiV = [0.36]
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM_LONG
+      if ret.enableGasInterceptor:
+        # Need to set ASCM long limits when using pedal interceptor, instead of camera ACC long limits
+        ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_ASCM_LONG
       ret.naviCluster = 0 #현기차용, carstate.py에 False 값을 주기 위한 것뿐임
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
     # These cars likely still work fine. Once a user confirms each car works and a test route is
@@ -161,6 +163,32 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiBP = [0.]
       ret.longitudinalTuning.kiV = [0.36]
 
+    if ret.enableGasInterceptor:
+      ret.flags |= GMFlags.PEDAL_LONG.value
+      ret.minEnableSpeed = -1
+      ret.pcmCruise = False
+      ret.openpilotLongitudinalControl = True
+      # Note: Low speed, stop and go not tested. Should be fairly smooth on highway
+      ret.longitudinalTuning.kpV = [0.35, 0.5]
+      ret.longitudinalTuning.kiBP = [0., 35.0]
+      ret.longitudinalTuning.kiV = [0.1, 0.1]
+      ret.longitudinalTuning.kf = 0.15
+      ret.stoppingDecelRate = 0.8  # reach stopping target smoothly, brake_travel/s while trying to stop
+      ret.vEgoStopping = 0.5  # Speed at which the car goes into stopping state, when car starts requesting stopping accel
+      ret.vEgoStarting = 0.5  # Speed at which the car goes into starting state, when car starts requesting starting accel,
+      # vEgoStarting needs to be > or == vEgoStopping to avoid state transition oscillation
+      ret.stoppingControl = True
+
+    elif candidate in CC_ONLY_CAR:
+      ret.flags |= GMFlags.CC_LONG.value
+      ret.radarUnavailable = True
+      ret.experimentalLongitudinalAvailable = False
+      ret.minEnableSpeed = 24 * CV.MPH_TO_MS
+      ret.openpilotLongitudinalControl = True
+      # FIXME
+      # ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_CC_LONG
+      ret.pcmCruise = False
+
     # TODO: start from empirically derived lateral slip stiffness for the civic and scale by
     # mass and CG position, so all cars will have approximately similar dyn behaviors
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront,
@@ -170,13 +198,13 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingControl = True
     ret.startingState = True
 
-    ret.longitudinalActuatorDelayLowerBound = 0.15
-    ret.longitudinalActuatorDelayUpperBound = 0.25
+    ret.longitudinalActuatorDelayLowerBound = 0.5
+    ret.longitudinalActuatorDelayUpperBound = 0.5
     ret.longitudinalTuning.kf = 1.0
     ret.stoppingDecelRate = 3.0  # reach stopping target smoothly, brake_travel/s while trying to stop
     ret.stopAccel = -2.0  # Required acceleration to keep vehicle stationary
-    ret.vEgoStopping = 0.35  # Speed at which the car goes into stopping state, when car starts requesting stopping accel
-    ret.vEgoStarting = 0.25  # Speed at which the car goes into starting state, when car starts requesting starting accel,
+    ret.vEgoStopping = 0.5  # Speed at which the car goes into stopping state, when car starts requesting stopping accel
+    ret.vEgoStarting = 0.5  # Speed at which the car goes into starting state, when car starts requesting starting accel,
 
     return ret
 
@@ -192,7 +220,6 @@ class CarInterface(CarInterfaceBase):
     self.cp_chassis.update_strings(can_strings) # for brakeLight
     ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis)
 
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid
     ret.engineRpm = self.CS.engineRPM
 
     buttonEvents = []
@@ -256,8 +283,12 @@ class CarInterface(CarInterfaceBase):
       events.add(EventName.belowEngageSpeed)
     if ret.cruiseState.standstill:
       events.add(EventName.resumeRequired)
-    if self.CP.enableGasInterceptor and self.CP.transmissionType == TransmissionType.direct and not self.CS.single_pedal_mode:
-      events.add(EventName.brakeUnavailable)
+
+    if (self.CP.flags & GMFlags.CC_LONG.value) and ret.vEgo < self.CP.minEnableSpeed:
+      events.add(EventName.speedTooLow)
+
+    if (self.CP.flags & GMFlags.PEDAL_LONG.value) and self.CP.transmissionType == TransmissionType.direct and not self.CS.single_pedal_mode:
+      events.add(EventName.pedalInterceptorNoBrake)
 
     # autohold on ui icon
     if self.CS.autoHoldActivated == True:
