@@ -23,9 +23,9 @@ MIN_STEER_MSG_INTERVAL_MS = 15
 
 BRAKE_PITCH_FACTOR_BP = [5., 10.] # [m/s] smoothly revert to planned accel at low speeds
 BRAKE_PITCH_FACTOR_V = [0., 1.] # [unitless in [0,1]; don't touch]
-PITCH_DEADZONE = 0.01 # [radians] 0.01 ? 1% grade
-PITCH_MAX_DELTA = math.radians(10.0) * DT_CTRL * 4  # 10¡Æ/s, checked at 25Hz
-PITCH_MIN, PITCH_MAX = math.radians(-19), math.radians(19) # steepest roads in US are ~18¡Æ
+PITCH_DEADZONE = 0.01 # [radians] 0.01 â‰ˆ 1% grade
+PITCH_MAX_DELTA = math.radians(10.0) * DT_CTRL * 4  # 10Â°/s, checked at 25Hz
+PITCH_MIN, PITCH_MAX = math.radians(-19), math.radians(19) # steepest roads in US are ~18Â°
 
 
 class CarController:
@@ -114,6 +114,8 @@ class CarController:
         stopping = actuators.longControlState == LongCtrlState.stopping
         at_full_stop = CC.longActive and CS.out.standstill
         near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE)
+
+        interceptor_gas_cmd = 0
         if not CC.longActive:
           # ASCM sends max regen when not enabled
           self.apply_gas = self.params.INACTIVE_REGEN
@@ -151,25 +153,25 @@ class CarController:
         idx = (self.frame // 4) % 4
 
         at_full_stop = CC.longActive and CS.out.standstill
+        near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE)
         if self.CP.flags & GMFlags.CC_LONG.value:
-          if CC.longActive:
+          if CC.longActive and CS.out.vEgo > self.CP.minEnableSpeed:
             # Using extend instead of append since the message is only sent intermittently
             can_sends.extend(gmcan.create_gm_cc_spam_command(self.packer_pt, self, CS, actuators))
-        elif self.CP.flags & GMFlags.PEDAL_LONG.value:
-          can_sends.append(gmcan.create_gm_pedal_interceptor_command(self.packer_pt, CS, CC, actuators, idx))
-        else:
-          # GasRegenCmdActive needs to be 1 to avoid cruise faults. It describes the ACC state, not actuation
-          can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
-
+        if self.CP.enableGasInterceptor:
+          can_sends.append(create_gas_interceptor_command(self.packer_pt, interceptor_gas_cmd, idx))
         if self.CP.carFingerprint not in CC_ONLY_CAR:
-          near_stop = CC.longActive and (CS.out.vEgo < self.params.NEAR_STOP_BRAKE_PHASE)
           friction_brake_bus = CanBus.CHASSIS
           # GM Camera exceptions
           # TODO: can we always check the longControlState?
           if self.CP.networkLocation == NetworkLocation.fwdCamera:
             at_full_stop = at_full_stop and actuators.longControlState == LongCtrlState.stopping
             friction_brake_bus = CanBus.POWERTRAIN
-          can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake, idx, CC.enabled, near_stop, at_full_stop, self.CP))
+
+          # GasRegenCmdActive needs to be 1 to avoid cruise faults. It describes the ACC state, not actuation
+          can_sends.append(gmcan.create_gas_regen_command(self.packer_pt, CanBus.POWERTRAIN, self.apply_gas, idx, CC.enabled, at_full_stop))
+          can_sends.append(gmcan.create_friction_brake_command(self.packer_ch, friction_brake_bus, self.apply_brake,
+                                                             idx, CC.enabled, near_stop, at_full_stop, self.CP))
 
         # Send dashboard UI commands (ACC status)
         send_fcw = hud_alert == VisualAlert.fcw

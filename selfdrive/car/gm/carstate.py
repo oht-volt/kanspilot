@@ -28,10 +28,12 @@ class CarState(CarStateBase):
     self.pt_lka_steering_cmd_counter = 0
     self.cam_lka_steering_cmd_counter = 0
 
-
+    self.prev_lka_button = 0
+    self.lka_button = 0
+    self.lkasEnabled = True
     # brakeLights
     self.regenPaddlePressed = False
-    #self.cruiseMain = False
+    self.cruiseMain = False
 
     #Engine Rpm
     self.engineRPM = 0
@@ -66,6 +68,9 @@ class CarState(CarStateBase):
     if self.CP.networkLocation == NetworkLocation.fwdCamera:
       self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
       self.cam_lka_steering_cmd_counter = cam_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
+
+    self.prev_lka_button = self.lka_button
+    self.lka_button = pt_cp.vl["ASCMSteeringButton"]["LKAButton"]
 
     cluSpeed = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
     ret.vEgoCluster = cluSpeed * CV.MPH_TO_MS
@@ -161,6 +166,9 @@ class CarState(CarStateBase):
     ret.cruiseState.enabled = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] != AccState.OFF
     ret.cruiseState.standstill = pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.STANDSTILL
     ret.cruiseState.standstill = False
+    self.cruiseMain = ret.cruiseState.available
+    ret.cruiseMain = self.cruiseMain
+
     if self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in CC_ONLY_CAR:
       ret.cruiseState.speed = cam_cp.vl["ASCMActiveCruiseControlStatus"]["ACCSpeedSetpoint"] * CV.KPH_TO_MS
       ret.stockAeb = cam_cp.vl["AEBCmd"]["AEBCmdActive"] != 0
@@ -254,6 +262,7 @@ class CarState(CarStateBase):
       ("ParkBrake", "VehicleIgnitionAlt"),
       ("CruiseMainOn", "ECMEngineStatus"),
       ("BrakePressed", "ECMEngineStatus"),
+      ("LKAButton", "ASCMSteeringButton"),
       ("DistanceButton", "ASCMSteeringButton"),
       ("RollingCounter", "ASCMLKASteeringCmd"),
       ("VehicleSpeed", "ECMVehicleSpeed"),
@@ -275,6 +284,7 @@ class CarState(CarStateBase):
       ("ECMEngineStatus", 100),
       ("PSCMSteeringAngle", 100),
       ("ECMAcceleratorPos", 80),
+      ("ECMVehicleSpeed", 20),
     ]
 
     # Used to read back last counter sent to PT by camera

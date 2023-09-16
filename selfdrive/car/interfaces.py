@@ -154,7 +154,6 @@ class CarInterfaceBase(ABC):
 
     # Car docs fields
     ret.maxLateralAccel = get_torque_params(candidate)['MAX_LAT_ACCEL_MEASURED']
-    print("====================================== get_torque_params() ")
     ret.autoResumeSng = True  # describes whether car can resume from a stop automatically
 
     # standard ALC params
@@ -249,7 +248,7 @@ class CarInterfaceBase(ABC):
     pass
 
   def create_common_events(self, cs_out, extra_gears=None, pcm_enable=True, allow_enable=True,
-                           enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise, ButtonType.resumeCruise)):
+                           enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
     events = Events()
 
     #if cs_out.doorOpen:
@@ -483,7 +482,7 @@ def get_interface_attr(attr: str, combine_brands: bool = False, ignore_none: boo
   for car_folder in sorted([x[0] for x in os.walk(BASEDIR + '/selfdrive/car')]):
     try:
       brand_name = car_folder.split('/')[-1]
-      brand_values = __import__(f'selfdrive.car.{brand_name}.values', fromlist=[attr])
+      brand_values = __import__(f'openpilot.selfdrive.car.{brand_name}.values', fromlist=[attr])
       if hasattr(brand_values, attr) or not ignore_none:
         attr_data = getattr(brand_values, attr, None)
       else:
