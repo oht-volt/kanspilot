@@ -152,8 +152,7 @@ int cruise_button_prev = 0;
 // for safety modes with torque steering control
 int desired_torque_last = 0;       // last desired steer torque
 int rt_torque_last = 0;            // last desired torque for real time check
-struct sample_t torque_meas;       // last 3 motor torques produced by the eps
-struct sample_t torque_driver;     // last 3 driver torques measured
+
 uint32_t ts_last = 0;
 int valid_steer_req_count = 0;     // counter for steer request bit matching non-zero torque
 int invalid_steer_req_count = 0;   // counter to allow multiple frames of mismatching torque request bit
@@ -182,7 +181,7 @@ struct sample_t angle_meas;         // last 3 steer angles
 // See ISO 15622:2018 for more information.
 #define ALT_EXP_RAISE_LONGITUDINAL_LIMITS_TO_ISO_MAX 8
 
-int alternative_experience = 1;
+int alternative_experience = 0;
 
 // time since safety mode has been changed
 uint32_t safety_mode_cnt = 0U;
