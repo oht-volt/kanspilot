@@ -913,10 +913,10 @@ class Controls:
     controlsState.debugText2 = self.debugText2
     self.debugText3 = self.LaC.torqDebugText
     controlsState.debugText3 = self.debugText3
-    self.debugText4 = self.LoC.debugLoCText
+    self.debugText4 = self.LoC.debugLoCText1
     controlsState.debugText4 = self.debugText4
-    #self.debugText5 = self.LoC.debugLoCText2
-    #controlsState.debugText5 = self.debugText5
+    self.debugText5 = self.LoC.debugLoCText2
+    controlsState.debugText5 = self.debugText5
 
     controlsState.longActiveUser = self.cruise_helper.longActiveUser
     controlsState.longActiveUserReady = self.cruise_helper.longActiveUserReady
