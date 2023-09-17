@@ -33,13 +33,7 @@ class CarState(CarStateBase):
     self.cruise_buttons = 0
     self.prev_cruise_buttons = 0
 
-
-    #bellow 5lines for Autohold
-    self.autoHold = False
-    self.autoHoldActive = False
-    self.autoHoldActivated = False
-    self.lastAutoHoldTime = 0.0
-    self.sessionInitTime = sec_since_boot()
+    # brakeLights
     self.regenPaddlePressed = False
     #self.cruiseMain = False
 
@@ -226,11 +220,6 @@ class CarState(CarStateBase):
     ret.brakeLights = chassis_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
 
     ret.cruiseGap = 1
-    # bellow Lines are for Autohold
-    self.autoHold = True
-    # autohold on ui icon
-    #if self.CP.enableAutoHold:
-    ret.brakeHoldActive = self.autoHoldActivated
 
     #여기서부터 아래 265라인까지 모두 현기차에만 해당됨. 
     self.totalDistance += ret.vEgo * DT_CTRL

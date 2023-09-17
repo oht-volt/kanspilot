@@ -5,7 +5,6 @@ from math import fabs, exp
 from panda import Panda
 
 from common.conversions import Conversions as CV
-from common.realtime import sec_since_boot
 from selfdrive.car import STD_CARGO_KG, create_button_event, scale_tire_stiffness, is_ecu_disconnected, get_safety_config
 from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
 from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, AccState, FINGERPRINTS, CruiseButtons, \
@@ -15,7 +14,6 @@ from selfdrive.controls.lib.drive_helpers import get_friction
 
 ButtonType = car.CarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
-ENABLE_BUTTONS = {CruiseButtons.RES_ACCEL, CruiseButtons.DECEL_SET, CruiseButtons.CANCEL}
 GearShifter = car.CarState.GearShifter
 TransmissionType = car.CarParams.TransmissionType
 NetworkLocation = car.CarParams.NetworkLocation
@@ -126,7 +124,7 @@ class CarInterface(CarInterfaceBase):
       ret.pcmCruise = False  # stock non-adaptive cruise control is kept off
       # supports stop and go, initial engage could (conservatively) be above -1mph
       ret.minEnableSpeed = -1
-      ret.minSteerSpeed = 3.0 * CV.MPH_TO_MS
+      ret.minSteerSpeed = 7 * CV.MPH_TO_MS
 
       # Tuning
       ret.longitudinalTuning.kpV = [2.0]
@@ -138,11 +136,6 @@ class CarInterface(CarInterfaceBase):
     # added to selfdrive/car/tests/routes.py, we can remove it from this list.
     ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL, CAR.EQUINOX}
 
-
-
-    # for autohold on ui icon
-    # ret.enableAutoHold = 241 in fingerprint[0]
-    # ret.openpilotLongitudinalControl = True
     # Start with a baseline tuning for all GM vehicles. Override tuning as needed in each model section below.
     ret.steerActuatorDelay = 0.2  # Default delay, not measured yet
     tire_stiffness_factor = 0.444  # not optimized yet
@@ -232,10 +225,6 @@ class CarInterface(CarInterfaceBase):
                                        self.CP.networkLocation == NetworkLocation.fwdCamera):
       events.add(EventName.belowEngageSpeed)
 
-    #autohold event
-    if self.CS.autoHoldActivated:
-      events.add(EventName.autoHold)
-
     ret.events = events.to_msg()
 
     # copy back carState packet to CS
@@ -260,20 +249,6 @@ class CarInterface(CarInterfaceBase):
     if ret.cruiseState.standstill:
       events.add(EventName.resumeRequired)
 
-    t = sec_since_boot()
-    if self.CS.autoHoldActivated:
-      self.CS.lastAutoHoldTime = t
-    if EventName.accFaulted in events.events and \
-        (t - self.CS.sessionInitTime < 10.0 or
-        t - self.CS.lastAutoHoldTime < 1.0):
-      events.events.remove(EventName.accFaulted)
-
-    # autohold on ui icon
-    if self.CS.autoHoldActivated == True:
-      ret.brakeHoldActive = True
-
-    if self.CS.autoHoldActivated == False:
-      ret.brakeHoldActive = False
     ret.events = events.to_msg()
 
     # copy back carState packet to CS
@@ -282,14 +257,4 @@ class CarInterface(CarInterfaceBase):
     return self.CS.out
 
   def apply(self, c):
-    can_sends = self.CC.update(c, self.CS)
-    # Release Auto Hold and creep smoothly when regenpaddle pressed
-    if self.CS.regenPaddlePressed and self.CS.autoHold:
-      self.CS.autoHoldActive = False
-
-    if self.CS.autoHold and not self.CS.autoHoldActive and not self.CS.regenPaddlePressed:
-      if self.CS.out.vEgo > 0.03:
-        self.CS.autoHoldActive = True
-      elif self.CS.out.vEgo < 0.02 and self.CS.out.brakePressed:
-        self.CS.autoHoldActive = True
-    return can_sends
+    return self.CC.update(c, self.CS)

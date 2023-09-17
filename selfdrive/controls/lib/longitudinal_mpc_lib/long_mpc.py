@@ -718,7 +718,7 @@ class LongitudinalMpc:
       self.softHoldTimer += 1
       if self.softHoldTimer*DT_MDL >= 0.7: 
         self.xState = XState.softHold
-        pass # self.mpcEvent = EventName.autoHold 벌트는 interface.py에서 처리함.
+        self.mpcEvent = EventName.autoHold
     else:
       self.softHoldTimer = 0
 
