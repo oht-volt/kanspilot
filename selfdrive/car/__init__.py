@@ -35,7 +35,7 @@ def create_button_event(cur_but: int, prev_but: int, buttons_dict: Dict[int, cap
 
 
 def gen_empty_fingerprint():
-  return {i: {} for i in range(0, 4)}
+  return {i: {} for i in range(0, 8)}
 
 
 # FIXME: hardcoding honda civic 2016 touring params so they can be used to

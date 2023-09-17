@@ -50,7 +50,7 @@
       "edescr": "Reduce this value if oversteer occurs after applying LiveSR.",
       "min": 1,
       "max": 200,
-      "default": 90,
+      "default": 100,
       "unit": 1
     },
     {
@@ -169,7 +169,7 @@
       "descr": "",
       "min": 1000,
       "max": 4000,
-      "default": 1980,
+      "default": 1720,
       "unit": 1
     },
     {
@@ -219,8 +219,8 @@
       "descr": "0: LiveSteerRatio사용, 단위:0.1",
       "min": 0,
       "max": 300,
-      "default": 150,
-      "unit": 10
+      "default": 140,
+      "unit": 1
     },
     {
       "group": "가속설정",
@@ -319,27 +319,27 @@
       "descr": "삭제예정: 롱컨제어용",
       "min": 20,
       "max": 200,
-      "default": 85,
+      "default": 145,
       "unit": 1
     },
     {
       "group": "주행튜닝",
       "name": "LongitudinalActuatorDelayLowerBound",
-      "title": "_LADLowerBound(15)",
+      "title": "_LADLowerBound(50)",
       "descr": "낮추면 정지력증가, 가속력감소",
       "min": 10,
       "max": 100,
-      "default": 15,
+      "default": 50,
       "unit": 10
     },
     {
       "group": "주행튜닝",
       "name": "LongitudinalActuatorDelayUpperBound",
-      "title": "_LADUpperBound(20)",
+      "title": "_LADUpperBound(50)",
       "descr": "올리면 감속력 증가",
       "min": 10,
       "max": 100,
-      "default": 20,
+      "default": 50,
       "unit": 10
     },
     {
@@ -348,7 +348,7 @@
       "title": "KiV게인(200)",
       "descr": "삭제예정: 정지중에만 반영(시험용)",
       "min": 0,
-      "max": 200,
+      "max": 2000,
       "default": 0,
       "unit": 1
     },
@@ -359,7 +359,7 @@
       "descr": "피드포워드 게인",
       "min": 0,
       "max": 200,
-      "default": 85,
+      "default": 110,
       "unit": 1
     },
     {
@@ -369,7 +369,7 @@
       "descr": "적으면 선행차에 대한 반응이 빨라집니다.",
       "min": 20,
       "max": 400,
-      "default": 100,
+      "default": 150,
       "unit": 10
     },
     {
@@ -546,10 +546,10 @@
       "group": "크루즈",
       "name": "AutoResumeFromGas",
       "title": "엑셀크루즈ON: 사용",
-      "descr": "",
+      "descr": "1:ON, 2:엑셀톡톡ON",
       "min": 0,
-      "max": 1,
-      "default": 1,
+      "max": 2,
+      "default": 0,
       "unit": 1
     },
     {
@@ -904,16 +904,6 @@
     },
     {
       "group": "시작",
-      "name": "UseClusterSpeed",
-      "title": "클러스터 속도 사용(1)",
-      "descr": "0:사용안함,1:사용",
-      "min": 0,
-      "max": 1,
-      "default": 1,
-      "unit": 1
-    },
-    {
-      "group": "시작",
       "name": "KeepEngage",
       "title": "인게이지 유지모드(0)",
       "descr": "",
@@ -1095,11 +1085,11 @@
     {
       "group": "감속제어",
       "name": "AutoNaviSpeedCtrlMode",
-      "title": "과속카메라 감속방법(0)",
+      "title": "과속카메라 감속방법(1)",
       "descr": "0:기존방식, 1:APILOT방식",
       "min": 0,
       "max": 1,
-      "default": 0,
+      "default": 1,
       "unit": 1
     },
     {
@@ -1109,7 +1099,7 @@
       "descr": "감속시작시점을 설정합니다.",
       "min": 10,
       "max": 50,
-      "default": 17,
+      "default": 22,
       "unit": 1
     },
     {
@@ -1145,11 +1135,11 @@
     {
       "group": "감속제어",
       "name": "AutoNaviSpeedDecelRate",
-      "title": "과속카메라 감속율 x0.01m/s^2(40)",
+      "title": "과속카메라 감속율 x0.01m/s^2(100)",
       "descr": "",
       "min": 10,
       "max": 200,
-      "default": 40,
+      "default": 100,
       "unit": 10
     },
     {

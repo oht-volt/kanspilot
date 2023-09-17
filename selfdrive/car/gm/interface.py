@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from typing import List
 from cereal import car
 from math import fabs, exp
 from panda import Panda
@@ -7,7 +6,7 @@ from panda import Panda
 from common.conversions import Conversions as CV
 from selfdrive.car import STD_CARGO_KG, create_button_event, scale_tire_stiffness, is_ecu_disconnected, get_safety_config
 from selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
-from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, AccState, FINGERPRINTS, CruiseButtons, \
+from selfdrive.car.gm.values import CAR, Ecu, ECU_FINGERPRINT, FINGERPRINTS, CruiseButtons, \
                                     CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, CC_ONLY_CAR
 from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, FRICTION_THRESHOLD
 from selfdrive.controls.lib.drive_helpers import get_friction
@@ -23,10 +22,6 @@ BUTTONS_DICT = {CruiseButtons.RES_ACCEL: ButtonType.accelCruise, CruiseButtons.D
 
 
 class CarInterface(CarInterfaceBase):
-
-  def _update(self, c: car.CarControl) -> car.CarState:
-    pass
-
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
@@ -81,8 +76,8 @@ class CarInterface(CarInterfaceBase):
     ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.gm)]
     ret.autoResumeSng = False
 
-    # ret.enableGasInterceptor = 0x201 in fingerprint[0]
-    ret.enableGasInterceptor = 512 in fingerprint[0]
+    ret.enableGasInterceptor = 0x201 in fingerprint[0]
+    #ret.enableGasInterceptor = 512 in fingerprint[0]
     ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera)
 
     if candidate in EV_CAR:
@@ -131,10 +126,6 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiV = [0.36]
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM_LONG
       ret.naviCluster = 0 #현기차용, carstate.py에 False 값을 주기 위한 것뿐임
-    # These cars have been put into dashcam only due to both a lack of users and test coverage.
-    # These cars likely still work fine. Once a user confirms each car works and a test route is
-    # added to selfdrive/car/tests/routes.py, we can remove it from this list.
-    ret.dashcamOnly = candidate in {CAR.CADILLAC_ATS, CAR.HOLDEN_ASTRA, CAR.MALIBU, CAR.BUICK_REGAL, CAR.EQUINOX}
 
     # Start with a baseline tuning for all GM vehicles. Override tuning as needed in each model section below.
     ret.steerActuatorDelay = 0.2  # Default delay, not measured yet
@@ -170,8 +161,8 @@ class CarInterface(CarInterfaceBase):
     ret.stoppingControl = True
     ret.startingState = True
 
-    ret.longitudinalActuatorDelayLowerBound = 0.15
-    ret.longitudinalActuatorDelayUpperBound = 0.25
+    ret.longitudinalActuatorDelayLowerBound = 0.5
+    ret.longitudinalActuatorDelayUpperBound = 0.5
     ret.longitudinalTuning.kf = 1.0
     ret.stoppingDecelRate = 3.0  # reach stopping target smoothly, brake_travel/s while trying to stop
     ret.stopAccel = -2.0  # Required acceleration to keep vehicle stationary
@@ -181,80 +172,33 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
-  def update(self, c: car.CarControl, can_strings: List[bytes]) -> car.CarState:
-    self.cp.update_strings(can_strings)
-    self.cp_cam.update_strings(can_strings)
-    self.cp_loopback.update_strings(can_strings) # GM: EPS fault workaround (#22404)
+  def _update(self, c):
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis)
 
-    self.cp_chassis.update_strings(can_strings) # for Brake Light
-    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, self.cp_chassis) # GM: EPS fault workaround (#22404)
-
-
-    cruiseEnabled = self.CS.pcm_acc_status != AccState.OFF
-    ret.cruiseState.enabled = cruiseEnabled
-
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid and self.cp_loopback.can_valid # GM: EPS fault workaround (#22404)
     ret.engineRpm = self.CS.engineRPM
-
-    buttonEvents = []
-
-    if self.CS.cruise_buttons != self.CS.prev_cruise_buttons and self.CS.prev_cruise_buttons != CruiseButtons.INIT:
-      buttonEvents = [create_button_event(self.CS.cruise_buttons, self.CS.prev_cruise_buttons, BUTTONS_DICT, CruiseButtons.UNPRESS)]
-      # Handle ACCButtons changing buttons mid-press
-      if self.CS.cruise_buttons != CruiseButtons.UNPRESS and self.CS.prev_cruise_buttons != CruiseButtons.UNPRESS:
-        buttonEvents.append(create_button_event(CruiseButtons.UNPRESS, self.CS.prev_cruise_buttons, BUTTONS_DICT, CruiseButtons.UNPRESS))
-
-
-    ret.buttonEvents = buttonEvents
-
-    if cruiseEnabled and self.CS.lka_button and self.CS.lka_button != self.CS.prev_lka_button:
-      self.CS.lkMode = not self.CS.lkMode
+    # Don't add event if transitioning from INIT, unless it's to an actual button
+    if self.CS.cruise_buttons != CruiseButtons.UNPRESS or self.CS.prev_cruise_buttons != CruiseButtons.INIT:
+      ret.buttonEvents = [create_button_event(self.CS.cruise_buttons, self.CS.prev_cruise_buttons, BUTTONS_DICT, CruiseButtons.UNPRESS)]
 
     # The ECM allows enabling on falling edge of set, but only rising edge of resume
     events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
                                                          GearShifter.eco, GearShifter.manumatic],
                                        pcm_enable=False, enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise))
-
     if not self.CP.pcmCruise:
-      if any(b.type == ButtonType.decelCruise and b.pressed for b in ret.buttonEvents):
-        events.add(EventName.buttonEnable)
       if any(b.type == ButtonType.accelCruise and b.pressed for b in ret.buttonEvents):
         events.add(EventName.buttonEnable)
     below_min_enable_speed = ret.vEgo < self.CP.minEnableSpeed or self.CS.moving_backward
     if below_min_enable_speed and not (ret.standstill and ret.brake >= 20 and
                                        self.CP.networkLocation == NetworkLocation.fwdCamera):
       events.add(EventName.belowEngageSpeed)
-
-    ret.events = events.to_msg()
-
-    # copy back carState packet to CS
-    self.CS.out = ret.as_reader()
-
-    return self.CS.out
-
-    events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
-                                                         GearShifter.eco, GearShifter.manumatic],
-                                       pcm_enable=False, enable_buttons=(ButtonType.decelCruise, ButtonType.accelCruise))
-
-
-    if not self.CP.pcmCruise:
-      if any(b.type == ButtonType.decelCruise and b.pressed for b in ret.buttonEvents):
-        events.add(EventName.buttonEnable)
-      if any(b.type == ButtonType.accelCruise and b.pressed for b in ret.buttonEvents):
-        events.add(EventName.buttonEnable)
-    below_min_enable_speed = ret.vEgo < self.CP.minEnableSpeed or self.CS.moving_backward
-    if below_min_enable_speed and not (ret.standstill and ret.brake >= 20 and
-                                       self.CP.networkLocation == NetworkLocation.fwdCamera):
-      events.add(EventName.belowEngageSpeed)
-    if ret.cruiseState.standstill:
+    if ret.cruiseState.standstill and not self.CP.autoResumeSng:
       events.add(EventName.resumeRequired)
+    if 0.05 < ret.vEgo < self.CP.minSteerSpeed:
+      pass # events.add(EventName.belowSteerSpeed)
 
     ret.events = events.to_msg()
 
-    # copy back carState packet to CS
-    self.CS.out = ret.as_reader()
-
-    return self.CS.out
+    return ret
 
   def apply(self, c):
     return self.CC.update(c, self.CS)

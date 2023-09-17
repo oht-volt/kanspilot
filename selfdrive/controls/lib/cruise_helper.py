@@ -119,7 +119,7 @@ class CruiseHelper:
     self.autoNaviSpeedSafetyFactor = float(Params().get("AutoNaviSpeedSafetyFactor"))*0.01
     self.autoRoadLimitCtrl = int(Params().get("AutoRoadLimitCtrl", encoding="utf8"))
     self.autoResumeFromGasSpeed = float(int(Params().get("AutoResumeFromGasSpeed", encoding="utf8")))
-    self.autoResumeFromGas = Params().get_bool("AutoResumeFromGas")
+    self.autoResumeFromGas = int(Params().get("AutoResumeFromGas", encoding="utf8"))
     self.autoResumeFromBrakeRelease = Params().get_bool("AutoResumeFromBrakeRelease")
     self.autoSyncCruiseSpeedMax = int(Params().get("AutoSyncCruiseSpeedMax"))
     self.autoResumeFromBrakeReleaseDist = float(int(Params().get("AutoResumeFromBrakeReleaseDist", encoding="utf8")))
@@ -163,7 +163,7 @@ class CruiseHelper:
       elif self.update_params_count == 3:
         self.autoResumeFromGasSpeed = float(int(Params().get("AutoResumeFromGasSpeed", encoding="utf8")))
       elif self.update_params_count == 4:
-        self.autoResumeFromGas = Params().get_bool("AutoResumeFromGas")
+        self.autoResumeFromGas = int(Params().get("AutoResumeFromGas", encoding="utf8"))
         self.autoResumeFromBrakeRelease = Params().get_bool("AutoResumeFromBrakeRelease")
       elif self.update_params_count == 5:
         self.autoSyncCruiseSpeedMax = int(Params().get("AutoSyncCruiseSpeedMax"))
@@ -471,8 +471,8 @@ class CruiseHelper:
     orientationRates = np.array(controls.sm['modelV2'].orientationRate.z, dtype=np.float32)
     # 계산된 결과로, oritetationRates를 나누어 조금더 curvature값이 커지도록 함.
     speed = min(self.turnSpeed_prev / 3.6, clip(CS.vEgo, 0.5, 100.0))
-    # 12: 약1.4초 미래의 curvature를 계산함.
-    curvature = np.max(np.abs(orientationRates[12:])) / speed
+    #curvature = np.max(np.abs(orientationRates[12:])) / speed  # 12: 약1.4초 미래의 curvature를 계산함.
+    curvature = np.max(np.abs(orientationRates[12:20])) / speed  # 12: 약1.4~3.5초 미래의 curvature를 계산함.
     curvature = self.curvatureFilter.process(curvature) * self.autoCurveSpeedFactor
     turnSpeed = 300
     if abs(curvature) > 0.0001:
@@ -545,7 +545,7 @@ class CruiseHelper:
     if self.longActiveUser <= 0:
       #  1. 가속페달 CruiseON (autoResumeFromGas) & 신호적색아님 & (autoResumeFromGasSpeed보다 빠거나 60%이상 밟으면
       #    - autoResumeFromGasSpeedMode에 따라 속도 설정(기존속도, 현재속도)
-      if ((resume_cond and (self.v_ego_kph >= self.autoResumeFromGasSpeed)) or CS.gas >= 0.6) and (self.trafficState % 10) != 1 and self.autoResumeFromGas:
+      if ((resume_cond and (self.v_ego_kph >= self.autoResumeFromGasSpeed)) or CS.gas >= 0.6) and (self.trafficState % 10) != 1 and self.autoResumeFromGas > 0:
         if self.preGasPressedMax >= 0.6: # 60%이상 GAS를 밟으면.. 기존속도..
           v_cruise_kph = self.v_cruise_kph_backup 
         elif self.autoResumeFromGasSpeedMode == 0: #현재속도로 세트

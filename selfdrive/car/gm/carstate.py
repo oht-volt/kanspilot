@@ -47,11 +47,15 @@ class CarState(CarStateBase):
     self.sm = messaging.SubMaster(["radarState"])
     self.buttons_counter = 0
 
+    self.distance_button_pressed = False
     self.totalDistance = 0.0
     self.speedLimitDistance = 0
+    self.accFaultedCount = 0
 
   def update(self, pt_cp, cam_cp, loopback_cp, chassis_cp): # line for brake light & GM: EPS fault workaround (#22404)
     ret = car.CarState.new_message()
+
+    self.distance_button_pressed = pt_cp.vl["ASCMSteeringButton"]["DistanceButton"] != 0
 
     self.sm.update(0)
     if self.sm.updated["radarState"]:
@@ -77,14 +81,6 @@ class CarState(CarStateBase):
     self.pt_lka_steering_cmd_counter = pt_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
     if self.CP.networkLocation == NetworkLocation.fwdCamera:
       self.cam_lka_steering_cmd_counter = cam_cp.vl["ASCMLKASteeringCmd"]["RollingCounter"]
-    self.is_metric = Params().get_bool("IsMetric")
-    self.speed_conv_to_ms = CV.KPH_TO_MS * 1.609344 if self.is_metric else CV.MPH_TO_MS
-
-    # 4 lines for 3Bar Distance
-    self.prev_lka_button = self.lka_button
-    self.lka_button = pt_cp.vl["ASCMSteeringButton"]["LKAButton"]
-    self.prev_distance_button = self.distance_button
-    self.distance_button = pt_cp.vl["ASCMSteeringButton"]["DistanceButton"]
 
     cluSpeed = pt_cp.vl["ECMVehicleSpeed"]["VehicleSpeed"]
     ret.vEgoCluster = cluSpeed * CV.MPH_TO_MS
@@ -157,6 +153,12 @@ class CarState(CarStateBase):
     ret.parkingBrake = pt_cp.vl["VehicleIgnitionAlt"]["ParkBrake"] == 1
     ret.cruiseState.available = pt_cp.vl["ECMEngineStatus"]["CruiseMainOn"] != 0
     ret.espDisabled = pt_cp.vl["ESPStatus"]["TractionControlOn"] != 1
+    accFaulted = (pt_cp.vl["AcceleratorPedal2"]["CruiseState"] == AccState.FAULTED or
+                      pt_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakeUnavailable"] == 1)
+
+    self.accFaultedCount = self.accFaultedCount + 1 if accFaulted else 0
+    ret.accFaulted = True if self.accFaultedCount > 50 else False
+
     self.pcm_acc_status = pt_cp.vl["AcceleratorPedal2"]["CruiseState"]
 
     ret.brakePressed = ret.brake > 1e-5
@@ -168,15 +170,14 @@ class CarState(CarStateBase):
       ret.regenBraking = pt_cp.vl["EBCMRegenPaddle"]["RegenPaddle"] != 0
 
     ret.cruiseState.enabled = self.pcm_acc_status != AccState.OFF
-    ret.cruiseState.standstill = False # self.pcm_acc_status == AccState.STANDSTILL
+    ret.cruiseState.standstill = self.pcm_acc_status == AccState.STANDSTILL
+    ret.cruiseState.standstill = False
 
     #standstill check
     #self.prev_standstill_status = self.standstill_status
     #self.standstill_status = ret.cruiseState.standstill # self.pcm_acc_status == AccState.STANDSTILL
     #print("standstill={}".format(self.standstill_status))
 
-    # bellow 1 line for AutoHold
-    self.cruiseMain = ret.cruiseState.available
     if ret.cruiseState.enabled:
       ret.cruiseState.speed = pt_cp.vl["ASCMActiveCruiseControlStatus"]["ACCSpeedSetpoint"] * CV.MPH_TO_MS
     else:
@@ -189,29 +190,22 @@ class CarState(CarStateBase):
 
 
     self.engineRPM = pt_cp.vl["ECMEngineStatus"]["EngineRPM"]
-    ret.cruiseState.pcmMode = False
+    #ret.accFaulted = False # 벌트는 accFault를 체크하지 않는 걸로...
 
     # bellow line for Brake Light
     ret.brakeLights = chassis_cp.vl["EBCMFrictionBrakeStatus"]["FrictionBrakePressure"] != 0 or ret.brakePressed
 
     ret.cruiseGap = 1
 
-    #여기서부터 아래 265라인까지 모두 현기차에만 해당됨. 
     self.totalDistance += ret.vEgo * DT_CTRL
     ret.totalDistance = self.totalDistance
-    #맨아래 speedLimit, Distance 값만 road_speed_limiter에 주기 위한 것임
-    if self.CP.naviCluster == 1:
-      if ret.speedLimit>0:
-        if self.speedLimitDistance <= self.totalDistance:
-          self.speedLimitDistance = self.totalDistance + ret.speedLimit * 6  #일반적으로 속도*6M 시점에 안내하는것으로 보임.
-        self.speedLimitDistance = max(self.totalDistance+1, self.speedLimitDistance) #구간또는 거리가 벗어난경우에는 1M를 유지함.
-      else:
-        self.speedLimitDistance = self.totalDistance
-      ret.speedLimitDistance = self.speedLimitDistance - self.totalDistance
-    else:
-      ret.speedLimit = 0
-      ret.speedLimitDistance = 0
 
+    ret.speedLimit = 0
+    ret.speedLimitDistance = 0
+    if ret.cruiseState.available:
+      ret.cruiseState.pcmMode = True
+    else:
+      ret.cruiseState.pcmMode = False
     return ret
 
   @staticmethod
@@ -250,6 +244,7 @@ class CarState(CarStateBase):
       ("RRWheelSpd", "EBCMWheelSpdRear"),
       ("MovingForward", "EBCMWheelSpdRear"),
       ("MovingBackward", "EBCMWheelSpdRear"),
+      ("FrictionBrakeUnavailable", "EBCMFrictionBrakeStatus"),
       ("AEBCmdActive", "AEBCmd"),
       ("PRNDL2", "ECMPRDNL2"),
       ("ManualMode", "ECMPRDNL2"),
@@ -265,7 +260,6 @@ class CarState(CarStateBase):
       ("ParkBrake", "VehicleIgnitionAlt"),
       ("CruiseMainOn", "ECMEngineStatus"),
       ("BrakePressed", "ECMEngineStatus"),
-      ("LKAButton", "ASCMSteeringButton"),
       ("DistanceButton", "ASCMSteeringButton"),
       ("RollingCounter", "ASCMLKASteeringCmd"),
       ("VehicleSpeed", "ECMVehicleSpeed"),
