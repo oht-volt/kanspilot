@@ -53,6 +53,9 @@ const CanMsg GM_CAM_TX_MSGS[] = {{384, 0, 4}, {512, 0, 6}, {481, 0, 7},  // pt b
 const CanMsg GM_CAM_LONG_TX_MSGS[] = {{384, 0, 4}, {715, 0, 8}, {880, 0, 6}, {789, 0, 5}, {481, 0, 7},  // pt bus
                                          {481, 2, 7}, {388, 2, 8}};  // camera bus
 
+const CanMsg GM_CC_LONG_TX_MSGS[] = {{384, 0, 4}, {481, 0, 7},  // pt bus
+                                     {388, 2, 8}, {481, 2, 7}};  // camera bus
+
 // TODO: do checksum and counter checks. Add correct timestep, 0.1s for now.
 AddrCheckStruct gm_addr_checks[] = {
   {.msg = {{388, 0, 8, .expected_timestep = 100000U}, { 0 }, { 0 }}},
@@ -69,8 +72,10 @@ addr_checks gm_rx_checks = {gm_addr_checks, GM_RX_CHECK_LEN};
 
 const uint16_t GM_PARAM_HW_CAM = 1U;
 const uint16_t GM_PARAM_HW_CAM_LONG = 2U;
-const uint16_t GM_PARAM_HW_ASCM_LONG = 4U;
-const uint16_t GM_PARAM_NO_CAMERA = 8U;
+const uint16_t GM_PARAM_CC_LONG = 4U;
+const uint16_t GM_PARAM_HW_ASCM_LONG = 8U;
+const uint16_t GM_PARAM_NO_CAMERA = 16U;
+const uint16_t GM_PARAM_NO_ACC = 32U;
 
 enum {
   GM_BTN_UNPRESS = 1,
@@ -82,6 +87,8 @@ enum {
 enum {GM_ASCM, GM_CAM} gm_hw = GM_ASCM;
 bool gm_cam_long = false;
 bool gm_pcm_cruise = false;
+bool gm_has_acc = true;
+bool gm_cc_long = false;
 bool gm_skip_relay_check = false;
 bool gm_force_ascm = false;
 bool brake_pressed_x = false;
@@ -109,19 +116,19 @@ static int gm_rx_hook(CANPacket_t *to_push) {
     }
 
     // ACC steering wheel buttons (GM_CAM is tied to the PCM)
-    if ((addr == 481) && !gm_pcm_cruise) {
+    if ((addr == 481) && (!gm_pcm_cruise || gm_cc_long)) {
       int button = (GET_BYTE(to_push, 5) & 0x70U) >> 4;
 
       // enter controls on falling edge of set or rising edge of resume (avoids fault)
       bool set = (button != GM_BTN_SET) && (cruise_button_prev == GM_BTN_SET);
       bool res = (button == GM_BTN_RESUME) && (cruise_button_prev != GM_BTN_RESUME);
       if (set || res) {
-        controls_allowed = 1;
+        controls_allowed = true;
       }
 
       // exit controls on cancel press
       if (button == GM_BTN_CANCEL) {
-        controls_allowed = 0;
+        controls_allowed = false;
       }
 
       cruise_button_prev = button;
@@ -141,10 +148,16 @@ static int gm_rx_hook(CANPacket_t *to_push) {
       gas_pressed = GET_BYTE(to_push, 5) != 0U;
 
       // enter controls on rising edge of ACC, exit controls when ACC off
-      if (gm_pcm_cruise) {
+      if (gm_pcm_cruise && gm_has_acc) {
         bool cruise_engaged = (GET_BYTE(to_push, 1) >> 5) != 0U;
         pcm_cruise_check(cruise_engaged);
       }
+    }
+
+    // Cruise check for CC only cars
+    if ((addr == 977) && !gm_has_acc) {
+      bool cruise_engaged = (GET_BYTE(to_push, 4) >> 7) != 0U;
+      pcm_cruise_check(cruise_engaged);
     }
 
     // exit controls on regen paddle
@@ -176,7 +189,9 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
   int addr = GET_ADDR(to_send);
 
   if (gm_hw == GM_CAM) {
-    if (gm_cam_long) {
+    if (gm_cc_long) {
+      tx = msg_allowed(to_send, GM_CC_LONG_TX_MSGS, sizeof(GM_CC_LONG_TX_MSGS)/sizeof(GM_CC_LONG_TX_MSGS[0]));
+    } else if (gm_cam_long) {
       tx = msg_allowed(to_send, GM_CAM_LONG_TX_MSGS, sizeof(GM_CAM_LONG_TX_MSGS)/sizeof(GM_CAM_LONG_TX_MSGS[0]));
     } else {
       tx = msg_allowed(to_send, GM_CAM_TX_MSGS, sizeof(GM_CAM_TX_MSGS)/sizeof(GM_CAM_TX_MSGS[0]));
@@ -280,10 +295,15 @@ static int gm_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed) {
       tx = 0;
     }
   }
-  else if ((addr == 481) && (gm_pcm_cruise)) {
+  else if ((addr == 481) && (gm_pcm_cruise || gm_cc_long)) {
     int button = (GET_BYTE(to_send, 5) >> 4) & 0x7U;
+
     bool allowed_btn = (button == GM_BTN_CANCEL) && cruise_engaged_prev;
     // For standard CC, allow spamming of SET / RESUME
+    if (gm_cc_long) {
+      allowed_btn |= cruise_engaged_prev && (button == GM_BTN_SET || button == GM_BTN_RESUME || button == GM_BTN_UNPRESS);
+    }
+
     if (!allowed_btn) {
       tx = 0;
     }
@@ -333,11 +353,11 @@ static const addr_checks* gm_init(uint16_t param) {
   } else {
   }
 
-#ifdef ALLOW_DEBUG
-  gm_cam_long = GET_FLAG(param, GM_PARAM_HW_CAM_LONG);
-#endif
-  gm_pcm_cruise = (gm_hw == GM_CAM) && !gm_cam_long && !gm_force_ascm;
+  gm_cc_long = GET_FLAG(param, GM_PARAM_CC_LONG);
+  gm_cam_long = GET_FLAG(param, GM_PARAM_HW_CAM_LONG) && !gm_cc_long;
+  gm_pcm_cruise = (gm_hw == GM_CAM) && (!gm_cam_long || gm_cc_long) && !gm_force_ascm;
   gm_skip_relay_check = GET_FLAG(param, GM_PARAM_NO_CAMERA);
+  gm_has_acc = !GET_FLAG(param, GM_PARAM_NO_ACC);
   return &gm_rx_checks;
 }
 
